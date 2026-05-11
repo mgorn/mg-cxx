@@ -1,0 +1,57 @@
+From f41d17ef9515b6be1e2cfd4e85b36e5dff1e0131 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Mon, 11 May 2026 17:50:26 -0400
+Subject: [PATCH 1/2] clang-mg: add change-bin-name
+
+---
+ clang/CMakeLists.txt              |  4 ++++
+ clang/tools/driver/CMakeLists.txt | 11 ++++++++++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/clang/CMakeLists.txt b/clang/CMakeLists.txt
+index 40506fc8a154..1c497d2c36c6 100644
+--- a/clang/CMakeLists.txt
++++ b/clang/CMakeLists.txt
+@@ -1,6 +1,10 @@
+ cmake_minimum_required(VERSION 3.20.0)
+ set(LLVM_SUBPROJECT_TITLE "Clang")
+ 
++if (NOT DEFINED CLANG_MG_SUFFIX)
++	set(CLANG_MG_SUFFIX "mg")
++endif ()
++
+ if(NOT DEFINED LLVM_COMMON_CMAKE_UTILS)
+   set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+ endif()
+diff --git a/clang/tools/driver/CMakeLists.txt b/clang/tools/driver/CMakeLists.txt
+index 002aaef00525..0ca3b7dc194c 100644
+--- a/clang/tools/driver/CMakeLists.txt
++++ b/clang/tools/driver/CMakeLists.txt
+@@ -72,6 +72,7 @@ if(WIN32 AND NOT CYGWIN)
+ else()
+   set_target_properties(clang PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
+ endif()
++set_target_properties(clang PROPERTIES OUTPUT_NAME "clang-${CLANG_MG_SUFFIX}")
+ 
+ # Support plugins.
+ if(CLANG_PLUGIN_SUPPORT)
+@@ -81,7 +82,15 @@ endif()
+ add_dependencies(clang clang-resource-headers)
+ 
+ if(NOT CLANG_LINKS_TO_CREATE)
+-  set(CLANG_LINKS_TO_CREATE clang++ clang-cl clang-cpp)
++  if(WIN32 AND NOT CYGWIN)
++    set(CLANG_LINKS_TO_CREATE
++      clang-${CLANG_MG_SUFFIX}++
++      clang-${CLANG_MG_SUFFIX}-cl
++      clang-${CLANG_MG_SUFFIX}-cpp
++    )
++  else()
++    set(CLANG_LINKS_TO_CREATE clang++ clang-cl clang-cpp)
++  endif()
+ endif()
+ 
+ if (CLANG_ENABLE_HLSL)
+-- 
+2.54.0
+

@@ -21,7 +21,8 @@ UPDATE_SCRIPT="$ROOT_DIR/scripts/update-llvm.sh"
 RESET_SCRIPT="$ROOT_DIR/scripts/reset-llvm.sh"
 APPLY_PATCHES_SCRIPT="$ROOT_DIR/scripts/apply-patches.sh"
 BUILD_LLVM_SCRIPT="$ROOT_DIR/scripts/build-llvm.sh"
-SAVE_PATCHES_SCRIPT="$ROOT_DIR/scripts/save-feature-patches.sh"
+SAVE_FEATURE_SCRIPT="$ROOT_DIR/scripts/save-feature.sh"
+INSTALL_SCRIPT="$ROOT_DIR/scripts/install-clang-mg.sh"
 
 COMMAND="${1:-bootstrap}"
 
@@ -43,6 +44,7 @@ Usage:
 
 Commands:
   bootstrap             Clone/update LLVM if needed, apply patches, then build
+  install               Clone/update LLVM, reset clean, apply patches, build, then add clang-mg to PATH
   clone                 Clone LLVM only
   update                Update LLVM only if the checkout is clean
   reset                 Reset LLVM checkout to LLVM_REF / origin ref
@@ -50,12 +52,13 @@ Commands:
   build                 Build current LLVM tree only
   fresh                 Reset LLVM, apply patches, then build
   rebuild               Same as fresh
-  save <feature-name>   Save current LLVM commits as patches for a feature
+  save <feature-name>   Save current LLVM changes as patches for a feature
   help                  Show this help menu
 
 Examples:
   ./build.sh
   ./build.sh bootstrap
+  ./build.sh install
   ./build.sh build
   ./build.sh fresh
   ./build.sh save curlinclude
@@ -103,12 +106,29 @@ run_update() {
         "$UPDATE_SCRIPT"
 }
 
-run_reset() {
+resolve_reset_ref() {
     require_llvm_repo
 
     cd "$LLVM_DIR"
 
-    "$RESET_SCRIPT" "origin/$LLVM_REF"
+    git fetch origin --tags
+
+    if git show-ref --verify --quiet "refs/remotes/origin/$LLVM_REF"; then
+        echo "origin/$LLVM_REF"
+    else
+        echo "$LLVM_REF"
+    fi
+}
+
+run_reset() {
+    require_llvm_repo
+
+    local reset_ref
+    reset_ref="$(resolve_reset_ref)"
+
+    cd "$LLVM_DIR"
+
+    "$RESET_SCRIPT" "$reset_ref"
 }
 
 run_apply_patches() {
@@ -131,7 +151,14 @@ run_build() {
         "$JOBS"
 }
 
-run_save_feature_patches() {
+run_install_path() {
+    require_llvm_repo
+
+    BUILD_DIR="$BUILD_DIR" \
+        "$INSTALL_SCRIPT" "$BUILD_DIR"
+}
+
+run_save_feature() {
     require_llvm_repo
 
     local feature_name="${1:-}"
@@ -149,7 +176,7 @@ run_save_feature_patches() {
 
     cd "$LLVM_DIR"
 
-    "$SAVE_PATCHES_SCRIPT" "$feature_name" "$LLVM_REF"
+    "$SAVE_FEATURE_SCRIPT" "$feature_name" "$LLVM_REF"
 }
 
 print_header
@@ -185,6 +212,18 @@ case "$COMMAND" in
         run_build
         ;;
 
+    install)
+        run_update
+
+        # Make sure we are applying patches onto a clean LLVM base.
+        # This prevents accidentally applying the same patch stack twice.
+        run_reset
+
+        run_apply_patches
+        run_build
+        run_install_path
+        ;;
+
     fresh|rebuild)
         if [ ! -d "$LLVM_DIR/.git" ]; then
             run_clone
@@ -198,7 +237,7 @@ case "$COMMAND" in
 
     save)
         shift
-        run_save_feature_patches "${1:-}"
+        run_save_feature "${1:-}"
         ;;
 
     *)
