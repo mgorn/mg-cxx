@@ -13,13 +13,11 @@ BUILD_DIR="${BUILD_DIR:-$WORK_DIR/build}"
 BUILD_TYPE="${BUILD_TYPE:-Debug}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)}"
 
-ENABLE_IF_CONSTEXPR_MEMBERS="${ENABLE_IF_CONSTEXPR_MEMBERS:-1}"
-ENABLE_CURLINCLUDE="${ENABLE_CURLINCLUDE:-1}"
-
 CLONE_SCRIPT="$ROOT_DIR/scripts/clone-llvm.sh"
 UPDATE_SCRIPT="$ROOT_DIR/scripts/update-llvm.sh"
 RESET_SCRIPT="$ROOT_DIR/scripts/reset-llvm.sh"
 APPLY_PATCHES_SCRIPT="$ROOT_DIR/scripts/apply-patches.sh"
+APPLY_FEATURE_SCRIPT="$ROOT_DIR/scripts/apply-feature.sh"
 BUILD_LLVM_SCRIPT="$ROOT_DIR/scripts/build-llvm.sh"
 SAVE_FEATURE_SCRIPT="$ROOT_DIR/scripts/save-feature.sh"
 INSTALL_SCRIPT="$ROOT_DIR/scripts/install-clang-mg.sh"
@@ -43,22 +41,26 @@ Usage:
   ./build.sh [command]
 
 Commands:
-  bootstrap             Clone/update LLVM if needed, apply patches, then build
-  install               Clone/update LLVM, reset clean, apply patches, build, then add clang-mg to PATH
-  clone                 Clone LLVM only
-  update                Update LLVM only if the checkout is clean
-  reset                 Reset LLVM checkout to LLVM_REF / origin ref
-  apply                 Apply clang-mg patches only
-  build                 Build current LLVM tree only
-  fresh                 Reset LLVM, apply patches, then build
-  rebuild               Same as fresh
-  save <feature-name>   Save current LLVM changes as patches for a feature
-  help                  Show this help menu
+  bootstrap                  Clone/update LLVM if needed, apply all patches, then build
+  install                    Clone/update LLVM, reset clean, apply all patches, build, then add clang-mg to PATH
+  clone                      Clone LLVM only
+  update                     Update LLVM only if the checkout is clean
+  reset                      Reset LLVM checkout to LLVM_REF / origin ref
+  apply                      Apply all clang-mg patches
+  apply <feature-name...>    Apply one or more specific feature patch stacks
+  build                      Build current LLVM tree only
+  fresh                      Reset LLVM, apply all patches, then build
+  rebuild                    Same as fresh
+  save <feature-name>        Save current LLVM changes as patches for a feature
+  help                       Show this help menu
 
 Examples:
   ./build.sh
   ./build.sh bootstrap
   ./build.sh install
+  ./build.sh apply
+  ./build.sh apply change-bin-name
+  ./build.sh apply change-bin-name curlinclude
   ./build.sh build
   ./build.sh fresh
   ./build.sh save curlinclude
@@ -71,10 +73,6 @@ Environment variables:
   BUILD_DIR=$ROOT_DIR/work/build
   BUILD_TYPE=Debug
   JOBS=4
-
-Feature toggles:
-  ENABLE_IF_CONSTEXPR_MEMBERS=1
-  ENABLE_CURLINCLUDE=1
 EOF
 }
 
@@ -136,9 +134,23 @@ run_apply_patches() {
 
     "$APPLY_PATCHES_SCRIPT" \
         "$ROOT_DIR" \
-        "$LLVM_DIR" \
-        "$ENABLE_IF_CONSTEXPR_MEMBERS" \
-        "$ENABLE_CURLINCLUDE"
+        "$LLVM_DIR"
+}
+
+run_apply_features() {
+    require_llvm_repo
+
+    if [ "$#" -eq 0 ]; then
+        run_apply_patches
+        return 0
+    fi
+
+    local feature_name
+
+    for feature_name in "$@"; do
+        LLVM_DIR="$LLVM_DIR" \
+            "$APPLY_FEATURE_SCRIPT" "$feature_name"
+    done
 }
 
 run_build() {
@@ -199,7 +211,8 @@ case "$COMMAND" in
         ;;
 
     apply)
-        run_apply_patches
+        shift
+        run_apply_features "$@"
         ;;
 
     build)
