@@ -10,7 +10,7 @@ WORK_DIR="${WORK_DIR:-$ROOT_DIR/work}"
 LLVM_DIR="${LLVM_DIR:-$WORK_DIR/llvm-project}"
 BUILD_DIR="${BUILD_DIR:-$WORK_DIR/build}"
 
-BUILD_TYPE="${BUILD_TYPE:-Debug}"
+BUILD_TYPE="${BUILD_TYPE:-Release}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)}"
 
 CLONE_SCRIPT="$ROOT_DIR/scripts/clone-llvm.sh"
@@ -23,6 +23,12 @@ SAVE_FEATURE_SCRIPT="$ROOT_DIR/scripts/save-feature.sh"
 INSTALL_SCRIPT="$ROOT_DIR/scripts/install-clang-mg.sh"
 
 COMMAND="${1:-bootstrap}"
+
+INTERACTIVE="${INTERACTIVE:-0}"
+
+if [[ "${2:-}" == "--interactive" || "${1:-}" == "--interactive" ]]; then
+    INTERACTIVE=1
+fi
 
 print_header() {
     echo "=== clang-mg ==="
@@ -156,11 +162,20 @@ run_apply_features() {
 run_build() {
     require_llvm_repo
 
-    "$BUILD_LLVM_SCRIPT" \
-        "$LLVM_DIR" \
-        "$BUILD_DIR" \
-        "$BUILD_TYPE" \
-        "$JOBS"
+    if [[ "$INTERACTIVE" -eq 1 ]]; then
+        "$BUILD_LLVM_SCRIPT" \
+            "$LLVM_DIR" \
+            "$BUILD_DIR" \
+            "$BUILD_TYPE" \
+            "$JOBS" \
+            --interactive
+    else
+        "$BUILD_LLVM_SCRIPT" \
+            "$LLVM_DIR" \
+            "$BUILD_DIR" \
+            "$BUILD_TYPE" \
+            "$JOBS"
+    fi
 }
 
 run_install_path() {
