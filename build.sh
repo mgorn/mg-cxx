@@ -203,7 +203,11 @@ run_save_feature() {
 
     cd "$LLVM_DIR"
 
-    "$SAVE_FEATURE_SCRIPT" "$feature_name" "$LLVM_REF"
+    if git -C "$LLVM_DIR" rev-parse --verify "origin/$LLVM_REF" >/dev/null 2>&1; then
+        "$SAVE_FEATURE_SCRIPT" "$feature_name" "origin/$LLVM_REF"
+    else
+        "$SAVE_FEATURE_SCRIPT" "$feature_name" "$LLVM_REF"
+    fi
 }
 
 print_header
