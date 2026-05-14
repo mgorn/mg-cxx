@@ -1,0 +1,43 @@
+From c8f67f0d06cd26d073cce8c24d268b5c47ef5a67 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 14 May 2026 12:23:54 -0400
+Subject: [PATCH] clang-mg: add new-if-constexpr-members
+
+---
+ clang/include/clang/AST/DeclCXXMG.h | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+ create mode 100644 clang/include/clang/AST/DeclCXXMG.h
+
+diff --git a/clang/include/clang/AST/DeclCXXMG.h b/clang/include/clang/AST/DeclCXXMG.h
+new file mode 100644
+index 000000000000..575c9305b5d7
+--- /dev/null
++++ b/clang/include/clang/AST/DeclCXXMG.h
+@@ -0,0 +1,23 @@
++//===- DeclCXXMG.h - Classes for representing C++MG declarations --*- C++MG -*-=====//
++//
++/// \file
++/// Defines the C++MG Decl subclasses
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_AST_DECLCXXMG_H
++#define LLVM_CLANG_AST_DECLCXXMG_H
++
++#include "clang/AST/Decl.h"
++
++namespace clang {
++
++class CXXMGMemberIfDecl;
++
++class CXXMGMemberIfDecl : public Decl {
++	
++};
++
++}
++
++#endif // LLVM_CLANG_AST_DECLCXXMG_H
+\ No newline at end of file
+-- 
+2.54.0
+
