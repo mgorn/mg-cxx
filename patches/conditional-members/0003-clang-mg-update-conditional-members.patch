@@ -1,0 +1,112 @@
+From 0104d4aee923a69a37fcf59d247b91b1ff07f290 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Sun, 17 May 2026 23:27:51 -0400
+Subject: [PATCH 3/5] clang-mg: update conditional-members
+
+---
+ clang/include/clang/Parse/Parser.h | 15 ++++++++++
+ clang/lib/Parse/ParseDeclCXX.cpp   | 46 +++++++++++++++++-------------
+ 2 files changed, 41 insertions(+), 20 deletions(-)
+
+diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
+index dc3dc8a4ae0e..d375b966e823 100644
+--- a/clang/include/clang/Parse/Parser.h
++++ b/clang/include/clang/Parse/Parser.h
+@@ -3544,6 +3544,21 @@ private:
+                                             ParsedAttributes &AccessAttrs,
+                                             DeclSpec::TST TagType, Decl *Tag);
+ 
++<<<<<<< HEAD
++=======
++  /// ParseCXXMGConditionalMember - Parse a C++MG 'if constexpr' member declaration
++  DeclGroupPtrTy
++  ParseCXXMGConditionalMember(AccessSpecifier &AS,
++                              ParsedAttributes &AccessAttrs,
++                              DeclSpec::TST TagType, Decl *Tag);
++
++  /// ParseCXXMGConditionalMemberBody - Parse the body of a C++MG 'if constexpr' member declaration
++  DeclGroupPtrTy
++  ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
++                              ParsedAttributes &AccessAttrs,
++                              DeclSpec::TST TagType, Decl *Tag);
++
++>>>>>>> clang-mg: update conditional-members
+   /// ParseConstructorInitializer - Parse a C++ constructor initializer,
+   /// which explicitly initializes the members or base classes of a
+   /// class (C++ [class.base.init]). For example, the three initializers
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index da679e4712ad..518c2f25829d 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -3495,42 +3495,48 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+                               DeclSpec::TST TagType, Decl *Tag) {
+   assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
+ 
+-  // Consume "if" token & expect "constexpr" token
+-  assert(Tok.is(tok::kw_if) && "Expected if token... how did we get here?");
+-
+-  auto ifLoc = Tok.getLocation();
+-  ConsumeToken(); // consume the 'if'
+-
+-  // Expect 'constexpr' (or consteval) bc it just makes more sense man
+-  if (!TryConsumeToken(tok::kw_constexpr) || !TryConsumeToken(tok::kw_consteval)) {
+-    Diag(Tok.getLocation(), diag::err_expected);
+-
++  // consume the 'if'
++  if (!TryConsumeToken(tok::kw_if)) {
++    Diag(Tok.getLocation(), diag::err_expected) << tok::kw_if;
+     // gpt says this will make the parser not get stuck
+     SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++    return nullptr;
+   }
+ 
+-  if (!TryConsumeToken(tok::l_paren)) {
+-    Diag(Tok.getLocation(), diag::err_expected) << tok::l_paren;
++  // Expect 'constexpr' bc it just makes more sense man
++  if (!TryConsumeToken(tok::kw_constexpr)) {
++    Diag(Tok.getLocation(), diag::err_expected) << tok::kw_constexpr;
+     SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++    return nullptr;
+   }
+ 
++  auto lparen = ConsumeParen();
+   auto cond = ParseExpression(); // Parse the condition expression
++  auto rparen = ConsumeParen();
+ 
+-  if (!TryConsumeToken(tok::r_paren)) {
+-    Diag(Tok.getLocation(), diag::err_expected);
+-    SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++  ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag);
++
++  if (!TryConsumeToken(tok::kw_else)) {
++    // TODO: We're done
++    return nullptr;
+   }
+ 
+-  if (!TryConsumeToken(tok::l_brace)) {
+-    Diag(Tok.getLocation(), diag::err_expected);
+-    SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++  if (Tok.is(tok::kw_if)) {
++    // Another condition to check (if/else if/...)
++    return ParseCXXMGConditionalMember(AS, AccessAttrs, TagType, Tag);
+   }
++  return ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag);
++}
+ 
++Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
++                              ParsedAttributes &AccessAttrs,
++                              DeclSpec::TST TagType, Decl *Tag) {
++  auto lbrace = ConsumeBrace();
+   // TODO: Figure out what to do about ts
+-  while (!TryConsumeToken(tok::r_brace)) {
++  while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
+     ParseCXXClassMemberDeclarationWithPragmas(AS, AccessAttrs, TagType, Tag);
+   }
+-
++  auto rbrace = ConsumeBrace();
+   return nullptr;
+ }
+ 
+-- 
+2.54.0
+
