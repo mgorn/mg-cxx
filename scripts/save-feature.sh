@@ -124,6 +124,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
+normalize_patch_hashes() {
+    local patch
+
+    for patch in "$tmp_patch_dir"/*.patch; do
+        [ -e "$patch" ] || continue
+
+        # Zero the commit hash in the "From ..." line.
+        perl -pi -e 's/^From [0-9a-f]{40} /From 0000000000000000000000000000000000000000 /' "$patch"
+
+        # Zero blob hashes in diff index lines.
+        perl -pi -e 's/^index [0-9a-f]{7,64}\.\.[0-9a-f]{7,64}( \d{6})?$/index 0000000..0000000$1/' "$patch"
+    done
+}
+
+format_feature_patches() {
+    git format-patch --zero-commit "$@" -o "$tmp_patch_dir"
+    normalize_patch_hashes
+}
+
 if [ "$existing_patch_count" -gt 0 ]; then
     patch_count="$existing_patch_count"
 
@@ -135,7 +154,7 @@ if [ "$existing_patch_count" -gt 0 ]; then
     echo "Existing patches found."
     echo "Saving the last $patch_count commit(s) as the updated feature patch stack."
 
-    git format-patch "-$patch_count" -o "$tmp_patch_dir"
+    format_feature_patches "-$patch_count"
 
 else
     if [ "$new_commit_created" -eq 1 ]; then
@@ -143,7 +162,7 @@ else
         echo "No existing patches found."
         echo "Saving the new feature commit as the first patch."
 
-        git format-patch -1 -o "$tmp_patch_dir"
+        format_feature_patches -1
     else
         commits_since_base="$(git rev-list --count "$RESOLVED_BASE_REF"..HEAD)"
 
@@ -159,7 +178,7 @@ else
         echo "No existing patches found."
         echo "No new commit was created, so saving commits from $RESOLVED_BASE_REF..HEAD."
 
-        git format-patch "$RESOLVED_BASE_REF" -o "$tmp_patch_dir"
+        format_feature_patches "$RESOLVED_BASE_REF"
     fi
 fi
 
