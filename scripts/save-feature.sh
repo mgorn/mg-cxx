@@ -135,7 +135,7 @@ if [ "$existing_patch_count" -gt 0 ]; then
     echo "Existing patches found."
     echo "Saving the last $patch_count commit(s) as the updated feature patch stack."
 
-    git format-patch "-$patch_count" -o "$tmp_patch_dir"
+    git format-patch --zero-commit "-$patch_count" -o "$tmp_patch_dir"
 
 else
     if [ "$new_commit_created" -eq 1 ]; then
@@ -143,7 +143,7 @@ else
         echo "No existing patches found."
         echo "Saving the new feature commit as the first patch."
 
-        git format-patch -1 -o "$tmp_patch_dir"
+        git format-patch --zero-commit -1 -o "$tmp_patch_dir"
     else
         commits_since_base="$(git rev-list --count "$RESOLVED_BASE_REF"..HEAD)"
 
@@ -159,7 +159,7 @@ else
         echo "No existing patches found."
         echo "No new commit was created, so saving commits from $RESOLVED_BASE_REF..HEAD."
 
-        git format-patch "$RESOLVED_BASE_REF" -o "$tmp_patch_dir"
+        git format-patch --zero-commit "$RESOLVED_BASE_REF" -o "$tmp_patch_dir"
     fi
 fi
 

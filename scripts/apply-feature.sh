@@ -219,7 +219,7 @@ refresh_feature_patches() {
     local tmp_dir
     tmp_dir="$(mktemp -d "$ROOT_DIR/.patch-refresh-${FEATURE_NAME}.XXXXXX")"
 
-    if ! git format-patch --no-stat --output-directory "$tmp_dir" "$start_commit..HEAD" >/dev/null; then
+    if ! git format-patch --zero-commit --no-stat --output-directory "$tmp_dir" "$start_commit..HEAD" >/dev/null; then
         echo "ERROR: Failed to regenerate patches."
         rm -rf "$tmp_dir"
         return 1
