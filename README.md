@@ -46,13 +46,13 @@ struct B {
 ```
 You can test for this feature with the `__cxxmg_if_constexpr_member` macro or the `__has_feature(cxxmg_if_constexpr_members)` feature test.
 E.g.
-```
+```C++
 #ifdef __cxxmg_if_constexpr_member
 // if constexpr here
 #endif
 ```
 or
-```
+```C++
 #if __has_feature(cxxmg_if_constexpr_members)
 // if constexpr here
 #endif
@@ -67,7 +67,7 @@ You can use a `#curlinclude` directive to have curl download a header into the `
 ## Traits
 A simpler alternative to C++'s concepts is my trait system. It's not exactly how you'd expect it to be from other languages, but it's simple and allows you to test attributes of structures with ease.
 Defining a "trait" would be like defining any `struct` or `class`, but it's just a concept of one and cannot be used like one:
-```
+```C++
 // An example structure
 struct A {
   int value = 0;
@@ -85,7 +85,7 @@ trait TestTrait {
 };
 ```
 We can then use the traits as follows:
-```
+```C++
 // Check if 'int value' is a member of A
 static constexpr bool hasValue = ValueTrait && A;
 // Check if 'bool test' is a member of B
@@ -94,7 +94,7 @@ static constexpr bool hasTest = TestTrait && B;
 
 ## Type expressions
 This feature allows for the addition and subtraction of types. Think like set theory, but for C++ classes and structures. Given the structures & traits from the "Traits" example:
-```
+```C++
 // Add A and B together to create struct C
 using C = A + B;
 // The same as this
