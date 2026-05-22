@@ -86,7 +86,35 @@ trait TestTrait {
 ```
 We can then use the traits as follows:
 ```
+// Check if 'int value' is a member of A
+static constexpr bool hasValue = ValueTrait && A;
+// Check if 'bool test' is a member of B
+static constexpr bool hasTest = TestTrait && B;
+```
 
+## Type expressions
+This feature allows for the addition and subtraction of types. Think like set theory, but for C++ classes and structures. Given the structures & traits from the "Traits" example:
+```
+// Add A and B together to create struct C
+using C = A + B;
+// The same as this
+struct C {
+  int value = 0;
+  bool test = false;
+};
+
+// Add traits ValueTrait and TestTrait together
+using CombinedTrait = ValueTrait + TestTrait;
+// It's the same as this
+trait CombinedTrait {
+  int value;
+  bool test;
+};
+
+// If C has either value or test
+static constexpr bool hasAnyMember = CombinedTrait || C;
+// If C has both value and test
+static constexpr bool hasBothMembers = CombinedTrait && C;
 ```
 
 # Building
