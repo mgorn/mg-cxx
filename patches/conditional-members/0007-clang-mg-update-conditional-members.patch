@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Wed, 20 May 2026 16:00:06 -0400
-Subject: [PATCH 7/8] clang-mg: update conditional-members
+Subject: [PATCH 7/9] clang-mg: update conditional-members
 
 ---
  clang/include/clang/AST/DeclCXX.h             |   2 +

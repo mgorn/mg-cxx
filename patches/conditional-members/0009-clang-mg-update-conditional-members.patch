@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 21 May 2026 20:50:58 -0400
+Subject: [PATCH 9/9] clang-mg: update conditional-members
+
+---
+ clang/lib/Sema/SemaDeclCXX.cpp | 31 +++++++++++++++++++++++++++----
+ 1 file changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
+index 53652dd30b73..7d04a18fc5ff 100644
+--- a/clang/lib/Sema/SemaDeclCXX.cpp
++++ b/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -3525,6 +3525,9 @@ Decl *Sema::ActOnCXXMGConditionalMember(
+ 
+     for (Decl *Pattern : Arm.Decls) {
+       Record->addDecl(Pattern);
++      if (auto *BUD = dyn_cast<BaseUsingDecl>(Pattern))
++        for (UsingShadowDecl *Shadow : BUD->shadows())
++          Record->addDecl(Shadow);
+       if (auto *FD = dyn_cast<FieldDecl>(Pattern))
+         FieldCollector->Add(FD);
+     }
+@@ -12865,6 +12868,11 @@ Decl *Sema::ActOnUsingDeclaration(Scope *S, AccessSpecifier AS,
+                             SS, TargetNameInfo, EllipsisLoc, AttrList,
+                             /*IsInstantiation*/ false,
+                             AttrList.hasAttribute(ParsedAttr::AT_UsingIfExists));
++  if (UD && isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    AddCXXMGConditionalMemberPatternDecl(UD);
++    return UD;
++  }
++
+   if (UD)
+     PushOnScopeChains(UD, S, /*AddToContext*/ false);
+ 
+@@ -12906,6 +12914,11 @@ Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
+   auto *UD =
+       BuildUsingEnumDeclaration(S, AS, UsingLoc, EnumLoc, IdentLoc, TSI, Enum);
+ 
++  if (UD && isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    AddCXXMGConditionalMemberPatternDecl(UD);
++    return UD;
++  }
++
+   if (UD)
+     PushOnScopeChains(UD, S, /*AddToContext*/ false);
+ 
+@@ -13149,7 +13162,9 @@ UsingShadowDecl *Sema::BuildUsingShadowDecl(Scope *S, BaseUsingDecl *BUD,
+ 
+   Shadow->setPreviousDecl(PrevDecl);
+ 
+-  if (S)
++  if (isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    // The shadow belongs to an inactive C++MG conditional-member pattern.
++  } else if (S)
+     PushOnScopeChains(Shadow, S);
+   else
+     CurContext->addDecl(Shadow);
+@@ -13382,7 +13397,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
+                                            QualifierLoc, NameInfo, EllipsisLoc);
+     }
+     D->setAccess(AS);
+-    CurContext->addDecl(D);
++    if (!isCollectingCXXMGConditionalMemberForCurrentContext())
++      CurContext->addDecl(D);
+     ProcessDeclAttributeList(S, D, AttrList);
+     return D;
+   }
+@@ -13392,7 +13408,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
+         UsingDecl::Create(Context, CurContext, UsingLoc, QualifierLoc,
+                           UsingName, HasTypenameKeyword);
+     UD->setAccess(AS);
+-    CurContext->addDecl(UD);
++    if (!isCollectingCXXMGConditionalMemberForCurrentContext())
++      CurContext->addDecl(UD);
+     ProcessDeclAttributeList(S, UD, AttrList);
+     UD->setInvalidDecl(Invalid);
+     return UD;
+@@ -13590,7 +13607,8 @@ NamedDecl *Sema::BuildUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
+   UsingEnumDecl *UD = UsingEnumDecl::Create(Context, CurContext, UsingLoc,
+                                             EnumLoc, NameLoc, EnumType);
+   UD->setAccess(AS);
+-  CurContext->addDecl(UD);
++  if (!isCollectingCXXMGConditionalMemberForCurrentContext())
++    CurContext->addDecl(UD);
+ 
+   if (Invalid) {
+     UD->setInvalidDecl();
+@@ -14068,6 +14086,11 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
+     NewND = NewTD;
+   }
+ 
++  if (isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    AddCXXMGConditionalMemberPatternDecl(NewND);
++    return NewND;
++  }
++
+   PushOnScopeChains(NewND, S);
+   ActOnDocumentableDecl(NewND);
+   return NewND;
+-- 
+2.54.0
+
