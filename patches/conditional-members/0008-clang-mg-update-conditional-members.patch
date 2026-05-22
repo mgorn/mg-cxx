@@ -1,0 +1,552 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 21 May 2026 20:32:16 -0400
+Subject: [PATCH 8/8] clang-mg: update conditional-members
+
+---
+ clang/include/clang/Parse/Parser.h            |   7 +-
+ clang/include/clang/Sema/Sema.h               |  23 +++
+ clang/lib/AST/DeclBase.cpp                    |   1 +
+ clang/lib/CodeGen/CGDecl.cpp                  |   1 +
+ clang/lib/Parse/ParseDeclCXXMG.cpp            | 139 ++++++++++++++----
+ clang/lib/Sema/SemaDecl.cpp                   |   7 +-
+ clang/lib/Sema/SemaDeclCXX.cpp                |  78 ++++++++++
+ clang/lib/Sema/SemaTemplateInstantiate.cpp    | 103 +++++++++----
+ .../lib/Sema/SemaTemplateInstantiateDecl.cpp  |  19 +++
+ 9 files changed, 314 insertions(+), 64 deletions(-)
+
+diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
+index 7e874e2c57af..088a698719e5 100644
+--- a/clang/include/clang/Parse/Parser.h
++++ b/clang/include/clang/Parse/Parser.h
+@@ -3551,10 +3551,11 @@ private:
+                               DeclSpec::TST TagType, Decl *Tag);
+ 
+   /// ParseCXXMGConditionalMemberBody - Parse the body of a C++MG 'if constexpr' member declaration
+-  DeclGroupPtrTy
++  SourceRange
+   ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+-                              ParsedAttributes &AccessAttrs,
+-                              DeclSpec::TST TagType, Decl *Tag);
++                                  ParsedAttributes &AccessAttrs,
++                                  DeclSpec::TST TagType, Decl *Tag,
++                                  llvm::SmallVectorImpl<Decl *> &PatternDecls);
+ 
+   /// ParseConstructorInitializer - Parse a C++ constructor initializer,
+   /// which explicitly initializes the members or base classes of a
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index e71794b2d92c..aaae96891448 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -3909,6 +3909,17 @@ public:
+   NamedDecl *HandleDeclarator(Scope *S, Declarator &D,
+                               MultiTemplateParamsArg TemplateParameterLists);
+ 
++  struct CXXMGConditionalMemberArmState {
++    CXXRecordDecl *TargetRecord = nullptr;
++    AccessSpecifier StartAS = AS_none;
++    llvm::SmallVector<Decl *, 8> PatternDecls;
++  };
++
++  llvm::SmallVector<CXXMGConditionalMemberArmState, 4>
++      CXXMGConditionalMemberArmStack;
++
++  bool isCollectingCXXMGConditionalMemberForCurrentContext() const;
++
+   /// Attempt to fold a variable-sized type to a constant-sized type, returning
+   /// true if we were successful.
+   bool tryToFixVariablyModifiedVarType(TypeSourceInfo *&TInfo, QualType &T,
+@@ -5851,6 +5862,18 @@ public:
+                            Expr *BitfieldWidth, const VirtSpecifiers &VS,
+                            InClassInitStyle InitStyle);
+ 
++  void BeginCXXMGConditionalMemberArm(CXXRecordDecl *TargetRecord,
++                                      AccessSpecifier AS);
++  void EndCXXMGConditionalMemberArm(
++      llvm::SmallVectorImpl<Decl *> &OutPatternDecls);
++  bool isParsingCXXMGConditionalMemberArm() const {
++    return !CXXMGConditionalMemberArmStack.empty();
++  }
++  void AddCXXMGConditionalMemberPatternDecl(Decl *D);
++  Decl *ActOnCXXMGConditionalMember(
++      Scope *S, Decl *TagDecl, SourceLocation IfLoc,
++      llvm::ArrayRef<CXXMGConditionalMemberArm> Arms);
++
+   /// Enter a new C++ default initializer scope. After calling this, the
+   /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
+   /// parsing or instantiating the initializer failed.
+diff --git a/clang/lib/AST/DeclBase.cpp b/clang/lib/AST/DeclBase.cpp
+index ea01e3263896..8a96f3ab6453 100644
+--- a/clang/lib/AST/DeclBase.cpp
++++ b/clang/lib/AST/DeclBase.cpp
+@@ -1023,6 +1023,7 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
+     case OpenACCDeclare:
+     case OpenACCRoutine:
+     case ExplicitInstantiation:
++    case CXXMGConditionalMember:
+       // Never looked up by name.
+       return 0;
+   }
+diff --git a/clang/lib/CodeGen/CGDecl.cpp b/clang/lib/CodeGen/CGDecl.cpp
+index 7608f8cb6fc7..473740d751ee 100644
+--- a/clang/lib/CodeGen/CGDecl.cpp
++++ b/clang/lib/CodeGen/CGDecl.cpp
+@@ -108,6 +108,7 @@ void CodeGenFunction::EmitDecl(const Decl &D, bool EvaluateConditionDecl) {
+   case Decl::UnresolvedUsingIfExists:
+   case Decl::HLSLBuffer:
+   case Decl::HLSLRootSignature:
++  case Decl::CXXMGConditionalMember:
+     llvm_unreachable("Declaration should not be in declstmts!");
+   case Decl::Record:    // struct/union/class X;
+   case Decl::CXXRecord: // struct/union/class X; [C++]
+diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
+index b2d281464004..20cd1d4a1d42 100644
+--- a/clang/lib/Parse/ParseDeclCXXMG.cpp
++++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
+@@ -5,55 +5,130 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "clang/Parse/Parser.h"
++#include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclTemplate.h"
++#include "clang/Parse/RAIIObjectsForParser.h"
+ 
+ using namespace clang;
+ 
++static CXXRecordDecl *getCXXMGConditionalMemberRecord(Decl *Tag) {
++  if (auto *Record = dyn_cast_or_null<CXXRecordDecl>(Tag))
++    return Record;
++  if (auto *Template = dyn_cast_or_null<ClassTemplateDecl>(Tag))
++    return Template->getTemplatedDecl();
++  return nullptr;
++}
++
+ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+                               ParsedAttributes &AccessAttrs,
+                               DeclSpec::TST TagType, Decl *Tag) {
+   assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
+ 
+-  // consume the 'if'
+-  if (!TryConsumeToken(tok::kw_if)) {
+-    Diag(Tok.getLocation(), diag::err_expected) << tok::kw_if;
+-    // gpt says this will make the parser not get stuck
+-    SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
+-    return nullptr;
+-  }
++  SmallVector<CXXMGConditionalMemberArm, 4> Arms;
++  SourceLocation FirstIfLoc = Tok.getLocation();
+ 
+-  // Expect 'constexpr' bc it just makes more sense man
+-  if (!TryConsumeToken(tok::kw_constexpr)) {
+-    Diag(Tok.getLocation(), diag::err_expected) << tok::kw_constexpr;
+-    SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
+-    return nullptr;
+-  }
++  while (true) {
++    Expr *Condition = nullptr;
++    bool IsElseArm = false;
++    SourceLocation IfLoc;
+ 
+-  auto lparen = ConsumeParen();
+-  auto cond = ParseExpression(); // Parse the condition expression
+-  auto rparen = ConsumeParen();
++    if (Tok.is(tok::kw_if)) {
++      IfLoc = ConsumeToken();
+ 
+-  ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag);
++      // Expect 'constexpr' bc it just makes more sense man
++      if (!TryConsumeToken(tok::kw_constexpr)) {
++        Diag(Tok.getLocation(), diag::err_expected) << tok::kw_constexpr;
++        SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++        return nullptr;
++      }
+ 
+-  if (!TryConsumeToken(tok::kw_else)) {
+-    // TODO: We're done
+-    return nullptr;
+-  }
++      BalancedDelimiterTracker Parens(*this, tok::l_paren);
++      if (Parens.expectAndConsume()) {
++        SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++        return nullptr;
++      }
++
++      ExprResult Cond = ParseExpression();
++      if (Cond.isInvalid()) {
++        Parens.skipToEnd();
++        return nullptr;
++      }
++      Condition = Cond.get();
++
++      if (Parens.consumeClose()) {
++        SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
++        return nullptr;
++      }
++    } else {
++      IsElseArm = true;
++    }
++
++    AccessSpecifier ArmAS = AS;
++    SmallVector<Decl *, 8> PatternDecls;
++    SourceRange ArmRange =
++        ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag,
++                                        PatternDecls);
++    Arms.push_back(
++        CXXMGConditionalMemberArm(Condition, PatternDecls, ArmAS, ArmRange,
++                                  IsElseArm));
++
++    if (!TryConsumeToken(tok::kw_else))
++      break;
+ 
+-  if (Tok.is(tok::kw_if)) {
+-    // Another condition to check (if/else if/...)
+-    return ParseCXXMGConditionalMember(AS, AccessAttrs, TagType, Tag);
++    if (Tok.isNot(tok::kw_if)) {
++      AccessSpecifier ElseAS = AS;
++      SmallVector<Decl *, 8> ElsePatternDecls;
++      SourceRange ElseRange =
++          ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag,
++                                          ElsePatternDecls);
++      Arms.push_back(CXXMGConditionalMemberArm(
++          nullptr, ElsePatternDecls, ElseAS, ElseRange, /*IsElseArm=*/true));
++      break;
++    }
+   }
+-  return ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag);
++
++  Decl *D =
++      Actions.ActOnCXXMGConditionalMember(getCurScope(), Tag, FirstIfLoc, Arms);
++  if (!D)
++    return nullptr;
++
++  return Actions.ConvertDeclToDeclGroup(D);
+ }
+ 
+-Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
++SourceRange Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+                               ParsedAttributes &AccessAttrs,
+-                              DeclSpec::TST TagType, Decl *Tag) {
+-  auto lbrace = ConsumeBrace();
+-  // TODO: Figure out what to do about ts
++                              DeclSpec::TST TagType, Decl *Tag,
++                              llvm::SmallVectorImpl<Decl *> &PatternDecls) {
++  SourceLocation LBraceLoc;
++  SourceLocation RBraceLoc;
++  if (Tok.isNot(tok::l_brace)) {
++    Diag(Tok.getLocation(), diag::err_expected) << tok::l_brace;
++    return SourceRange();
++  }
++  LBraceLoc = ConsumeBrace();
++
++  bool BeganArm = false;
++  if (auto *Record = getCXXMGConditionalMemberRecord(Tag)) {
++    Actions.BeginCXXMGConditionalMemberArm(Record, AS);
++    BeganArm = true;
++  }
++
+   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
++    if (Tok.isOneOf(tok::kw_public, tok::kw_private, tok::kw_protected) &&
++        NextToken().is(tok::colon)) {
++      Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
++      ConsumeToken();
++      ConsumeToken();
++      continue;
++    }
++
+     ParseCXXClassMemberDeclarationWithPragmas(AS, AccessAttrs, TagType, Tag);
+   }
+-  auto rbrace = ConsumeBrace();
+-  return nullptr;
+-}
+\ No newline at end of file
++
++  if (BeganArm)
++    Actions.EndCXXMGConditionalMemberArm(PatternDecls);
++
++  if (Tok.is(tok::r_brace))
++    RBraceLoc = ConsumeBrace();
++  return SourceRange(LBraceLoc, RBraceLoc);
++}
+diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
+index 62cb9360d132..439a1608dece 100644
+--- a/clang/lib/Sema/SemaDecl.cpp
++++ b/clang/lib/Sema/SemaDecl.cpp
+@@ -6693,7 +6693,8 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
+ 
+   // If this has an identifier and is not a function template specialization,
+   // add it to the scope stack.
+-  if (New->getDeclName() && AddToScope)
++  if (New->getDeclName() && AddToScope &&
++      !isCollectingCXXMGConditionalMemberForCurrentContext())
+     PushOnScopeChains(New, S);
+ 
+   if (OpenMP().isInOpenMPDeclareTargetContext())
+@@ -19370,7 +19371,9 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
+   if (D.getDeclSpec().isModulePrivateSpecified())
+     NewFD->setModulePrivate();
+ 
+-  if (NewFD->isInvalidDecl() && PrevDecl) {
++  if (isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    // The field is an inactive pattern for a C++MG conditional member arm.
++  } else if (NewFD->isInvalidDecl() && PrevDecl) {
+     // Don't introduce NewFD into scope; there's already something
+     // with the same name in the same scope.
+   } else if (II) {
+diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
+index de837ff0608d..53652dd30b73 100644
+--- a/clang/lib/Sema/SemaDeclCXX.cpp
++++ b/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -3461,6 +3461,79 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
+   return false;
+ }
+ 
++void Sema::BeginCXXMGConditionalMemberArm(CXXRecordDecl *TargetRecord,
++                                          AccessSpecifier AS) {
++  assert(TargetRecord && "conditional member arm needs a target record");
++
++  CXXMGConditionalMemberArmState State;
++  State.TargetRecord = TargetRecord;
++  State.StartAS = AS;
++  CXXMGConditionalMemberArmStack.push_back(std::move(State));
++}
++
++void Sema::EndCXXMGConditionalMemberArm(
++    llvm::SmallVectorImpl<Decl *> &OutPatternDecls) {
++  assert(!CXXMGConditionalMemberArmStack.empty() &&
++         "ending conditional member arm without active state");
++
++  CXXMGConditionalMemberArmState &State =
++      CXXMGConditionalMemberArmStack.back();
++  OutPatternDecls.append(State.PatternDecls.begin(), State.PatternDecls.end());
++  CXXMGConditionalMemberArmStack.pop_back();
++}
++
++bool Sema::isCollectingCXXMGConditionalMemberForCurrentContext() const {
++  return !CXXMGConditionalMemberArmStack.empty() &&
++         CXXMGConditionalMemberArmStack.back().TargetRecord == CurContext;
++}
++
++void Sema::AddCXXMGConditionalMemberPatternDecl(Decl *D) {
++  assert(D && "cannot collect a null conditional member pattern declaration");
++  assert(isCollectingCXXMGConditionalMemberForCurrentContext() &&
++         "collecting a conditional member pattern from the wrong context");
++  CXXMGConditionalMemberArmStack.back().PatternDecls.push_back(D);
++}
++
++Decl *Sema::ActOnCXXMGConditionalMember(
++    Scope *S, Decl *TagDecl, SourceLocation IfLoc,
++    llvm::ArrayRef<CXXMGConditionalMemberArm> Arms) {
++  CXXRecordDecl *Record = dyn_cast_or_null<CXXRecordDecl>(TagDecl);
++  if (!Record)
++    if (auto *Template = dyn_cast_or_null<ClassTemplateDecl>(TagDecl))
++      Record = Template->getTemplatedDecl();
++  if (!Record)
++    return nullptr;
++
++  auto *D = CXXMGConditionalMemberDecl::Create(Context, Record, IfLoc, Arms);
++  Record->addDecl(D);
++
++  for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
++    bool Selected = Arm.isElseArm();
++    if (Arm.hasCondition()) {
++      if (Arm.Condition->isValueDependent())
++        break;
++
++      bool ConditionValue = false;
++      if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, Context))
++        continue;
++
++      Selected = ConditionValue;
++    }
++
++    if (!Selected)
++      continue;
++
++    for (Decl *Pattern : Arm.Decls) {
++      Record->addDecl(Pattern);
++      if (auto *FD = dyn_cast<FieldDecl>(Pattern))
++        FieldCollector->Add(FD);
++    }
++    break;
++  }
++
++  return D;
++}
++
+ NamedDecl *
+ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
+                                MultiTemplateParamsArg TemplateParameterLists,
+@@ -3747,6 +3820,11 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
+ 
+   CheckOverrideControl(Member);
+ 
++  if (isCollectingCXXMGConditionalMemberForCurrentContext()) {
++    AddCXXMGConditionalMemberPatternDecl(Member);
++    return Member;
++  }
++
+   assert((Name || isInstField) && "No identifier for non-field ?");
+ 
+   if (isInstField) {
+diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+index 3c9ffdb42eee..f2cfb63cb3ca 100644
+--- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
++++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+@@ -3613,7 +3613,47 @@ bool Sema::InstantiateClassImpl(
+   Instantiator.enableLateAttributeInstantiation(&LateAttrs);
+ 
+   bool MightHaveConstexprVirtualFunctions = false;
++  bool StopInstantiation = false;
++  auto HandleInstantiatedMember = [&](Decl *NewMember) {
++    if (!NewMember)
++      return;
++
++    if (FieldDecl *Field = dyn_cast<FieldDecl>(NewMember)) {
++      Fields.push_back(Field);
++    } else if (EnumDecl *Enum = dyn_cast<EnumDecl>(NewMember)) {
++      // C++11 [temp.inst]p1: The implicit instantiation of a class template
++      // specialization causes the implicit instantiation of the definitions
++      // of unscoped member enumerations.
++      // Record a point of instantiation for this implicit instantiation.
++      if (TSK == TSK_ImplicitInstantiation && !Enum->isScoped() &&
++          Enum->isCompleteDefinition()) {
++        MemberSpecializationInfo *MSInfo = Enum->getMemberSpecializationInfo();
++        assert(MSInfo && "no spec info for member enum specialization");
++        MSInfo->setTemplateSpecializationKind(TSK_ImplicitInstantiation);
++        MSInfo->setPointOfInstantiation(PointOfInstantiation);
++      }
++    } else if (StaticAssertDecl *SA = dyn_cast<StaticAssertDecl>(NewMember)) {
++      if (SA->isFailed()) {
++        // A static_assert failed. Bail out; instantiating this class is
++        // probably not meaningful.
++        Instantiation->setInvalidDecl();
++        StopInstantiation = true;
++        return;
++      }
++    } else if (CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(NewMember)) {
++      if (MD->isConstexpr() && !MD->getFriendObjectKind() &&
++          (MD->isVirtualAsWritten() || Instantiation->getNumBases()))
++        MightHaveConstexprVirtualFunctions = true;
++    }
++
++    if (NewMember->isInvalidDecl())
++      Instantiation->setInvalidDecl();
++  };
++
+   for (auto *Member : Pattern->decls()) {
++    if (StopInstantiation)
++      break;
++
+     // Don't instantiate members not belonging in this semantic context.
+     // e.g. for:
+     // @code
+@@ -3639,37 +3679,46 @@ bool Sema::InstantiateClassImpl(
+       continue;
+     }
+ 
+-    Decl *NewMember = Instantiator.Visit(Member);
+-    if (NewMember) {
+-      if (FieldDecl *Field = dyn_cast<FieldDecl>(NewMember)) {
+-        Fields.push_back(Field);
+-      } else if (EnumDecl *Enum = dyn_cast<EnumDecl>(NewMember)) {
+-        // C++11 [temp.inst]p1: The implicit instantiation of a class template
+-        // specialization causes the implicit instantiation of the definitions
+-        // of unscoped member enumerations.
+-        // Record a point of instantiation for this implicit instantiation.
+-        if (TSK == TSK_ImplicitInstantiation && !Enum->isScoped() &&
+-            Enum->isCompleteDefinition()) {
+-          MemberSpecializationInfo *MSInfo =Enum->getMemberSpecializationInfo();
+-          assert(MSInfo && "no spec info for member enum specialization");
+-          MSInfo->setTemplateSpecializationKind(TSK_ImplicitInstantiation);
+-          MSInfo->setPointOfInstantiation(PointOfInstantiation);
++    if (auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(Member)) {
++      for (const CXXMGConditionalMemberArm &Arm : CMD->arms()) {
++        bool Selected = Arm.isElseArm();
++        if (Arm.hasCondition()) {
++          EnterExpressionEvaluationContext Eval(
++              *this, Sema::ExpressionEvaluationContext::ConstantEvaluated);
++          ExprResult SubstCond = SubstExpr(Arm.Condition, TemplateArgs);
++          if (SubstCond.isInvalid()) {
++            Instantiation->setInvalidDecl();
++            break;
++          }
++
++          Expr *Cond = SubstCond.get();
++          if (Cond->isValueDependent())
++            break;
++
++          bool ConditionValue = false;
++          if (!Cond->EvaluateAsBooleanCondition(ConditionValue, Context))
++            continue;
++
++          Selected = ConditionValue;
+         }
+-      } else if (StaticAssertDecl *SA = dyn_cast<StaticAssertDecl>(NewMember)) {
+-        if (SA->isFailed()) {
+-          // A static_assert failed. Bail out; instantiating this
+-          // class is probably not meaningful.
+-          Instantiation->setInvalidDecl();
+-          break;
++
++        if (!Selected)
++          continue;
++
++        for (Decl *PatternDecl : Arm.Decls) {
++          Decl *NewArmMember = Instantiator.Visit(PatternDecl);
++          HandleInstantiatedMember(NewArmMember);
++          if (StopInstantiation)
++            break;
+         }
+-      } else if (CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(NewMember)) {
+-        if (MD->isConstexpr() && !MD->getFriendObjectKind() &&
+-            (MD->isVirtualAsWritten() || Instantiation->getNumBases()))
+-          MightHaveConstexprVirtualFunctions = true;
++        break;
+       }
++      continue;
++    }
+ 
+-      if (NewMember->isInvalidDecl())
+-        Instantiation->setInvalidDecl();
++    Decl *NewMember = Instantiator.Visit(Member);
++    if (NewMember) {
++      HandleInstantiatedMember(NewMember);
+     } else {
+       // FIXME: Eventually, a NULL return will mean that one of the
+       // instantiations was a semantic disaster, and we'll want to mark the
+diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+index 4fcc6f886258..7582814415f3 100644
+--- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
++++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+@@ -1912,9 +1912,28 @@ Decl *TemplateDeclInstantiator::VisitFieldDecl(FieldDecl *D) {
+   if (Invalid)
+     Field->setInvalidDecl();
+ 
++  bool NeedsExplicitPattern = false;
++  if (D->getDeclName()) {
++    bool PatternIsVisible = false;
++    for (NamedDecl *Found : D->getParent()->lookup(D->getDeclName())) {
++      if (Found == D) {
++        PatternIsVisible = true;
++        break;
++      }
++    }
++    NeedsExplicitPattern = !PatternIsVisible;
++  }
++
+   if (!Field->getDeclName() || Field->isPlaceholderVar(SemaRef.getLangOpts())) {
+     // Keep track of where this decl came from.
+     SemaRef.Context.setInstantiatedFromUnnamedFieldDecl(Field, D);
++  } else if (NeedsExplicitPattern && D->hasInClassInitializer()) {
++    // C++MG conditional member pattern fields are intentionally not visible
++    // in the pattern class lookup table. Instantiate their default member
++    // initializers eagerly so later default-constructor synthesis does not
++    // need to rediscover the hidden pattern by name.
++    SemaRef.InstantiateInClassInitializer(D->getLocation(), Field, D,
++                                          TemplateArgs);
+   }
+   if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
+     if (Parent->isAnonymousStructOrUnion() &&
+-- 
+2.54.0
+

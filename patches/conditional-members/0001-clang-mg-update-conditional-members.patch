@@ -1,11 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 17 May 2026 20:01:13 -0400
-Subject: [PATCH 1/7] clang-mg: update conditional-members
+Subject: [PATCH 1/8] clang-mg: update conditional-members
 
+---
+ clang/lib/Parse/ParseDeclCXX.cpp | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 877161b65b6c..f017824f0b9c 100644
+index 893989bd2398..8f707e120c96 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -3490,6 +3490,15 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
