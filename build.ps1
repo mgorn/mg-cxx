@@ -46,24 +46,69 @@ function Has-Command {
     return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Get-NormalizedArchitectureName {
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+function Test-IsWindowsPlatform {
+    return $env:OS -eq "Windows_NT" -or [System.IO.Path]::DirectorySeparatorChar -eq "\"
+}
 
-    switch ($arch) {
-        "X64" {
+function Get-UnameValue {
+    param(
+        [string]$Argument
+    )
+
+    if (-not (Has-Command "uname")) {
+        return ""
+    }
+
+    $output = @(& uname $Argument 2>$null)
+
+    if ($LASTEXITCODE -ne 0 -or $output.Count -eq 0) {
+        return ""
+    }
+
+    return "$($output[0])".Trim()
+}
+
+function Get-NormalizedArchitectureName {
+    $arch = ""
+
+    if (Test-IsWindowsPlatform) {
+        $arch = [Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITEW6432")
+
+        if ([string]::IsNullOrWhiteSpace($arch)) {
+            $arch = [Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
+        }
+    }
+    else {
+        $arch = Get-UnameValue "-m"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($arch)) {
+        $arch = [Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
+    }
+
+    if ([string]::IsNullOrWhiteSpace($arch)) {
+        return "unknown"
+    }
+
+    switch -Regex ($arch) {
+        '^(AMD64|x86_64)$' {
             return "x86_64"
         }
 
-        "X86" {
-            return "i686"
-        }
-
-        "Arm64" {
+        '^(ARM64|arm64|aarch64)$' {
             return "aarch64"
         }
 
-        "Arm" {
+        '^(x86|i386|i486|i586|i686)$' {
+            return "i686"
+        }
+
+        '^(ARM|arm)$' {
             return "arm"
+        }
+
+        '^armv7' {
+            return "armv7"
         }
 
         default {
@@ -84,7 +129,7 @@ function Get-DefaultTargetTriple {
             continue
         }
 
-        $output = & $compiler -dumpmachine 2>$null
+        $output = @(& $compiler -dumpmachine 2>$null)
 
         if ($LASTEXITCODE -eq 0 -and $output.Count -gt 0) {
             $triple = "$($output[0])".Trim()
@@ -97,39 +142,49 @@ function Get-DefaultTargetTriple {
 
     $arch = Get-NormalizedArchitectureName
 
-    if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) {
+    if (Test-IsWindowsPlatform) {
         return "$arch-pc-windows-msvc"
     }
 
-    if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)) {
-        if ($arch -eq "aarch64") {
-            return "arm64-apple-darwin"
+    $unameSystem = Get-UnameValue "-s"
+
+    switch -Regex ($unameSystem) {
+        '^Darwin$' {
+            if ($arch -eq "aarch64") {
+                return "arm64-apple-darwin"
+            }
+
+            return "$arch-apple-darwin"
         }
 
-        return "$arch-apple-darwin"
-    }
+        '^Linux$' {
+            switch ($arch) {
+                "x86_64" {
+                    return "x86_64-pc-linux-gnu"
+                }
 
-    if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Linux)) {
-        switch ($arch) {
-            "x86_64" {
-                return "x86_64-pc-linux-gnu"
-            }
+                "aarch64" {
+                    return "aarch64-unknown-linux-gnu"
+                }
 
-            "aarch64" {
-                return "aarch64-unknown-linux-gnu"
-            }
+                "armv7" {
+                    return "armv7-unknown-linux-gnueabihf"
+                }
 
-            "arm" {
-                return "armv7-unknown-linux-gnueabihf"
-            }
+                "arm" {
+                    return "armv7-unknown-linux-gnueabihf"
+                }
 
-            default {
-                return "$arch-unknown-linux-gnu"
+                default {
+                    return "$arch-unknown-linux-gnu"
+                }
             }
         }
-    }
 
-    return "$arch-unknown-platform"
+        default {
+            return "$arch-unknown-platform"
+        }
+    }
 }
 
 function Test-Truthy {
