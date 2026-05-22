@@ -14,38 +14,23 @@ function Write-Usage {
 }
 
 function Invoke-Git {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
-
-    & git @Arguments
+    & git @args
 
     if ($LASTEXITCODE -ne 0) {
-        throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+        throw "git $($args -join ' ') failed with exit code $LASTEXITCODE"
     }
 }
 
 function Test-GitCommand {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
-
-    & git @Arguments *> $null
+    & git @args *> $null
     return $LASTEXITCODE -eq 0
 }
 
 function Get-GitOutput {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
-
-    $output = & git @Arguments
+    $output = & git @args
 
     if ($LASTEXITCODE -ne 0) {
-        throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+        throw "git $($args -join ' ') failed with exit code $LASTEXITCODE"
     }
 
     return ($output -join "`n").Trim()

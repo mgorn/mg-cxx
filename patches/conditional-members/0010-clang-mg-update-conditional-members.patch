@@ -1,0 +1,232 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Fri, 22 May 2026 19:20:14 -0400
+Subject: [PATCH 10/10] clang-mg: update conditional-members
+
+
+diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
+index 2f7741ff74f9..b5a8fd2cb128 100644
+--- a/clang/include/clang/Basic/Features.def
++++ b/clang/include/clang/Basic/Features.def
+@@ -381,6 +381,9 @@ FEATURE(cxx_abi_relative_vtable, LangOpts.CPlusPlus && LangOpts.RelativeCXXABIVT
+ 
+ FEATURE(clang_atomic_attributes, true)
+ 
++// C++MG features.
++FEATURE(cxxmg_if_constexpr_members, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
++
+ // CUDA/HIP Features
+ FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
+ EXTENSION(cuda_implicit_host_device_templates, LangOpts.CUDA && LangOpts.OffloadImplicitHostDeviceTemplates)
+diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
+index 3f0468a93814..179b366ceaa3 100644
+--- a/clang/lib/Frontend/InitPreprocessor.cpp
++++ b/clang/lib/Frontend/InitPreprocessor.cpp
+@@ -755,6 +755,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
+   if (LangOpts.Char8)
+     Builder.defineMacro("__cpp_char8_t", "202207L");
+   Builder.defineMacro("__cpp_impl_destroying_delete", "201806L");
++
++  if (LangOpts.CPlusPlusMG) {
++    Builder.defineMacro("__cxxmg_if_constexpr_member", "202604L");
++  }
+ }
+ 
+ /// InitializeOpenCLFeatureTestMacros - Define OpenCL macros based on target
+diff --git a/clang/test/Parser/cxxmg-if-constexpr-members.cpp b/clang/test/Parser/cxxmg-if-constexpr-members.cpp
+new file mode 100644
+index 000000000000..fc213b1ee0a3
+--- /dev/null
++++ b/clang/test/Parser/cxxmg-if-constexpr-members.cpp
+@@ -0,0 +1,35 @@
++// RUN: %clang_cc1 -std=c++mg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++struct SingleArm {
++  if constexpr (true) {
++    int value;
++  }
++};
++
++struct WithElse {
++  if constexpr (false) {
++    int first;
++  } else {
++    int second;
++  }
++};
++
++struct ElseIfChain {
++  if constexpr (false) {
++    int first;
++  } else if constexpr (true) {
++    int second;
++  } else {
++    int third;
++  }
++};
++
++template <bool Enabled>
++struct DependentCondition {
++  if constexpr (Enabled) {
++    int enabled;
++  } else {
++    int disabled;
++  }
++};
+diff --git a/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp b/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
+new file mode 100644
+index 000000000000..d24454db9942
+--- /dev/null
++++ b/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
+@@ -0,0 +1,70 @@
++// RUN: %clang_cc1 -x c++ -std=c++17 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++11 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++98 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++mg -fsyntax-only %s
++// RUN: %clang_cc1 -x c -std=c23 -fsyntax-only %s
++
++#ifndef __has_feature
++#error "__has_feature should be available"
++#endif
++
++#if defined(__cplusplus) && __cplusplus >= 201103L
++
++#ifndef __cxxmg_if_constexpr_member
++#error "__cxxmg_if_constexpr_member should be defined in C++MG mode"
++#endif
++
++#if __cxxmg_if_constexpr_member != 202604L
++#error "__cxxmg_if_constexpr_member has the wrong value"
++#endif
++
++#if !__has_feature(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should be available in C++MG mode"
++#endif
++
++#if !__has_extension(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should also be visible as an extension"
++#endif
++
++template <bool Enabled>
++struct UsesCXXMGFeatureTest {
++#if __has_feature(cxxmg_if_constexpr_members)
++  if constexpr (Enabled) {
++    int value;
++  } else {
++    char value;
++  }
++#endif
++};
++
++static_assert(sizeof(UsesCXXMGFeatureTest<true>) == sizeof(int), "");
++
++#elif defined(__cplusplus)
++
++#ifdef __cxxmg_if_constexpr_member
++#error "__cxxmg_if_constexpr_member should not be defined before C++11"
++#endif
++
++#if __has_feature(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should not be available before C++11"
++#endif
++
++#if __has_extension(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should not be an extension before C++11"
++#endif
++
++#else
++
++#ifdef __cxxmg_if_constexpr_member
++#error "__cxxmg_if_constexpr_member should not be defined outside C++"
++#endif
++
++#if __has_feature(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should not be available outside C++"
++#endif
++
++#if __has_extension(cxxmg_if_constexpr_members)
++#error "cxxmg_if_constexpr_members should not be an extension outside C++"
++#endif
++
++#endif
+diff --git a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
+new file mode 100644
+index 000000000000..d306aa92f7ce
+--- /dev/null
++++ b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
+@@ -0,0 +1,71 @@
++// RUN: %clang_cc1 -std=c++mg -fsyntax-only -verify %s
++
++struct PickTrue {
++  if constexpr (true) {
++    int selected;
++  } else {
++    long rejected;
++  }
++};
++
++static_assert(__is_same(decltype(PickTrue::selected), int));
++
++void checkPickTrue(PickTrue &value) {
++  value.selected = 1;
++  (void)value.rejected; // expected-error {{no member named 'rejected'}}
++}
++
++struct PickFalse {
++  if constexpr (false) {
++    int rejected;
++  } else {
++    char selected;
++  }
++};
++
++static_assert(__is_same(decltype(PickFalse::selected), char));
++
++void checkPickFalse(PickFalse &value) {
++  value.selected = 1;
++  (void)value.rejected; // expected-error {{no member named 'rejected'}}
++}
++
++struct PickElseIf {
++  if constexpr (false) {
++    int first;
++  } else if constexpr (true) {
++    long second;
++  } else {
++    char third;
++  }
++};
++
++static_assert(__is_same(decltype(PickElseIf::second), long));
++
++void checkPickElseIf(PickElseIf &value) {
++  value.second = 1;
++  (void)value.first; // expected-error {{no member named 'first'}}
++  (void)value.third; // expected-error {{no member named 'third'}}
++}
++
++template <bool Enabled>
++struct DependentPick {
++  if constexpr (Enabled) {
++    int enabled;
++  } else {
++    long disabled;
++  }
++};
++
++static_assert(__is_same(decltype(DependentPick<true>::enabled), int));
++static_assert(__is_same(decltype(DependentPick<false>::disabled), long));
++
++void checkDependentTrue(DependentPick<true> &value) {
++  value.enabled = 1;
++  (void)value.disabled; // expected-error {{no member named 'disabled'}}
++}
++
++void checkDependentFalse(DependentPick<false> &value) {
++  value.disabled = 1;
++  (void)value.enabled; // expected-error {{no member named 'enabled'}}
++}
+-- 
+2.52.0.windows.1
+

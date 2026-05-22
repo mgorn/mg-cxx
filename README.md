@@ -64,5 +64,30 @@ I also changed the name of the clang binary to `clang-mg`. This is just so I cou
 ## cURL Include
 You can use a `#curlinclude` directive to have curl download a header into the `.cxxmg/` cache dir & include it like normal.
 
+## Traits
+A simpler alternative to C++'s concepts is my trait system. It's not exactly how you'd expect it to be from other languages, but it's simple and allows you to test attributes of structures with ease.
+Defining a "trait" would be like defining any `struct` or `class`, but it's just a concept of one and cannot be used like one:
+```
+// An example structure
+struct A {
+  int value = 0;
+};
+struct B {
+  bool test = false;
+};
+
+// A trait describing a struct/class containing an 'int' named 'value'
+trait ValueTrait {
+  int value;
+};
+trait TestTrait {
+  bool test;
+};
+```
+We can then use the traits as follows:
+```
+
+```
+
 # Building
 Managing an actual LLVM fork is quite a task when it's being constantly updated. This repository contains a set of patches that can be applied to the LLVM source code to add each feature.
