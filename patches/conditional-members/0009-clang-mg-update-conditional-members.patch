@@ -3,9 +3,6 @@ From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:50:58 -0400
 Subject: [PATCH 9/9] clang-mg: update conditional-members
 
----
- clang/lib/Sema/SemaDeclCXX.cpp | 31 +++++++++++++++++++++++++++----
- 1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
 index 53652dd30b73..7d04a18fc5ff 100644
@@ -99,5 +96,5 @@ index 53652dd30b73..7d04a18fc5ff 100644
    ActOnDocumentableDecl(NewND);
    return NewND;
 -- 
-2.54.0
+2.52.0.windows.1
 
