@@ -14,7 +14,7 @@ Current areas of improvement include:
 
 - `if constexpr` inside class and struct member scopes
 - A renamed compiler executable, `clang-mg`
-- `#curlinclude` for cached remote header includes
+- `#urlinclude` for cached remote header includes
 - Traits for structural member checks
 - Type expressions for composing and comparing structures
 
@@ -142,9 +142,36 @@ int main() {
 }
 ```
 
-Downloaded files are cached in the `.cxxmg/` directory so the same header does not need to be downloaded repeatedly.
+Downloaded files are cached in the `.cxxmg-cache/` directory so the same header does not need to be downloaded repeatedly. The compiler may use `curl`, `wget`, or a configured downloader.
 
-This feature is useful for experiments, small projects, examples, and quick dependency tests. For production code, remote includes should be used carefully because they introduce security, reproducibility, and availability concerns. Prefer pinned URLs, trusted sources, and committed lockfiles or vendored copies when stability matters.
+Both quote and angle forms are supported and use the same cache entry:
+
+```cpp
+#urlinclude "https://example.com/some/header.hpp"
+#urlinclude <https://example.com/some/header.hpp>
+```
+
+Useful options:
+
+- `-furlinclude` / `-fno-urlinclude`: enable or disable the directive.
+- `-furlinclude-cache-dir=<path>`: choose a cache directory.
+- `-furlinclude-tool=<tool>`: choose `curl`, `wget`, or a custom downloader.
+- `-furlinclude-tool-arg=<arg>`: pass an extra argument to a custom downloader.
+- `-furlinclude-timeout=<seconds>`: set the download timeout.
+- `-furlinclude-offline`: use only cached URL headers.
+- `-furlinclude-refresh`: re-download URL headers and update the cache after successful downloads.
+- `-furlinclude-progress=auto|always|never`: control downloader progress output.
+- `-furlinclude-allow-http`: permit insecure `http://` URLs.
+
+Feature detection is available through the `__cxxmg_urlinclude` macro:
+
+```cpp
+#ifdef __cxxmg_urlinclude
+#urlinclude "https://example.com/some/header.hpp"
+#endif
+```
+
+This feature is useful for experiments, small projects, examples, and quick dependency tests. For production code, remote includes should be used carefully because they introduce security, reproducibility, and availability concerns. Prefer pinned URLs, trusted sources, offline mode, committed lockfiles, or vendored copies when stability matters. A common CI pattern is to populate the cache once, then build with `-furlinclude-offline`.
 
 ### Traits
 
