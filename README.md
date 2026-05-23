@@ -1,32 +1,89 @@
-# C++MG
+# clang-mg / C++MG
 
-C++MG is a Clang/LLVM-based C++ compiler project. The goal is to explore language features that make C++ easier to configure, compose, and extend while still keeping the performance, control, and systems-level strengths that make C++ valuable.
+**clang-mg** is the compiler executable for **C++MG**, an experimental Clang/LLVM-based C++ compiler project exploring new C++ language features for clearer compile-time programming.
 
-The main focus is improving compile-time programming and making certain patterns less awkward, especially cases where modern C++ already has the information it needs but still forces the programmer into verbose workarounds.
+The project asks a practical question:
 
-Come talk about the project on [Discord](https://discord.gg/RM8BVwAfZy)!
+> What would C++ feel like if common compile-time patterns were supported directly by the compiler?
+
+C++MG focuses on features that make C++ easier to configure, compose, and extend while preserving the performance, control, and systems-level strengths that make C++ valuable.
+
+- Project repository: [github.com/mgorn/mg-cxx](https://github.com/mgorn/mg-cxx)
+- Website: [mwg.codes/clang-mg](https://mwg.codes/clang-mg/)
+- Community: [Discord](https://discord.gg/RM8BVwAfZy)
+
+---
+
+## Why this exists
+
+Modern C++ is powerful, but advanced compile-time behavior often depends on templates, macros, partial specializations, helper base classes, and other indirect patterns. Those tools work, but they can make code harder to read, modify, generate, and verify.
+
+C++MG experiments with compiler features that let programmers express intent more directly. The goal is not to replace the strengths of C++, but to make certain common patterns easier to write and easier to reason about.
+
+This matters for humans and for AI-assisted development. AI coding tools can help generate and maintain software, but they can struggle when a language requires scattered template specializations, macro-heavy code, or several indirect versions of the same type. Cleaner compile-time features could make generated C++ easier to inspect while still compiling down to efficient code.
+
+C++MG is especially interested in software that needs compile-time configuration, such as:
+
+- game engines
+- embedded systems
+- operating systems
+- graphics libraries
+- cross-platform applications
+- WebAssembly projects
+- compiler tooling
+- performance-sensitive libraries
+
+In these kinds of projects, developers often want unused members, code paths, or dependencies to disappear at compile time instead of relying on runtime checks.
+
+---
 
 ## Project status
 
-C++MG is currently experimental. The syntax, implementation details, feature names, and patch layout may change as the project develops.
+C++MG is currently experimental. Syntax, implementation details, feature names, diagnostics, and patch layout may change as the project develops.
 
 Current areas of improvement include:
 
 - `if constexpr` inside class and struct member scopes
-- A renamed compiler executable, `clang-mg`
+- a renamed compiler executable, `clang-mg`
 - `#urlinclude` for cached remote header includes
-- Traits for structural member checks
-- Type expressions for composing and comparing structures
+- traits for structural member checks
+- type expressions for composing and comparing structures
 
-## Features
+This project is intended for experiments, prototypes, compiler hacking, and discussion about future C++ language design. It should not be treated as a stable production compiler yet.
 
-### `if constexpr` class members
+---
+
+## The core idea
 
 C++ already has `if constexpr` for conditionally compiling code inside functions. C++MG extends that idea to class and struct member declarations.
 
-The motivation is simple: sometimes a type should only contain a member when a compile-time condition is true. Standard C++ usually forces this through helper templates, partial specializations, inheritance tricks, or wrapper types.
+For example:
 
-For example, in standard C++, a conditional member often ends up looking something like this:
+```cpp
+struct Player {
+  static constexpr bool HasInventory = true;
+
+  int health;
+
+  if constexpr (HasInventory) {
+    int inventorySlots;
+  }
+};
+```
+
+If `HasInventory` is true, the class contains `inventorySlots`.
+
+If `HasInventory` is false, that member is not added to the class at all.
+
+That means optional parts of a type can be written directly where they belong instead of being spread across helper templates, inheritance tricks, macro branches, or separate type definitions.
+
+---
+
+## Features
+
+### Class-scope `if constexpr`
+
+Standard C++ often forces conditional members through helper types or partial specializations. For example, a conditional field may require an extra storage template:
 
 ```cpp
 template<bool Enabled>
@@ -50,7 +107,7 @@ struct B {
 };
 ```
 
-With C++MG, the intent can be written directly in the class body:
+With C++MG, the intent can be written directly inside the class body:
 
 ```cpp
 struct B {
@@ -92,7 +149,7 @@ static_assert(WithCounter::hasCounter);
 static_assert(!WithoutCounter::hasCounter);
 ```
 
-When using conditional members, any code that accesses those members should also be guarded by a compile-time check. Otherwise, the compiler may still try to semantically analyze code that refers to a member that does not exist for a given type.
+When using conditional members, code that accesses those members should also be guarded by a compile-time check. Otherwise, the compiler may still semantically analyze code that refers to a member that does not exist for a given type.
 
 Feature detection is available through the `__cxxmg_if_constexpr_member` macro:
 
@@ -108,7 +165,7 @@ struct Example {
 #endif
 ```
 
-You can also use Clang-style feature detection:
+Clang-style feature detection is also available:
 
 ```cpp
 #if __has_feature(cxxmg_if_constexpr_members)
@@ -116,7 +173,9 @@ You can also use Clang-style feature detection:
 #endif
 ```
 
-### Renamed executable: `clang-mg`
+---
+
+### Renamed compiler executable: `clang-mg`
 
 The compiler executable is named `clang-mg` instead of `clang`.
 
@@ -127,6 +186,8 @@ Example:
 ```bash
 clang-mg main.cpp -o app
 ```
+
+---
 
 ### `#urlinclude`
 
@@ -142,7 +203,7 @@ int main() {
 }
 ```
 
-Downloaded files are cached in the `.cxxmg-cache/` directory so the same header does not need to be downloaded repeatedly. The compiler may use `curl`, `wget`, or a configured downloader.
+Downloaded files are cached in `.cxxmg-cache/` so the same header does not need to be downloaded repeatedly. The compiler may use `curl`, `wget`, or a configured downloader.
 
 Both quote and angle forms are supported and use the same cache entry:
 
@@ -171,7 +232,15 @@ Feature detection is available through the `__cxxmg_urlinclude` macro:
 #endif
 ```
 
-This feature is useful for experiments, small projects, examples, and quick dependency tests. For production code, remote includes should be used carefully because they introduce security, reproducibility, and availability concerns. Prefer pinned URLs, trusted sources, offline mode, committed lockfiles, or vendored copies when stability matters. A common CI pattern is to populate the cache once, then build with `-furlinclude-offline`.
+Remote includes are useful for experiments, examples, small projects, and quick dependency tests. For production code, use them carefully: remote includes can create security, reproducibility, and availability risks. Prefer pinned URLs, trusted sources, offline mode, committed lockfiles, or vendored copies when stability matters.
+
+A common CI pattern is to populate the cache once, then build with:
+
+```bash
+clang-mg -furlinclude-offline main.cpp -o app
+```
+
+---
 
 ### Traits
 
@@ -205,6 +274,8 @@ static constexpr bool bHasTest = TestTrait && B;
 ```
 
 The goal is to make simple structural checks readable without requiring a larger concepts-based setup.
+
+---
 
 ### Type expressions
 
@@ -249,21 +320,54 @@ static constexpr bool hasAllRequiredMembers = CombinedTrait && C;
 
 The goal is to make structural composition and structural checks easier to express directly in the language.
 
+---
+
+## Example use case
+
+A project may have a struct that needs extra debugging fields only when debug mode is enabled:
+
+```cpp
+struct Entity {
+  int id;
+  float x;
+  float y;
+
+  static constexpr bool DebugMode = true;
+
+  if constexpr (DebugMode) {
+    const char* debugName;
+    int debugFlags;
+  }
+};
+```
+
+With class-scope `if constexpr`, debug-only fields can be written directly inside the struct. When debug mode is disabled, those members do not exist.
+
+This avoids needing a separate debug version of the struct or preprocessor macros around the fields.
+
+---
+
 ## Building
 
 Maintaining a full LLVM fork can be difficult because LLVM changes constantly. This repository is organized around patch sets that can be applied to an LLVM checkout to enable individual C++MG features.
 
 A typical workflow is:
 
-1. Clone or update LLVM.
-`./build.sh update`
-2. Apply the desired C++MG patches.
-`./build.sh apply <feature>`
-3. Configure & build LLVM/Clang.
-`./build.sh build`
-4. Install the compiler/add it to PATH
-`./build.sh install`
-5. Use the resulting `clang-mg` executable to compile test programs.
+```bash
+# Clone or update LLVM.
+./build.sh update
+
+# Apply the desired C++MG patches.
+./build.sh apply <feature>
+
+# Configure and build LLVM/Clang.
+./build.sh build
+
+# Install the compiler or add it to PATH.
+./build.sh install
+```
+
+After installation, use the resulting `clang-mg` executable to compile test programs.
 
 On Windows, use the PowerShell build script:
 
@@ -272,6 +376,8 @@ On Windows, use the PowerShell build script:
 ```
 
 The exact build command may vary depending on your platform, generator, LLVM checkout location, and enabled features.
+
+---
 
 ## Testing a feature
 
@@ -315,32 +421,69 @@ int main() {
 }
 ```
 
+---
+
+## Patch-based workflow
+
+Another important part of C++MG is the patch management system.
+
+Rather than keeping every experiment inside one large fork, features are saved as patch sets. This makes it easier to:
+
+- separate experimental features
+- apply features one at a time
+- update against newer LLVM versions
+- track what files were changed
+- share or remove features cleanly
+
+This workflow keeps the project more organized and easier to maintain as LLVM changes over time.
+
+---
+
+## Implementation challenges
+
+Clang is a large and complex codebase. A language feature usually affects more than one part of the compiler.
+
+For a feature like class-scope `if constexpr`, changes may be needed in areas such as:
+
+- the parser
+- semantic analysis
+- AST declaration handling
+- template instantiation
+- diagnostics
+- tests
+
+The feature also needs to behave correctly in more complicated C++ cases, such as templates, access specifiers, member functions, typedefs, using declarations, and static members.
+
+---
+
 ## Goals
 
-C++MG is meant to answer a practical question:
+C++MG is especially interested in features that:
 
-> What would C++ feel like if some common compile-time patterns were supported directly by the compiler?
+- reduce template boilerplate
+- make compile-time configuration easier to read
+- improve structural programming in C++
+- keep generated code efficient
+- help humans and AI tools work with C++ more effectively
 
-The project is especially interested in features that:
+The larger goal is to explore how C++ could become more expressive without giving up performance, control, or compatibility with systems programming workflows.
 
-- Reduce template boilerplate
-- Make compile-time configuration easier to read
-- Improve structural programming in C++
-- Keep generated code efficient
-- Help humans and AI tools work with C++ more effectively
+---
 
 ## Contributing
 
 Issues, experiments, bug reports, and feature ideas are welcome.
 
-If you test the compiler and find a case where a feature behaves incorrectly, include:
+If you test the compiler and find a case where a feature behaves incorrectly, please include:
 
-- The smallest code example that reproduces the issue
-- The command used to compile it
-- The expected behavior
-- The actual behavior
-- Your operating system and compiler build details
+- the smallest code example that reproduces the issue
+- the command used to compile it
+- the expected behavior
+- the actual behavior
+- your operating system and compiler build details
+
+---
 
 ## License
 
-I'm still deciding on licensing, talk to me if you'd like to use this in production for some reason.
+Licensing is still being decided. Please get in touch before using C++MG in production.
