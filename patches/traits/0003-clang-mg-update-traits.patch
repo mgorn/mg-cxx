@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Sat, 23 May 2026 19:34:28 -0400
+Subject: [PATCH 3/3] clang-mg: update traits
+
+---
+ clang/lib/Sema/SemaDeclCXXMG.cpp | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
+index 9105920532e6..acb4ec513a11 100644
+--- a/clang/lib/Sema/SemaDeclCXXMG.cpp
++++ b/clang/lib/Sema/SemaDeclCXXMG.cpp
+@@ -4,9 +4,23 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
++#include "clang/Sema/SemaInternal.h"
++
++#include "clang/AST/DeclGroup.h"
++#include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclTemplate.h"
++#include "clang/AST/Expr.h"
++#include "clang/Sema/CXXFieldCollector.h"
++
++#include "llvm/ADT/ArrayRef.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/Support/Casting.h"
++
++#include <cassert>
++#include <utility>
++
+ using namespace clang;
+ 
+-namespace {
+ void Sema::BeginCXXMGConditionalMemberArm(CXXRecordDecl *TargetRecord,
+                                           AccessSpecifier AS) {
+   assert(TargetRecord && "conditional member arm needs a target record");
+@@ -145,5 +159,4 @@ void Sema::ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl,
+     }
+     Diag(D->getLocation(), diag::err_cxxmg_trait_invalid_member);
+   }
+-}
+ }
+\ No newline at end of file
+-- 
+2.52.0.windows.1
+
