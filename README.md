@@ -128,14 +128,14 @@ Example:
 clang-mg main.cpp -o app
 ```
 
-### `#curlinclude`
+### `#urlinclude`
 
-C++MG adds a `#curlinclude` directive for downloading a remote header, caching it locally, and including it like a normal header.
+C++MG adds a `#urlinclude` directive for downloading a remote header, caching it locally, and including it like a normal header.
 
 Example:
 
 ```cpp
-#curlinclude "https://example.com/some/header.hpp"
+#urlinclude "https://example.com/some/header.hpp"
 
 int main() {
   return 0;
