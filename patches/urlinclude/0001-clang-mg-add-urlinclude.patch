@@ -3,25 +3,6 @@ From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 23:07:50 -0400
 Subject: [PATCH] clang-mg: add urlinclude
 
----
- .../include/clang/Basic/DiagnosticLexKinds.td |  22 +
- clang/include/clang/Basic/TokenKinds.def      |   1 +
- .../clang/Lex/DependencyDirectivesScanner.h   |   1 +
- clang/include/clang/Lex/PreprocessingRecord.h |   7 +-
- clang/include/clang/Lex/Preprocessor.h        |   1 +
- clang/include/clang/Lex/PreprocessorOptions.h |  17 +
- clang/include/clang/Options/Options.td        |  31 ++
- clang/lib/Basic/IdentifierTable.cpp           |   1 +
- clang/lib/Driver/ToolChains/Clang.cpp         |  10 +
- clang/lib/Frontend/CompilerInvocation.cpp     |  57 +++
- clang/lib/Frontend/InitPreprocessor.cpp       |   2 +
- clang/lib/Lex/DependencyDirectivesScanner.cpp |   2 +
- clang/lib/Lex/Lexer.cpp                       |   1 +
- clang/lib/Lex/PPDirectives.cpp                | 406 ++++++++++++++++++
- clang/lib/Lex/PreprocessingRecord.cpp         |   4 +
- clang/lib/Serialization/ASTReader.cpp         |   4 +
- clang/lib/Serialization/ASTWriter.cpp         |   2 +-
- 17 files changed, 566 insertions(+), 3 deletions(-)
 
 diff --git a/clang/include/clang/Basic/DiagnosticLexKinds.td b/clang/include/clang/Basic/DiagnosticLexKinds.td
 index 383bf1a7fdb3..dda50c6e45ed 100644
@@ -842,5 +823,5 @@ index 074b0fccdb65..d3c6ac7a97ce 100644
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob));
      InclusionAbbrev = Stream.EmitAbbrev(std::move(Abbrev));
 -- 
-2.52.0.windows.1
+2.54.0
 
