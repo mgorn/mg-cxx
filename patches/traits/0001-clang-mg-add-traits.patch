@@ -3,49 +3,6 @@ From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:15:17 -0400
 Subject: [PATCH 1/3] clang-mg: add traits
 
----
- clang/include/clang/AST/Decl.h                |  1 +
- clang/include/clang/AST/DeclCXX.h             | 44 +++++++++++++
- clang/include/clang/AST/RecursiveASTVisitor.h |  1 +
- clang/include/clang/AST/TextNodeDumper.h      |  1 +
- clang/include/clang/AST/TypeBase.h            |  8 ++-
- clang/include/clang/Basic/DeclNodes.td        |  3 +-
- .../clang/Basic/DiagnosticParseKinds.td       |  4 ++
- .../clang/Basic/DiagnosticSemaKinds.td        | 11 ++++
- clang/include/clang/Basic/Features.def        |  1 +
- clang/include/clang/Basic/IdentifierTable.h   |  5 +-
- clang/include/clang/Basic/Specifiers.h        |  1 +
- clang/include/clang/Basic/TokenKinds.def      |  1 +
- clang/include/clang/Parse/Parser.h            |  2 +
- clang/include/clang/Sema/DeclSpec.h           |  3 +-
- clang/include/clang/Sema/Sema.h               |  8 +++
- .../include/clang/Serialization/ASTBitCodes.h |  5 +-
- clang/lib/AST/DeclBase.cpp                    |  1 +
- clang/lib/AST/DeclCXX.cpp                     | 17 +++++
- clang/lib/AST/TextNodeDumper.cpp              |  8 +++
- clang/lib/AST/Type.cpp                        | 11 ++++
- clang/lib/Basic/IdentifierTable.cpp           |  6 +-
- clang/lib/Frontend/InitPreprocessor.cpp       |  1 +
- clang/lib/Parse/ParseDecl.cpp                 |  4 ++
- clang/lib/Parse/ParseDeclCXX.cpp              | 17 +++--
- clang/lib/Parse/ParseDeclCXXMG.cpp            | 62 ++++++++++++++++++
- clang/lib/Sema/DeclSpec.cpp                   |  2 +
- clang/lib/Sema/SemaDecl.cpp                   | 41 ++++++++++++
- clang/lib/Sema/SemaDeclCXX.cpp                | 64 +++++++++++++++++++
- clang/lib/Sema/SemaExpr.cpp                   |  7 ++
- clang/lib/Sema/SemaExprCXX.cpp                |  6 ++
- .../lib/Sema/SemaTemplateInstantiateDecl.cpp  |  7 ++
- clang/lib/Serialization/ASTReaderDecl.cpp     | 12 ++++
- clang/lib/Serialization/ASTWriterDecl.cpp     |  9 +++
- clang/test/CXXMG/traits/trait-ast-dump.cpp    | 14 ++++
- clang/test/CXXMG/traits/trait-definition.cpp  | 26 ++++++++
- clang/test/CXXMG/traits/trait-invalid.cpp     | 18 ++++++
- clang/test/CXXMG/traits/trait-pch.cpp         | 18 ++++++
- 37 files changed, 438 insertions(+), 12 deletions(-)
- create mode 100644 clang/test/CXXMG/traits/trait-ast-dump.cpp
- create mode 100644 clang/test/CXXMG/traits/trait-definition.cpp
- create mode 100644 clang/test/CXXMG/traits/trait-invalid.cpp
- create mode 100644 clang/test/CXXMG/traits/trait-pch.cpp
 
 diff --git a/clang/include/clang/AST/Decl.h b/clang/include/clang/AST/Decl.h
 index 01b9ba45be9a..d08eb0902447 100644
@@ -261,10 +218,10 @@ index 8da6fd4cf454..a3192668521f 100644
      TST_typeofType,        // C23 (and GNU extension) typeof(type-name)
      TST_typeofExpr,        // C23 (and GNU extension) typeof(expression)
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index e405554dc350..5161c07487b6 100644
+index f07d8ebb7503..aec5d827ae11 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
-@@ -390,6 +390,7 @@ KEYWORD(static_cast                 , KEYCXX)
+@@ -389,6 +389,7 @@ KEYWORD(static_cast                 , KEYCXX)
  KEYWORD(template                    , KEYCXX)
  KEYWORD(this                        , KEYCXX)
  KEYWORD(throw                       , KEYCXX)
@@ -458,7 +415,7 @@ index 96a398aa21da..895b9d0f1266 100644
      return "union";
    case ElaboratedTypeKeyword::Enum:
 diff --git a/clang/lib/Basic/IdentifierTable.cpp b/clang/lib/Basic/IdentifierTable.cpp
-index e993303cf967..61435f62debd 100644
+index a2e9316e4e37..4f6c8ea04477 100644
 --- a/clang/lib/Basic/IdentifierTable.cpp
 +++ b/clang/lib/Basic/IdentifierTable.cpp
 @@ -108,6 +108,8 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
@@ -482,7 +439,7 @@ index e993303cf967..61435f62debd 100644
  
  static void MarkIdentifierAsKeywordInCpp(IdentifierTable &Table,
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index da30b922c8ec..2728233bfdd2 100644
+index 179b366ceaa3..8aa0faebe182 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
 @@ -758,6 +758,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,

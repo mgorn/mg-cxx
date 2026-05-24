@@ -3,12 +3,6 @@ From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:23:48 -0400
 Subject: [PATCH 2/3] clang-mg: update traits
 
----
- clang/lib/Sema/CMakeLists.txt    |   1 +
- clang/lib/Sema/SemaDeclCXX.cpp   | 140 -----------------------------
- clang/lib/Sema/SemaDeclCXXMG.cpp | 149 +++++++++++++++++++++++++++++++
- 3 files changed, 150 insertions(+), 140 deletions(-)
- create mode 100644 clang/lib/Sema/SemaDeclCXXMG.cpp
 
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
 index 0ebf56ecffe6..49f4cefccdc1 100644

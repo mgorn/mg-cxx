@@ -3,9 +3,6 @@ From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:34:28 -0400
 Subject: [PATCH 3/3] clang-mg: update traits
 
----
- clang/lib/Sema/SemaDeclCXXMG.cpp | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
 index 9105920532e6..acb4ec513a11 100644

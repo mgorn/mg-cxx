@@ -38,7 +38,7 @@ index 383bf1a7fdb3..dda50c6e45ed 100644
  def err_pp_missing_macro_name : Error<"macro name missing">;
  def err_pp_missing_rparen_in_macro_def : Error<
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index f07d8ebb7503..e405554dc350 100644
+index aec5d827ae11..5161c07487b6 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
 @@ -115,6 +115,7 @@ PPKEYWORD(defined)
@@ -176,10 +176,10 @@ index 753e3ac1b74a..b205638d1d2d 100644
  // -Wno-error=invalid-gnu-asm-cast, which is the only thing the flag used to
  // control.
 diff --git a/clang/lib/Basic/IdentifierTable.cpp b/clang/lib/Basic/IdentifierTable.cpp
-index a2e9316e4e37..e993303cf967 100644
+index 4f6c8ea04477..61435f62debd 100644
 --- a/clang/lib/Basic/IdentifierTable.cpp
 +++ b/clang/lib/Basic/IdentifierTable.cpp
-@@ -454,6 +454,7 @@ tok::PPKeywordKind IdentifierInfo::getPPKeywordID() const {
+@@ -456,6 +456,7 @@ tok::PPKeywordKind IdentifierInfo::getPPKeywordID() const {
  
    CASE( 8, 'e', 'i', elifndef);
    CASE( 8, 'u', 'a', unassert);
@@ -284,10 +284,10 @@ index 60749104252a..0d85b1d9d70a 100644
    // preprocessor as we never want to emit the
    // "editor placeholder in source file" error in PP only mode.
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 179b366ceaa3..da30b922c8ec 100644
+index 8aa0faebe182..2728233bfdd2 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
-@@ -857,6 +857,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
+@@ -858,6 +858,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
    Builder.defineMacro("__clang_version__",
                        "\"" CLANG_VERSION_STRING " "
                        + getClangFullRepositoryVersion() + "\"");
