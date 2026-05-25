@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 00:05:15 -0400
-Subject: [PATCH 3/6] clang-mg: update type-expressions
+Subject: [PATCH 3/7] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
@@ -69,7 +69,7 @@ index 714651f1b2e8..6b4714b915f8 100644
  
  struct UnaryTransformTypeLocInfo {
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 7bab2d7dcddf..46fdaf2d6d11 100644
+index f8527af2bfe6..6ce59f62e00a 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -18,6 +18,7 @@
