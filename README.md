@@ -18,7 +18,7 @@ C++MG focuses on features that make C++ easier to configure, compose, and extend
 
 Modern C++ is powerful, but advanced compile-time behavior often depends on templates, macros, partial specializations, helper base classes, and other indirect patterns. Those tools work, but they can make code harder to read, modify, generate, and verify.
 
-C++MG experiments with compiler features that let programmers express intent more directly. The goal is not to replace the strengths of C++, but to make certain common patterns easier to write and easier to reason about.
+C++MG provides compiler features that let programmers express intent more directly. The goal is not to replace the strengths of C++, but to make certain common patterns easier to write and easier to reason about.
 
 This matters for humans and for AI-assisted development. AI coding tools can help generate and maintain software, but they can struggle when a language requires scattered template specializations, macro-heavy code, or several indirect versions of the same type. Cleaner compile-time features could make generated C++ easier to inspect while still compiling down to efficient code.
 
@@ -29,7 +29,7 @@ C++MG is especially interested in software that needs compile-time configuration
 - operating systems
 - graphics libraries
 - cross-platform applications
-- WebAssembly projects
+- WebAssembly modules
 - compiler tooling
 - performance-sensitive libraries
 
@@ -41,41 +41,7 @@ In these kinds of projects, developers often want unused members, code paths, or
 
 C++MG is currently experimental. Syntax, implementation details, feature names, diagnostics, and patch layout may change as the project develops.
 
-Current areas of improvement include:
-
-- `if constexpr` inside class and struct member scopes
-- a renamed compiler executable, `clang-mg`
-- `#urlinclude` for cached remote header includes
-- traits for structural member checks
-- type expressions for composing and comparing structures
-
-This project is intended for experiments, prototypes, compiler hacking, and discussion about future C++ language design. It should not be treated as a stable production compiler yet.
-
----
-
-## The core idea
-
-C++ already has `if constexpr` for conditionally compiling code inside functions. C++MG extends that idea to class and struct member declarations.
-
-For example:
-
-```cpp
-struct Player {
-  static constexpr bool HasInventory = true;
-
-  int health;
-
-  if constexpr (HasInventory) {
-    int inventorySlots;
-  }
-};
-```
-
-If `HasInventory` is true, the class contains `inventorySlots`.
-
-If `HasInventory` is false, that member is not added to the class at all.
-
-That means optional parts of a type can be written directly where they belong instead of being spread across helper templates, inheritance tricks, macro branches, or separate type definitions.
+This project is intended for experiments, prototypes, compiler hacking, and discussion about future C++ language design. It should not be treated as a stable production compiler YET.
 
 ---
 
@@ -117,37 +83,16 @@ struct B {
     int counter = 0;
   }
 
-  template<typename T = B>
-  void func(T& value) {
-    if constexpr (T::hasCounter) {
-      value.counter = 2;
+  // NOTE: Either 'B' or 'func' must be templates so that the conditional body is not semantically checked immediately
+  void func() {
+    if constexpr (hasCounter) {
+      counter = 2;
     }
   }
 };
 ```
 
-The member only exists when the condition is true:
-
-```cpp
-struct WithCounter {
-  static constexpr bool hasCounter = true;
-
-  if constexpr (hasCounter) {
-    int counter = 0;
-  }
-};
-
-struct WithoutCounter {
-  static constexpr bool hasCounter = false;
-
-  if constexpr (hasCounter) {
-    int counter = 0;
-  }
-};
-
-static_assert(WithCounter::hasCounter);
-static_assert(!WithoutCounter::hasCounter);
-```
+The member only exists when the condition is true.
 
 When using conditional members, code that accesses those members should also be guarded by a compile-time check. Otherwise, the compiler may still semantically analyze code that refers to a member that does not exist for a given type.
 
@@ -184,7 +129,7 @@ This keeps C++MG separate from a normal Clang installation, making it easier to 
 Example:
 
 ```bash
-clang-mg main.cpp -o app
+clang-mg++ main.cpp -o app
 ```
 
 ---
@@ -234,10 +179,10 @@ Feature detection is available through the `__cxxmg_urlinclude` macro:
 
 Remote includes are useful for experiments, examples, small projects, and quick dependency tests. For production code, use them carefully: remote includes can create security, reproducibility, and availability risks. Prefer pinned URLs, trusted sources, offline mode, committed lockfiles, or vendored copies when stability matters.
 
-A common CI pattern is to populate the cache once, then build with:
+An advised CI pattern is to populate the cache once, then build with:
 
 ```bash
-clang-mg -furlinclude-offline main.cpp -o app
+clang-mg++ -furlinclude-offline main.cpp -o app
 ```
 
 ---
@@ -249,6 +194,30 @@ C++MG traits are a lightweight way to describe the structure a type should have.
 A trait looks similar to a `struct` or `class`, but it describes a required shape instead of defining a normal type:
 
 ```cpp
+struct S {
+  int value = 0;
+};
+
+trait ValueTrait {
+  int value;
+};
+```
+
+Traits can then be used to test whether a type has the required members:
+
+```cpp
+static constexpr bool hasValue = ValueTrait && S;
+```
+
+The goal is to make simple structural checks readable without requiring a more complicated concepts-based setup.
+
+---
+
+### Type expressions
+
+Type expressions allow classes, structs, and traits to be combined or compared more directly. The idea is similar to set operations, but applied to type members.
+
+```cpp
 struct A {
   int value = 0;
 };
@@ -257,33 +226,6 @@ struct B {
   bool test = false;
 };
 
-trait ValueTrait {
-  int value;
-};
-
-trait TestTrait {
-  bool test;
-};
-```
-
-Traits can then be used to test whether a type has the required members:
-
-```cpp
-static constexpr bool aHasValue = ValueTrait && A;
-static constexpr bool bHasTest = TestTrait && B;
-```
-
-The goal is to make simple structural checks readable without requiring a larger concepts-based setup.
-
----
-
-### Type expressions
-
-Type expressions allow classes, structs, and traits to be combined or compared more directly. The idea is similar to set operations, but applied to type members.
-
-Using the previous `A`, `B`, `ValueTrait`, and `TestTrait` examples:
-
-```cpp
 using C = A + B;
 ```
 
@@ -299,6 +241,14 @@ struct C {
 Traits can also be combined:
 
 ```cpp
+trait ValueTrait {
+  int value;
+};
+
+trait TestTrait {
+  bool test;
+};
+
 using CombinedTrait = ValueTrait + TestTrait;
 ```
 
@@ -322,7 +272,7 @@ The goal is to make structural composition and structural checks easier to expre
 
 ---
 
-## Example use case
+## Simple example use case
 
 A project may have a struct that needs extra debugging fields only when debug mode is enabled:
 
@@ -401,7 +351,7 @@ int main() {
 Compile it with C++MG:
 
 ```bash
-clang-mg test.cpp -o test
+clang-mg++ test.cpp -o test
 ```
 
 To verify that disabled conditional members are not available, this should fail when `enabled` is `false`:
