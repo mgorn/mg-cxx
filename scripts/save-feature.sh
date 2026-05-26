@@ -3,7 +3,7 @@ set -euo pipefail
 
 FEATURE_NAME="${1:-}"
 
-if [ -z "$FEATURE_NAME" ]; then
+if [ -z "$FEATURE_NAME" ] || [ "$FEATURE_NAME" = "-h" ] || [ "$FEATURE_NAME" = "--help" ]; then
     echo "Usage: $0 <feature-name> [base-ref]"
     exit 1
 fi
@@ -24,19 +24,24 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ -d ".git/rebase-merge" ] || [ -d ".git/rebase-apply" ]; then
+GIT_DIR="$(git rev-parse --git-dir)"
+if [[ "$GIT_DIR" != /* ]]; then
+    GIT_DIR="$(pwd)/$GIT_DIR"
+fi
+
+if [ -d "$GIT_DIR/rebase-merge" ] || [ -d "$GIT_DIR/rebase-apply" ]; then
     echo "ERROR: A rebase or git-am operation is currently in progress."
     echo "Finish or abort it before saving feature patches."
     exit 1
 fi
 
-if [ -f ".git/MERGE_HEAD" ]; then
+if [ -f "$GIT_DIR/MERGE_HEAD" ]; then
     echo "ERROR: A merge is currently in progress."
     echo "Finish or abort it before saving feature patches."
     exit 1
 fi
 
-if [ -f ".git/CHERRY_PICK_HEAD" ]; then
+if [ -f "$GIT_DIR/CHERRY_PICK_HEAD" ]; then
     echo "ERROR: A cherry-pick is currently in progress."
     echo "Finish or abort it before saving feature patches."
     exit 1
@@ -69,6 +74,99 @@ resolve_base_ref() {
     echo "$requested_ref"
 }
 
+get_patch_id_from_file() {
+    local patch_path="$1"
+    local line
+
+    line="$(git patch-id --stable < "$patch_path" | head -n 1 || true)"
+    if [ -z "$line" ]; then
+        return 0
+    fi
+
+    awk '{print $1}' <<< "$line"
+}
+
+get_patch_id_from_commit() {
+    local commit="$1"
+    local line
+
+    line="$(git show --format=medium --patch --binary "$commit" | git patch-id --stable | head -n 1 || true)"
+    if [ -z "$line" ]; then
+        return 0
+    fi
+
+    awk '{print $1}' <<< "$line"
+}
+
+commit_is_selected() {
+    local commit="$1"
+    local selected
+
+    for selected in "${selected_commits[@]}"; do
+        if [ "$selected" = "$commit" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+add_commit_if_missing() {
+    local commit="$1"
+
+    if ! commit_is_selected "$commit"; then
+        selected_commits+=("$commit")
+    fi
+}
+
+commit_summary() {
+    local commit="$1"
+    local short_hash
+    local subject
+
+    short_hash="$(git rev-parse --short "$commit")"
+    subject="$(git show -s --format=%s "$commit")"
+
+    echo "$short_hash $subject"
+}
+
+write_selected_commit_list() {
+    local commit
+
+    for commit in "${selected_commits[@]}"; do
+        echo "  $(commit_summary "$commit")"
+    done
+}
+
+save_selected_commits_as_patches() {
+    local output_dir="$1"
+    local patch_number=1
+    local commit
+    local one_commit_dir
+    local generated_patches
+
+    for commit in "${selected_commits[@]}"; do
+        one_commit_dir="$output_dir/commit-$patch_number"
+        mkdir -p "$one_commit_dir"
+
+        git format-patch --zero-commit --start-number "$patch_number" -1 "$commit" -o "$one_commit_dir"
+
+        shopt -s nullglob
+        generated_patches=("$one_commit_dir"/*.patch)
+        shopt -u nullglob
+
+        if [ "${#generated_patches[@]}" -ne 1 ]; then
+            echo "ERROR: Expected exactly one generated patch for commit $commit, but found ${#generated_patches[@]}."
+            exit 1
+        fi
+
+        mv "${generated_patches[0]}" "$output_dir/"
+        rm -rf "$one_commit_dir"
+
+        patch_number="$((patch_number + 1))"
+    done
+}
+
 RESOLVED_BASE_REF="$(resolve_base_ref "$BASE_REF")"
 
 if ! git rev-parse --verify "$RESOLVED_BASE_REF" >/dev/null 2>&1; then
@@ -81,12 +179,17 @@ if ! git rev-parse --verify "$RESOLVED_BASE_REF" >/dev/null 2>&1; then
     exit 1
 fi
 
-existing_patch_count=0
-if compgen -G "$PATCH_DIR/*.patch" >/dev/null; then
-    existing_patch_count="$(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | wc -l | tr -d ' ')"
-fi
+existing_patches=()
+while IFS= read -r patch_file; do
+    existing_patches+=("$patch_file")
+done < <(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | sort)
 
+existing_patch_count="${#existing_patches[@]}"
 new_commit_created=0
+
+selected_commits=()
+
+status="$(git status --porcelain)"
 
 echo "=== save feature ==="
 echo "Feature:              $FEATURE_NAME"
@@ -96,7 +199,7 @@ echo "Patch dir:            $PATCH_DIR"
 echo "Existing patch count: $existing_patch_count"
 echo
 
-if [ -n "$(git status --porcelain)" ]; then
+if [ -n "$status" ]; then
     echo "Found uncommitted changes."
     echo "Creating a commit before saving patches..."
 
@@ -119,24 +222,94 @@ else
 fi
 
 tmp_patch_dir="$(mktemp -d)"
+commit_map_file="$tmp_patch_dir/commit-patch-ids.txt"
 cleanup() {
     rm -rf "$tmp_patch_dir"
 }
 trap cleanup EXIT
 
 if [ "$existing_patch_count" -gt 0 ]; then
-    patch_count="$existing_patch_count"
+    echo
+    echo "Existing patches found."
+    echo "Finding this feature's already-applied commits by patch-id instead of using the last commits on HEAD."
+
+    history_commits=()
+    while IFS= read -r commit; do
+        history_commits+=("$commit")
+    done < <(git rev-list --reverse "$RESOLVED_BASE_REF..HEAD")
+
+    : > "$commit_map_file"
+
+    for commit in "${history_commits[@]}"; do
+        patch_id="$(get_patch_id_from_commit "$commit")"
+
+        if [ -z "$patch_id" ]; then
+            continue
+        fi
+
+        printf '%s %s\n' "$patch_id" "$commit" >> "$commit_map_file"
+    done
+
+    missing_patch_matches=()
+
+    for patch in "${existing_patches[@]}"; do
+        patch_id="$(get_patch_id_from_file "$patch")"
+        candidate=""
+
+        if [ -n "$patch_id" ]; then
+            while read -r mapped_patch_id mapped_commit; do
+                if [ "$mapped_patch_id" = "$patch_id" ] && ! commit_is_selected "$mapped_commit"; then
+                    candidate="$mapped_commit"
+                    break
+                fi
+            done < "$commit_map_file"
+        fi
+
+        if [ -z "$candidate" ]; then
+            missing_patch_matches+=("$(basename "$patch")")
+            continue
+        fi
+
+        add_commit_if_missing "$candidate"
+    done
+
+    if [ "${#missing_patch_matches[@]}" -gt 0 ]; then
+        echo
+        echo "ERROR: Could not safely find the applied commit(s) for these existing patch file(s):"
+        for patch_name in "${missing_patch_matches[@]}"; do
+            echo "  $patch_name"
+        done
+        echo
+        echo "The patch folder was not modified."
+        echo "Make sure the feature's current patches are applied to this LLVM checkout before saving."
+        exit 1
+    fi
+
+    for commit in "${history_commits[@]}"; do
+        subject="$(git show -s --format=%s "$commit")"
+
+        if [ "$subject" = "$DEFAULT_ADD_MESSAGE" ] || [ "$subject" = "$DEFAULT_UPDATE_MESSAGE" ]; then
+            add_commit_if_missing "$commit"
+        fi
+    done
 
     if [ "$new_commit_created" -eq 1 ]; then
-        patch_count="$((patch_count + 1))"
+        head_commit="$(git rev-parse HEAD)"
+        add_commit_if_missing "$head_commit"
+    fi
+
+    if [ "${#selected_commits[@]}" -eq 0 ]; then
+        echo
+        echo "ERROR: No commits were selected for this feature."
+        echo "The patch folder was not modified."
+        exit 1
     fi
 
     echo
-    echo "Existing patches found."
-    echo "Saving the last $patch_count commit(s) as the updated feature patch stack."
+    echo "Saving these commits as the updated feature patch stack:"
+    write_selected_commit_list
 
-    git format-patch --zero-commit "-$patch_count" -o "$tmp_patch_dir"
-
+    save_selected_commits_as_patches "$tmp_patch_dir"
 else
     if [ "$new_commit_created" -eq 1 ]; then
         echo
@@ -145,7 +318,7 @@ else
 
         git format-patch --zero-commit -1 -o "$tmp_patch_dir"
     else
-        commits_since_base="$(git rev-list --count "$RESOLVED_BASE_REF"..HEAD)"
+        commits_since_base="$(git rev-list --count "$RESOLVED_BASE_REF..HEAD")"
 
         if [ "$commits_since_base" -eq 0 ]; then
             echo
@@ -158,9 +331,33 @@ else
         echo
         echo "No existing patches found."
         echo "No new commit was created, so saving commits from $RESOLVED_BASE_REF..HEAD."
+        echo "WARNING: This can include other feature commits if this checkout already has patch stacks applied."
 
         git format-patch --zero-commit "$RESOLVED_BASE_REF" -o "$tmp_patch_dir"
     fi
+fi
+
+shopt -s nullglob
+new_patches=("$tmp_patch_dir"/*.patch)
+shopt -u nullglob
+
+if [ "${#new_patches[@]}" -eq 0 ]; then
+    echo
+    echo "ERROR: No patch files were generated."
+    exit 1
+fi
+
+if [ "$existing_patch_count" -gt 0 ]; then
+    backup_dir="$PATCH_DIR.backup.$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$backup_dir"
+
+    for patch in "${existing_patches[@]}"; do
+        cp "$patch" "$backup_dir/"
+    done
+
+    echo
+    echo "Backed up previous patches to:"
+    echo "  $backup_dir"
 fi
 
 rm -f "$PATCH_DIR"/*.patch

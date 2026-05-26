@@ -160,10 +160,10 @@ function Get-PatchIdFromCommit {
 
 function Add-CommitIfMissing {
     param(
-        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [System.Collections.Generic.List[string]]$List,
 
-        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [hashtable]$Set,
 
         [Parameter(Mandatory = $true)]
@@ -190,7 +190,7 @@ function Get-CommitSummary {
 
 function Write-SelectedCommitList {
     param(
-        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [System.Collections.Generic.List[string]]$Commits
     )
 
@@ -201,7 +201,7 @@ function Write-SelectedCommitList {
 
 function Save-SelectedCommitsAsPatches {
     param(
-        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [System.Collections.Generic.List[string]]$Commits,
 
         [Parameter(Mandatory = $true)]
@@ -474,8 +474,8 @@ try {
     }
 
     if ($existingPatchCount -gt 0) {
-        $backupRoot = Join-Path $PatchDir ".backups"
-        $backupDir = Join-Path $backupRoot (Get-Date -Format "yyyyMMdd-HHmmss")
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $backupDir = "$PatchDir.backup.$timestamp"
         New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
         foreach ($patch in $existingPatches) {

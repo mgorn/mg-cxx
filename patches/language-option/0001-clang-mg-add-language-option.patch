@@ -1,8 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 17 May 2026 20:02:35 -0400
-Subject: [PATCH 1/2] clang-mg: add language-option
+Subject: [PATCH] clang-mg: add language-option
 
+---
+ clang/include/clang/Basic/LangOptions.def | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/clang/include/clang/Basic/LangOptions.def b/clang/include/clang/Basic/LangOptions.def
 index 3bbb40ba09f0..0e26ff393017 100644
