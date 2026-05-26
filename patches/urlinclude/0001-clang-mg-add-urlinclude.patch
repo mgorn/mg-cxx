@@ -810,7 +810,7 @@ index 00f251300438..a48e3949e2e2 100644
      InclusionDirective::InclusionKind Kind
        = static_cast<InclusionDirective::InclusionKind>(Record[2]);
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 8df1550a55dc..de702a32e2c1 100644
+index 91b247264062..e26b2db131cd 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -2863,7 +2863,7 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec,
