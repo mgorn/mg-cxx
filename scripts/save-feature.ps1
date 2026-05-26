@@ -36,6 +36,20 @@ function Get-GitOutput {
     return ($output -join "`n").Trim()
 }
 
+function Get-GitLines {
+    $output = & git @args
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "git $($args -join ' ') failed with exit code $LASTEXITCODE"
+    }
+
+    return @(
+        $output |
+            ForEach-Object { "$($_)".Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+}
+
 function Get-GitDir {
     $gitDir = & git rev-parse --git-dir 2>$null
 
@@ -88,6 +102,131 @@ function Resolve-BaseRef {
     }
 
     return $RequestedRef
+}
+
+function Get-PatchIdFromFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $output = Get-Content -LiteralPath $Path -Raw | & git patch-id --stable
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "git patch-id failed for patch file: $Path"
+    }
+
+    $lines = @($output)
+
+    if ($lines.Count -eq 0) {
+        return ""
+    }
+
+    $firstLine = "$($lines[0])".Trim()
+
+    if ([string]::IsNullOrWhiteSpace($firstLine)) {
+        return ""
+    }
+
+    return (($firstLine -split '\s+')[0])
+}
+
+function Get-PatchIdFromCommit {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Commit
+    )
+
+    $output = & git show --format=medium --patch --binary $Commit | & git patch-id --stable
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "git patch-id failed for commit: $Commit"
+    }
+
+    $lines = @($output)
+
+    if ($lines.Count -eq 0) {
+        return ""
+    }
+
+    $firstLine = "$($lines[0])".Trim()
+
+    if ([string]::IsNullOrWhiteSpace($firstLine)) {
+        return ""
+    }
+
+    return (($firstLine -split '\s+')[0])
+}
+
+function Add-CommitIfMissing {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.List[string]]$List,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Set,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Commit
+    )
+
+    if (-not $Set.ContainsKey($Commit)) {
+        $Set[$Commit] = $true
+        $List.Add($Commit) | Out-Null
+    }
+}
+
+function Get-CommitSummary {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Commit
+    )
+
+    $shortHash = Get-GitOutput rev-parse --short $Commit
+    $subject = Get-GitOutput show -s "--format=%s" $Commit
+
+    return "$shortHash $subject"
+}
+
+function Write-SelectedCommitList {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.List[string]]$Commits
+    )
+
+    foreach ($commit in $Commits) {
+        Write-Host "  $(Get-CommitSummary $commit)"
+    }
+}
+
+function Save-SelectedCommitsAsPatches {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.List[string]]$Commits,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDir
+    )
+
+    $patchNumber = 1
+
+    foreach ($commit in $Commits) {
+        $oneCommitDir = Join-Path $OutputDir ("commit-$patchNumber")
+        New-Item -ItemType Directory -Force -Path $oneCommitDir | Out-Null
+
+        Invoke-Git format-patch --zero-commit --start-number $patchNumber "-1" $commit -o $oneCommitDir
+
+        $generatedPatches = @(Get-ChildItem -Path $oneCommitDir -Filter "*.patch" -File -ErrorAction SilentlyContinue)
+
+        if ($generatedPatches.Count -ne 1) {
+            throw "Expected exactly one generated patch for commit $commit, but found $($generatedPatches.Count)."
+        }
+
+        Move-Item -LiteralPath $generatedPatches[0].FullName -Destination (Join-Path $OutputDir $generatedPatches[0].Name) -Force
+        Remove-Item -LiteralPath $oneCommitDir -Recurse -Force
+
+        $patchNumber += 1
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($FeatureName) -or $FeatureName -eq "-h" -or $FeatureName -eq "--help") {
@@ -148,7 +287,10 @@ if (-not (Test-GitCommand rev-parse --verify $ResolvedBaseRef)) {
     exit 1
 }
 
-$existingPatches = @(Get-ChildItem -Path $PatchDir -Filter "*.patch" -File -ErrorAction SilentlyContinue)
+$existingPatches = @(
+    Get-ChildItem -Path $PatchDir -Filter "*.patch" -File -ErrorAction SilentlyContinue |
+        Sort-Object Name
+)
 $existingPatchCount = $existingPatches.Count
 $newCommitCreated = $false
 
@@ -204,17 +346,92 @@ New-Item -ItemType Directory -Force -Path $tmpPatchDir | Out-Null
 
 try {
     if ($existingPatchCount -gt 0) {
-        $patchCount = $existingPatchCount
+        Write-Host
+        Write-Host "Existing patches found."
+        Write-Host "Finding this feature's already-applied commits by patch-id instead of using the last commits on HEAD."
+
+        $historyCommits = @(Get-GitLines rev-list --reverse "$ResolvedBaseRef..HEAD")
+        $commitByPatchId = @{}
+
+        foreach ($commit in $historyCommits) {
+            $patchId = Get-PatchIdFromCommit $commit
+
+            if ([string]::IsNullOrWhiteSpace($patchId)) {
+                continue
+            }
+
+            if (-not $commitByPatchId.ContainsKey($patchId)) {
+                $commitByPatchId[$patchId] = @()
+            }
+
+            $commitByPatchId[$patchId] = @($commitByPatchId[$patchId]) + $commit
+        }
+
+        $selectedCommits = New-Object System.Collections.Generic.List[string]
+        $selectedCommitSet = @{}
+        $missingPatchMatches = New-Object System.Collections.Generic.List[string]
+
+        foreach ($patch in $existingPatches) {
+            $patchId = Get-PatchIdFromFile $patch.FullName
+
+            if ([string]::IsNullOrWhiteSpace($patchId) -or -not $commitByPatchId.ContainsKey($patchId)) {
+                $missingPatchMatches.Add($patch.Name) | Out-Null
+                continue
+            }
+
+            $candidate = @(
+                $commitByPatchId[$patchId] |
+                    Where-Object { -not $selectedCommitSet.ContainsKey($_) } |
+                    Select-Object -First 1
+            )
+
+            if ($candidate.Count -eq 0) {
+                $missingPatchMatches.Add($patch.Name) | Out-Null
+                continue
+            }
+
+            Add-CommitIfMissing $selectedCommits $selectedCommitSet $candidate[0]
+        }
+
+        if ($missingPatchMatches.Count -gt 0) {
+            Write-Host
+            Write-Host "ERROR: Could not safely find the applied commit(s) for these existing patch file(s):"
+
+            foreach ($patchName in $missingPatchMatches) {
+                Write-Host "  $patchName"
+            }
+
+            Write-Host
+            Write-Host "The patch folder was not modified."
+            Write-Host "Make sure the feature's current patches are applied to this LLVM checkout before saving."
+            exit 1
+        }
+
+        foreach ($commit in $historyCommits) {
+            $subject = Get-GitOutput show -s "--format=%s" $commit
+
+            if ($subject -eq $DefaultAddMessage -or $subject -eq $DefaultUpdateMessage) {
+                Add-CommitIfMissing $selectedCommits $selectedCommitSet $commit
+            }
+        }
 
         if ($newCommitCreated) {
-            $patchCount += 1
+            $headCommit = Get-GitOutput rev-parse HEAD
+            Add-CommitIfMissing $selectedCommits $selectedCommitSet $headCommit
+        }
+
+        if ($selectedCommits.Count -eq 0) {
+            Write-Host
+            Write-Host "ERROR: No commits were selected for this feature."
+            Write-Host "The patch folder was not modified."
+            exit 1
         }
 
         Write-Host
-        Write-Host "Existing patches found."
-        Write-Host "Saving the last $patchCount commit(s) as the updated feature patch stack."
+        Write-Host "Saving these commits as the updated feature patch stack:"
+        Write-SelectedCommitList $selectedCommits
 
-        Invoke-Git format-patch --zero-commit "-$patchCount" -o $tmpPatchDir
+        Save-SelectedCommitsAsPatches $selectedCommits $tmpPatchDir
     }
     else {
         if ($newCommitCreated) {
@@ -222,7 +439,7 @@ try {
             Write-Host "No existing patches found."
             Write-Host "Saving the new feature commit as the first patch."
 
-            Invoke-Git format-patch --zero-commit -1 -o $tmpPatchDir
+            Invoke-Git format-patch --zero-commit "-1" -o $tmpPatchDir
         }
         else {
             $commitsSinceBaseText = Get-GitOutput rev-list --count "$ResolvedBaseRef..HEAD"
@@ -239,12 +456,16 @@ try {
             Write-Host
             Write-Host "No existing patches found."
             Write-Host "No new commit was created, so saving commits from $ResolvedBaseRef..HEAD."
+            Write-Host "WARNING: This can include other feature commits if this checkout already has patch stacks applied."
 
             Invoke-Git format-patch --zero-commit $ResolvedBaseRef -o $tmpPatchDir
         }
     }
 
-    $newPatches = @(Get-ChildItem -Path $tmpPatchDir -Filter "*.patch" -File -ErrorAction SilentlyContinue)
+    $newPatches = @(
+        Get-ChildItem -Path $tmpPatchDir -Filter "*.patch" -File -ErrorAction SilentlyContinue |
+            Sort-Object Name
+    )
 
     if ($newPatches.Count -eq 0) {
         Write-Host
@@ -252,11 +473,25 @@ try {
         exit 1
     }
 
+    if ($existingPatchCount -gt 0) {
+        $backupRoot = Join-Path $PatchDir ".backups"
+        $backupDir = Join-Path $backupRoot (Get-Date -Format "yyyyMMdd-HHmmss")
+        New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+
+        foreach ($patch in $existingPatches) {
+            Copy-Item -LiteralPath $patch.FullName -Destination $backupDir -Force
+        }
+
+        Write-Host
+        Write-Host "Backed up previous patches to:"
+        Write-Host "  $backupDir"
+    }
+
     Get-ChildItem -Path $PatchDir -Filter "*.patch" -File -ErrorAction SilentlyContinue |
         Remove-Item -Force
 
     foreach ($patch in $newPatches) {
-        Copy-Item -Path $patch.FullName -Destination $PatchDir -Force
+        Copy-Item -LiteralPath $patch.FullName -Destination $PatchDir -Force
     }
 
     Write-Host
