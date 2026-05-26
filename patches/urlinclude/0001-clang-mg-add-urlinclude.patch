@@ -188,7 +188,7 @@ index 4f6c8ea04477..61435f62debd 100644
  
    CASE(14, '_', 'p', __public_macro);
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index 8d8e00bbaf7d..4eb576588b56 100644
+index 603bd0f32730..73e686751a00 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
 @@ -6312,6 +6312,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
@@ -823,5 +823,5 @@ index 91b247264062..e26b2db131cd 100644
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob));
      InclusionAbbrev = Stream.EmitAbbrev(std::move(Abbrev));
 -- 
-2.52.0.windows.1
+2.54.0
 

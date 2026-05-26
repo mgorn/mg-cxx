@@ -5,10 +5,10 @@ Subject: [PATCH 09/10] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 53652dd30b73..7d04a18fc5ff 100644
+index f56ae0e66d20..2a6d67fb5e8f 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -3525,6 +3525,9 @@ Decl *Sema::ActOnCXXMGConditionalMember(
+@@ -3528,6 +3528,9 @@ Decl *Sema::ActOnCXXMGConditionalMember(
  
      for (Decl *Pattern : Arm.Decls) {
        Record->addDecl(Pattern);
@@ -18,7 +18,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
        if (auto *FD = dyn_cast<FieldDecl>(Pattern))
          FieldCollector->Add(FD);
      }
-@@ -12865,6 +12868,11 @@ Decl *Sema::ActOnUsingDeclaration(Scope *S, AccessSpecifier AS,
+@@ -12868,6 +12871,11 @@ Decl *Sema::ActOnUsingDeclaration(Scope *S, AccessSpecifier AS,
                              SS, TargetNameInfo, EllipsisLoc, AttrList,
                              /*IsInstantiation*/ false,
                              AttrList.hasAttribute(ParsedAttr::AT_UsingIfExists));
@@ -30,7 +30,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
    if (UD)
      PushOnScopeChains(UD, S, /*AddToContext*/ false);
  
-@@ -12906,6 +12914,11 @@ Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
+@@ -12909,6 +12917,11 @@ Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
    auto *UD =
        BuildUsingEnumDeclaration(S, AS, UsingLoc, EnumLoc, IdentLoc, TSI, Enum);
  
@@ -42,7 +42,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
    if (UD)
      PushOnScopeChains(UD, S, /*AddToContext*/ false);
  
-@@ -13149,7 +13162,9 @@ UsingShadowDecl *Sema::BuildUsingShadowDecl(Scope *S, BaseUsingDecl *BUD,
+@@ -13152,7 +13165,9 @@ UsingShadowDecl *Sema::BuildUsingShadowDecl(Scope *S, BaseUsingDecl *BUD,
  
    Shadow->setPreviousDecl(PrevDecl);
  
@@ -53,7 +53,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
      PushOnScopeChains(Shadow, S);
    else
      CurContext->addDecl(Shadow);
-@@ -13382,7 +13397,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
+@@ -13385,7 +13400,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
                                             QualifierLoc, NameInfo, EllipsisLoc);
      }
      D->setAccess(AS);
@@ -63,7 +63,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
      ProcessDeclAttributeList(S, D, AttrList);
      return D;
    }
-@@ -13392,7 +13408,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
+@@ -13395,7 +13411,8 @@ NamedDecl *Sema::BuildUsingDeclaration(
          UsingDecl::Create(Context, CurContext, UsingLoc, QualifierLoc,
                            UsingName, HasTypenameKeyword);
      UD->setAccess(AS);
@@ -73,7 +73,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
      ProcessDeclAttributeList(S, UD, AttrList);
      UD->setInvalidDecl(Invalid);
      return UD;
-@@ -13590,7 +13607,8 @@ NamedDecl *Sema::BuildUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
+@@ -13593,7 +13610,8 @@ NamedDecl *Sema::BuildUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
    UsingEnumDecl *UD = UsingEnumDecl::Create(Context, CurContext, UsingLoc,
                                              EnumLoc, NameLoc, EnumType);
    UD->setAccess(AS);
@@ -83,7 +83,7 @@ index 53652dd30b73..7d04a18fc5ff 100644
  
    if (Invalid) {
      UD->setInvalidDecl();
-@@ -14068,6 +14086,11 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
+@@ -14071,6 +14089,11 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
      NewND = NewTD;
    }
  
@@ -96,5 +96,5 @@ index 53652dd30b73..7d04a18fc5ff 100644
    ActOnDocumentableDecl(NewND);
    return NewND;
 -- 
-2.52.0.windows.1
+2.54.0
 

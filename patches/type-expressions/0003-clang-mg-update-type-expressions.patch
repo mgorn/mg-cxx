@@ -69,7 +69,7 @@ index 714651f1b2e8..6b4714b915f8 100644
  
  struct UnaryTransformTypeLocInfo {
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index f8527af2bfe6..6ce59f62e00a 100644
+index 0d8243a6bd74..83caab2a5b7a 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -18,6 +18,7 @@
@@ -80,7 +80,7 @@ index f8527af2bfe6..6ce59f62e00a 100644
  #include "clang/AST/Decl.h"
  #include "clang/AST/DeclAccessPair.h"
  #include "clang/AST/DeclBase.h"
-@@ -1656,6 +1657,59 @@ ASTNodeImporter::VisitPackIndexingType(clang::PackIndexingType const *T) {
+@@ -1661,6 +1662,59 @@ ASTNodeImporter::VisitPackIndexingType(clang::PackIndexingType const *T) {
    return Importer.getToContext().getPackIndexingType(*Pattern, *Index);
  }
  
@@ -164,7 +164,7 @@ index 1cb6fa05f22a..6d79c0818341 100644
    mangleSourceName(T->getDecl()->getIdentifier());
  }
 diff --git a/clang/lib/AST/MicrosoftMangle.cpp b/clang/lib/AST/MicrosoftMangle.cpp
-index 7d0c60d57253..100bfd80bbfa 100644
+index 5c0bc14b6780..66506efaa1ba 100644
 --- a/clang/lib/AST/MicrosoftMangle.cpp
 +++ b/clang/lib/AST/MicrosoftMangle.cpp
 @@ -12,6 +12,7 @@
@@ -175,7 +175,7 @@ index 7d0c60d57253..100bfd80bbfa 100644
  #include "clang/AST/CXXInheritance.h"
  #include "clang/AST/CharUnits.h"
  #include "clang/AST/Decl.h"
-@@ -3670,6 +3671,12 @@ void MicrosoftCXXNameMangler::mangleType(const PackIndexingType *T,
+@@ -3858,6 +3859,12 @@ void MicrosoftCXXNameMangler::mangleType(const PackIndexingType *T,
    mangleType(T->getSelectedType(), Range);
  }
  
@@ -313,5 +313,5 @@ index 9cac63ce7722..8df1550a55dc 100644
    using namespace llvm;
  
 -- 
-2.52.0.windows.1
+2.54.0
 

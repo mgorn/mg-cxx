@@ -17,10 +17,10 @@ index 0ebf56ecffe6..49f4cefccdc1 100644
    SemaExceptionSpec.cpp
    SemaExpr.cpp
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 9b2bea27e456..234b89c24f53 100644
+index a1eed6e69212..a5ce3b0c444c 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -3461,146 +3461,6 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
+@@ -3464,146 +3464,6 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
    return false;
  }
  
@@ -324,5 +324,5 @@ index 000000000000..9105920532e6
 +}
 \ No newline at end of file
 -- 
-2.52.0.windows.1
+2.54.0
 

@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 26 May 2026 14:36:30 -0400
+Subject: [PATCH] clang-mg: update language-option
+
+---
+ clang/lib/Basic/LangStandards.cpp     | 2 +-
+ clang/lib/Driver/ToolChains/Clang.cpp | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/clang/lib/Basic/LangStandards.cpp b/clang/lib/Basic/LangStandards.cpp
+index 01c524b7220f..9005b30c838b 100644
+--- a/clang/lib/Basic/LangStandards.cpp
++++ b/clang/lib/Basic/LangStandards.cpp
+@@ -114,7 +114,7 @@ LangStandard::Kind clang::getDefaultLanguageStandard(clang::Language Lang,
+   case Language::ObjCXX:
+   case Language::CUDA:
+   case Language::HIP:
+-    return LangStandard::lang_gnucxx17;
++    return LangStandard::lang_gnucxx26;
+   case Language::HLSL:
+     return LangStandard::lang_hlsl202x;
+   }
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index 73e686751a00..12e764fc3419 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -7530,7 +7530,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+                              // TODO add c++23 and c++26 when MSVC supports it.
+                              .Case("c++23preview", "-std=c++23")
+                              .Case("c++latest", "-std=c++26")
+-                             .Default("");
++                             .Default("c++latest");
+       if (IsSYCL) {
+         const LangStandard *LangStd =
+             LangStandard::getLangStandardForName(StdArg->getValue());
+-- 
+2.54.0
+

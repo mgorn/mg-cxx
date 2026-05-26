@@ -282,10 +282,10 @@ index 62cb9360d132..439a1608dece 100644
      // with the same name in the same scope.
    } else if (II) {
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index de837ff0608d..53652dd30b73 100644
+index daebee54feea..f56ae0e66d20 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -3461,6 +3461,79 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
+@@ -3464,6 +3464,79 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
    return false;
  }
  
@@ -365,7 +365,7 @@ index de837ff0608d..53652dd30b73 100644
  NamedDecl *
  Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
                                 MultiTemplateParamsArg TemplateParameterLists,
-@@ -3747,6 +3820,11 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
+@@ -3750,6 +3823,11 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
  
    CheckOverrideControl(Member);
  
@@ -537,5 +537,5 @@ index 551cc0909686..cb8e412100bc 100644
    if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
      if (Parent->isAnonymousStructOrUnion() &&
 -- 
-2.52.0.windows.1
+2.54.0
 

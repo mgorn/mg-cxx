@@ -311,10 +311,10 @@ index 8a96f3ab6453..8180d7be0607 100644
      case ObjCTypeParam:
        return IDNS_Ordinary | IDNS_Type;
 diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
-index 1a4753fc29b8..a7678f1a7a2c 100644
+index 2a58313b699e..d8af0a9dcd3a 100644
 --- a/clang/lib/AST/DeclCXX.cpp
 +++ b/clang/lib/AST/DeclCXX.cpp
-@@ -2414,6 +2414,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+@@ -2407,6 +2407,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
    return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
  }
  
@@ -730,10 +730,10 @@ index 439a1608dece..c97829991eb5 100644
    if (!EltTy->isDependentType() && !EltTy->containsErrors()) {
      bool isIncomplete =
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 7d04a18fc5ff..9b2bea27e456 100644
+index 2a6d67fb5e8f..a1eed6e69212 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -3537,6 +3537,70 @@ Decl *Sema::ActOnCXXMGConditionalMember(
+@@ -3540,6 +3540,70 @@ Decl *Sema::ActOnCXXMGConditionalMember(
    return D;
  }
  
@@ -805,7 +805,7 @@ index 7d04a18fc5ff..9b2bea27e456 100644
  Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
                                 MultiTemplateParamsArg TemplateParameterLists,
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index 521a8516ac17..9d7ef969bd1f 100644
+index db0fbdc546fb..4863ec7621b8 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
 @@ -4702,6 +4702,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
@@ -823,10 +823,10 @@ index 521a8516ac17..9d7ef969bd1f 100644
    //   When alignof or _Alignof is applied to an array type, the result
    //   is the alignment of the element type.
 diff --git a/clang/lib/Sema/SemaExprCXX.cpp b/clang/lib/Sema/SemaExprCXX.cpp
-index db1cf1fb6eaa..cccd21cf7b37 100644
+index a60e1b84d3e4..3cb4ecfb6a9f 100644
 --- a/clang/lib/Sema/SemaExprCXX.cpp
 +++ b/clang/lib/Sema/SemaExprCXX.cpp
-@@ -2150,6 +2150,12 @@ ExprResult Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
+@@ -2154,6 +2154,12 @@ ExprResult Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
    SourceRange TypeRange = AllocTypeInfo->getTypeLoc().getSourceRange();
    SourceLocation StartLoc = Range.getBegin();
  
@@ -1022,5 +1022,5 @@ index 000000000000..689ee6791de1
 +// CHECK: TraitRequirementDecl {{.*}} type AssociatedTypeAny
 +// CHECK: TraitRequirementDecl {{.*}} staticFn StaticFunctionAnyReturn
 -- 
-2.52.0.windows.1
+2.54.0
 
