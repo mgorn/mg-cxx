@@ -1,50 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 12:28:25 -0400
-Subject: [PATCH] clang-mg: update type-expressions
+Subject: [PATCH 10/12] clang-mg: update type-expressions
 
----
- clang/include/clang/AST/CXXMGTypeExpr.h       |   3 +-
- .../clang/Basic/DiagnosticParseKinds.td       |   6 +
- .../clang/Basic/DiagnosticSemaKinds.td        |   6 +
- clang/include/clang/Basic/TokenKinds.def      |   1 +
- clang/include/clang/Parse/Parser.h            |   7 +-
- clang/include/clang/Sema/Sema.h               |  10 +-
- clang/lib/AST/ASTStructuralEquivalence.cpp    |  21 ++-
- clang/lib/AST/CXXMGTypeExpr.cpp               |   6 +-
- clang/lib/Parse/ParseCXXMGTypeExpr.cpp        | 135 +++++++++---------
- clang/lib/Parse/ParseDeclCXX.cpp              |  11 +-
- clang/lib/Parse/ParseExpr.cpp                 |  20 ++-
- clang/lib/Sema/SemaCXXMGTypeExpr.cpp          |  38 ++---
- .../type-expr-associated-types.cpp            |   6 +-
- ...type-expr-ast-dump-dependent-predicate.cpp |   2 +-
- .../type-expr-dependent-predicate-any.cpp     |   7 +-
- .../type-expr-dependent-predicate-invalid.cpp |   2 +-
- .../type-expr-dependent-predicate.cpp         |   2 +-
- .../type-expr-dependent-trait-composition.cpp |   2 +-
- .../type-expr-pch-dependent-predicate.cpp     |   2 +-
- ...pe-expr-predicate-no-typename-fallback.cpp |   2 +-
- .../type-expressions/type-expr-predicates.cpp |   9 +-
- .../type-predicate-constexpr.cpp              |  12 +-
- .../type-predicate-implements-basic.cpp       |  18 +++
- .../type-predicate-implements-composition.cpp |  18 +++
- .../type-predicate-implements-dependent.cpp   |  32 +++++
- ...ments-do-not-steal-empty-template-args.cpp |  16 +++
- ...nts-do-not-steal-qualified-expressions.cpp |  46 ++++++
- ...lements-do-not-steal-value-expressions.cpp |  16 +++
- .../type-predicate-implements-errors.cpp      |  18 +++
- .../type-predicate-implements-qualified.cpp   |  57 ++++++++
- .../type-predicate-known-value-ast-dump.cpp   |   2 +-
- .../type-predicate-static-local-constexpr.cpp |   2 +-
- 32 files changed, 395 insertions(+), 140 deletions(-)
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
 
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
 index 018c9c7e4c4b..886c34175216 100644
@@ -95,10 +53,10 @@ index de0f9632adf8..2e9683caf520 100644
    Error<"conflicting member %0 in type expression result">;
  def note_cxxmg_type_expr_previous_member :
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index 5161c07487b6..22ae3cf15eca 100644
+index aec5d827ae11..0d7bf62fded9 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
-@@ -391,6 +391,7 @@ KEYWORD(template                    , KEYCXX)
+@@ -390,6 +390,7 @@ KEYWORD(template                    , KEYCXX)
  KEYWORD(this                        , KEYCXX)
  KEYWORD(throw                       , KEYCXX)
  KEYWORD(trait                       , KEYCXXMG)
@@ -132,7 +90,7 @@ index d6198a4f6df8..4b6c81b13a41 100644
    /// ParseStaticAssertDeclaration - Parse C++0x or C11
    /// static_assert-declaration.
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 9d99beebf3a0..b7f0b92129da 100644
+index 63d47983656b..d32929db7bb9 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -198,14 +198,22 @@ class UnresolvedSetImpl;
@@ -493,7 +451,7 @@ index 8872ceda305d..18d5b3af2da4 100644
          TypeAlias = true;
        } else if (!TE.SawTypeExprOperator) {
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 35f630fdfe60..198ab3794d80 100644
+index 76ad65117af0..399b6c85d0f6 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -87,9 +87,11 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -1084,5 +1042,5 @@ index 5480e6fcc4ba..a6834ccac2f0 100644
  }
  
 -- 
-2.54.0
+2.52.0.windows.1
 

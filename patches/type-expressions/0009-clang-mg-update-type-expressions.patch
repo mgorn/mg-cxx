@@ -1,28 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 01:10:55 -0400
-Subject: [PATCH] clang-mg: update type-expressions
+Subject: [PATCH 09/12] clang-mg: update type-expressions
 
----
- clang/include/clang/AST/ExprCXXMG.h           | 36 ++++++++++++-
- clang/lib/AST/ASTImporter.cpp                 |  8 +--
- clang/lib/AST/ASTStructuralEquivalence.cpp    |  7 ++-
- clang/lib/AST/Expr.cpp                        | 39 +++++++++-----
- clang/lib/AST/ExprConstant.cpp                | 11 ++++
- clang/lib/AST/StmtProfile.cpp                 |  3 ++
- clang/lib/AST/TextNodeDumper.cpp              |  6 ++-
- clang/lib/Sema/SemaCXXMGTypeExpr.cpp          |  3 +-
- clang/lib/Sema/TreeTransform.h                | 16 +++++-
- clang/lib/Serialization/ASTReaderStmt.cpp     |  5 ++
- clang/lib/Serialization/ASTWriterStmt.cpp     |  3 ++
- ...type-expr-ast-dump-dependent-predicate.cpp |  2 +-
- .../type-predicate-constexpr.cpp              | 53 +++++++++++++++++++
- .../type-predicate-known-value-ast-dump.cpp   | 12 +++++
- .../type-predicate-static-local-constexpr.cpp | 27 ++++++++++
- 15 files changed, 207 insertions(+), 24 deletions(-)
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
 index 32a66d385110..cae1e9bcffde 100644
@@ -88,7 +68,7 @@ index 32a66d385110..cae1e9bcffde 100644
      return ExprNode ? ExprNode->getBeginLoc() : SourceLocation();
    }
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 19428f67b84f..864e9d1ffd57 100644
+index f94b837b0fa9..77e8c70f4554 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -694,6 +694,7 @@ namespace clang {
@@ -193,7 +173,7 @@ index a61a2d7a839b..40ba6b7b036d 100644
  
  CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
 diff --git a/clang/lib/AST/ExprConstant.cpp b/clang/lib/AST/ExprConstant.cpp
-index 808c9b4f89ed..43542cd1601c 100644
+index f78854d15a9f..e11310ded18f 100644
 --- a/clang/lib/AST/ExprConstant.cpp
 +++ b/clang/lib/AST/ExprConstant.cpp
 @@ -44,6 +44,7 @@
@@ -204,7 +184,7 @@ index 808c9b4f89ed..43542cd1601c 100644
  #include "clang/AST/InferAlloc.h"
  #include "clang/AST/OSLog.h"
  #include "clang/AST/OptionalDiagnostic.h"
-@@ -15555,6 +15556,16 @@ public:
+@@ -15561,6 +15562,16 @@ public:
      return Success(E->getAPValue().getInt(), E);
    }
  
@@ -267,7 +247,7 @@ index 9f5c0e899b9f..65a7e36c4641 100644
  
  ExprResult Sema::ActOnCXXMGTypePredicateExpression(
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 060e685b2bd4..64ff7db5d486 100644
+index 3392618f9956..fcf8a52332c5 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -14783,7 +14783,21 @@ TreeTransform<Derived>::TransformCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
@@ -294,7 +274,7 @@ index 060e685b2bd4..64ff7db5d486 100644
  
  template<typename Derived>
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index b5cc74ab63bd..ef8d084f3053 100644
+index 4557c7346bcb..7af687c2cf69 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -2222,6 +2222,11 @@ void ASTStmtReader::VisitTypeTraitExpr(TypeTraitExpr *E) {
@@ -310,7 +290,7 @@ index b5cc74ab63bd..ef8d084f3053 100644
  
  void ASTStmtReader::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
 diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
-index 9d0183c70967..55e62111aa7d 100644
+index 1cbdd75db365..7c725429b70e 100644
 --- a/clang/lib/Serialization/ASTWriterStmt.cpp
 +++ b/clang/lib/Serialization/ASTWriterStmt.cpp
 @@ -2233,6 +2233,9 @@ void ASTStmtWriter::VisitTypeTraitExpr(TypeTraitExpr *E) {
@@ -444,5 +424,5 @@ index 000000000000..5480e6fcc4ba
 +static_assert(has_generator_static_local<ninja_backend>());
 +static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.52.0.windows.1
 

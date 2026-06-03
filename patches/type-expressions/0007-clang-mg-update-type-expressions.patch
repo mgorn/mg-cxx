@@ -1,15 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 25 May 2026 18:42:17 -0400
-Subject: [PATCH] clang-mg: update type-expressions
+Subject: [PATCH 07/12] clang-mg: update type-expressions
 
----
- clang/include/clang/AST/ASTImporter.h      |  1 +
- clang/include/clang/AST/StmtVisitor.h      |  1 +
- clang/lib/AST/ASTImporter.cpp              | 14 ++++++++++++++
- clang/lib/AST/ASTStructuralEquivalence.cpp |  7 +++++++
- clang/lib/AST/Stmt.cpp                     |  1 +
- 5 files changed, 24 insertions(+)
 
 diff --git a/clang/include/clang/AST/ASTImporter.h b/clang/include/clang/AST/ASTImporter.h
 index 39d1429639ed..82df6223afb5 100644
@@ -36,7 +29,7 @@ index 8b7b728deaff..6ce7999eab1e 100644
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 83caab2a5b7a..19428f67b84f 100644
+index 301c81962fb1..f94b837b0fa9 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -1715,6 +1715,20 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
@@ -98,5 +91,5 @@ index 15d0e6435aaf..762f887a5d15 100644
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
 -- 
-2.54.0
+2.52.0.windows.1
 

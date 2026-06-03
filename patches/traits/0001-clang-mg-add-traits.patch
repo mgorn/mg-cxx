@@ -190,7 +190,7 @@ index b5a8fd2cb128..1028a2594adc 100644
  // CUDA/HIP Features
  FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
 diff --git a/clang/include/clang/Basic/IdentifierTable.h b/clang/include/clang/Basic/IdentifierTable.h
-index ff5864bc3192..7011de56637d 100644
+index 41420ece94bf..a2e3da3ebfe5 100644
 --- a/clang/include/clang/Basic/IdentifierTable.h
 +++ b/clang/include/clang/Basic/IdentifierTable.h
 @@ -79,8 +79,9 @@ enum TokenKey : unsigned {
@@ -264,7 +264,7 @@ index b3c459821c79..a22e9267853c 100644
    static bool isTransformTypeTrait(TST T) {
      constexpr std::array<TST, 16> Traits = {
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 89bdb0617cb4..d2a89fc6693f 100644
+index eb9dc371a3be..c7916438cdeb 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5873,6 +5873,14 @@ public:
@@ -283,10 +283,10 @@ index 89bdb0617cb4..d2a89fc6693f 100644
    /// Enter a new C++ default initializer scope. After calling this, the
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index 3c8f3ba59a07..4ef832231bfe 100644
+index 412f87e9da43..890da0e78241 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
-@@ -1554,7 +1554,10 @@ enum DeclCode {
+@@ -1550,7 +1550,10 @@ enum DeclCode {
    /// An ExplicitInstantiationDecl record.
    DECL_EXPLICIT_INSTANTIATION,
  
@@ -858,7 +858,7 @@ index cb8e412100bc..682d265d7b9f 100644
    llvm_unreachable("Unexpected decl");
  }
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index 6815a2753703..c1d0e26be7b5 100644
+index fb291a4b0f2c..c7dd9087a555 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -384,6 +384,7 @@ public:
@@ -869,7 +869,7 @@ index 6815a2753703..c1d0e26be7b5 100644
    RedeclarableResult VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
    void VisitClassTemplateDecl(ClassTemplateDecl *D);
    void VisitBuiltinTemplateDecl(BuiltinTemplateDecl *D);
-@@ -2448,6 +2449,14 @@ void ASTDeclReader::VisitImplicitConceptSpecializationDecl(
+@@ -2446,6 +2447,14 @@ void ASTDeclReader::VisitImplicitConceptSpecializationDecl(
  void ASTDeclReader::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
  }
  
@@ -884,7 +884,7 @@ index 6815a2753703..c1d0e26be7b5 100644
  void ASTDeclReader::ReadSpecializations(ModuleFile &M, Decl *D,
                                          llvm::BitstreamCursor &DeclsCursor,
                                          bool IsPartial) {
-@@ -4132,6 +4141,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
+@@ -4130,6 +4139,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
    case DECL_REQUIRES_EXPR_BODY:
      D = RequiresExprBodyDecl::CreateDeserialized(Context, ID);
      break;
@@ -1022,5 +1022,5 @@ index 000000000000..689ee6791de1
 +// CHECK: TraitRequirementDecl {{.*}} type AssociatedTypeAny
 +// CHECK: TraitRequirementDecl {{.*}} staticFn StaticFunctionAnyReturn
 -- 
-2.54.0
+2.52.0.windows.1
 

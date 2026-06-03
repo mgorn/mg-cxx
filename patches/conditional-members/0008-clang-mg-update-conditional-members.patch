@@ -24,7 +24,7 @@ index 7e874e2c57af..088a698719e5 100644
    /// ParseConstructorInitializer - Parse a C++ constructor initializer,
    /// which explicitly initializes the members or base classes of a
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 10d489dc96a3..89bdb0617cb4 100644
+index b8d760e7e097..eb9dc371a3be 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -3909,6 +3909,17 @@ public:
@@ -378,10 +378,10 @@ index 9bbe99df064c..b8bd7d06bbc4 100644
  
    if (isInstField) {
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 6e34261c3e61..0e5aca969a97 100644
+index 5309ec4430e9..96561efc5050 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-@@ -3586,7 +3586,47 @@ bool Sema::InstantiateClassImpl(
+@@ -3590,7 +3590,47 @@ bool Sema::InstantiateClassImpl(
    Instantiator.enableLateAttributeInstantiation(&LateAttrs);
  
    bool MightHaveConstexprVirtualFunctions = false;
@@ -429,7 +429,7 @@ index 6e34261c3e61..0e5aca969a97 100644
      // Don't instantiate members not belonging in this semantic context.
      // e.g. for:
      // @code
-@@ -3612,37 +3652,46 @@ bool Sema::InstantiateClassImpl(
+@@ -3616,37 +3656,46 @@ bool Sema::InstantiateClassImpl(
        continue;
      }
  
@@ -537,5 +537,5 @@ index 551cc0909686..cb8e412100bc 100644
    if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
      if (Parent->isAnonymousStructOrUnion() &&
 -- 
-2.54.0
+2.52.0.windows.1
 

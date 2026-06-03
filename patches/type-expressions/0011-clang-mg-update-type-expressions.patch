@@ -1,49 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 13:08:58 -0400
-Subject: [PATCH] clang-mg: update type-expressions
+Subject: [PATCH 11/12] clang-mg: update type-expressions
 
----
- clang/include/clang/Basic/DiagnosticIDs.h     |  2 +-
- clang/lib/Parse/ParseCXXMGTypeExpr.cpp        | 74 +++++++++++++++++--
- .../type-expr-alias-parse-once-positive.cpp   |  2 +-
- ...expr-do-not-hijack-alias-template-args.cpp |  2 +-
- ...not-hijack-function-style-construction.cpp |  2 +-
- ...r-do-not-rebind-generated-record-alias.cpp |  2 +-
- ...ype-expr-generated-record-redefinition.cpp |  2 +-
- ...e-expr-generated-template-redefinition.cpp |  2 +-
- .../type-expr-named-record-ast-dump.cpp       |  2 +-
- ...e-expr-named-record-no-linkage-warning.cpp |  2 +-
- .../type-expr-named-record-tag-lookup.cpp     |  2 +-
- .../type-expr-normal-alias-still-alias.cpp    |  2 +-
- ...pe-expr-predicate-no-typename-fallback.cpp |  2 +-
- ...-expr-template-class-template-ast-dump.cpp |  2 +-
- .../type-expr-template-class-template-use.cpp |  2 +-
- .../type-expr-template-no-linkage-warning.cpp |  2 +-
- ...pr-template-specialization-field-types.cpp |  2 +-
- .../type-predicate-implements-basic.cpp       |  6 +-
- .../type-predicate-implements-composition.cpp |  2 +-
- .../type-predicate-implements-dependent.cpp   |  2 +-
- ...ments-do-not-steal-empty-template-args.cpp |  2 +-
- ...nts-do-not-steal-qualified-expressions.cpp |  2 +-
- ...lements-do-not-steal-value-expressions.cpp |  2 +-
- .../type-predicate-implements-errors.cpp      |  2 +-
- .../type-predicate-implements-qualified.cpp   |  2 +-
- 25 files changed, 93 insertions(+), 33 deletions(-)
 
-diff --git a/clang/include/clang/Basic/DiagnosticIDs.h b/clang/include/clang/Basic/DiagnosticIDs.h
-index e9367132fe1f..d9913fbd1508 100644
---- a/clang/include/clang/Basic/DiagnosticIDs.h
-+++ b/clang/include/clang/Basic/DiagnosticIDs.h
-@@ -43,7 +43,7 @@ enum {
-   DIAG_SIZE_AST = 300,
-   DIAG_SIZE_COMMENT = 100,
-   DIAG_SIZE_CROSSTU = 100,
--  DIAG_SIZE_SEMA = 5010,
-+  DIAG_SIZE_SEMA = 5020,
-   DIAG_SIZE_ANALYSIS = 100,
-   DIAG_SIZE_REFACTORING = 1000,
-   DIAG_SIZE_INSTALLAPI = 100,
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 index fbb71606c4d6..e4ed42e2b5f1 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
@@ -405,5 +365,5 @@ index ba54733d1ef2..d6722915f996 100644
  
  namespace backend {
 -- 
-2.54.0
+2.52.0.windows.1
 

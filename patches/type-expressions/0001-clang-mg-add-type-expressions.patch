@@ -1,36 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 21:31:20 -0400
-Subject: [PATCH] clang-mg: add type-expressions
+Subject: [PATCH 01/12] clang-mg: add type-expressions
 
----
- clang/include/clang/Basic/DiagnosticGroups.td |   3 +
- clang/include/clang/Basic/DiagnosticIDs.h     |   2 +-
- .../clang/Basic/DiagnosticParseKinds.td       |   7 +
- .../clang/Basic/DiagnosticSemaKinds.td        |  26 +
- clang/include/clang/Basic/Features.def        |   1 +
- clang/include/clang/Parse/Parser.h            |  10 +
- clang/include/clang/Sema/Sema.h               |  22 +
- clang/lib/Frontend/InitPreprocessor.cpp       |   1 +
- clang/lib/Parse/CMakeLists.txt                |   1 +
- clang/lib/Parse/ParseCXXMGTypeExpr.cpp        | 213 +++++++
- clang/lib/Parse/ParseDeclCXX.cpp              |  37 +-
- clang/lib/Parse/ParseExpr.cpp                 |  18 +
- clang/lib/Sema/CMakeLists.txt                 |   1 +
- clang/lib/Sema/SemaCXXMGTypeExpr.cpp          | 563 ++++++++++++++++++
- .../type-expr-add-records.cpp                 |  18 +
- .../type-expr-associated-types.cpp            |  23 +
- .../type-expressions/type-expr-conflicts.cpp  |   6 +
- .../type-expressions/type-expr-predicates.cpp |  17 +
- .../type-expr-subtract-records.cpp            |  10 +
- 19 files changed, 973 insertions(+), 6 deletions(-)
- create mode 100644 clang/lib/Parse/ParseCXXMGTypeExpr.cpp
- create mode 100644 clang/lib/Sema/SemaCXXMGTypeExpr.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-add-records.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-associated-types.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-conflicts.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-predicates.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-subtract-records.cpp
 
 diff --git a/clang/include/clang/Basic/DiagnosticGroups.td b/clang/include/clang/Basic/DiagnosticGroups.td
 index 8031f99419bd..f15bbf9dfb80 100644
@@ -45,19 +17,6 @@ index 8031f99419bd..f15bbf9dfb80 100644
 +
  // Warnings about unguarded usages of AMDGPU target specific constructs
  def UnguardedBuiltinUsageAMDGPU : DiagGroup<"amdgpu-unguarded-builtin-usage">;
-diff --git a/clang/include/clang/Basic/DiagnosticIDs.h b/clang/include/clang/Basic/DiagnosticIDs.h
-index 47f63933e1e2..e9367132fe1f 100644
---- a/clang/include/clang/Basic/DiagnosticIDs.h
-+++ b/clang/include/clang/Basic/DiagnosticIDs.h
-@@ -43,7 +43,7 @@ enum {
-   DIAG_SIZE_AST = 300,
-   DIAG_SIZE_COMMENT = 100,
-   DIAG_SIZE_CROSSTU = 100,
--  DIAG_SIZE_SEMA = 5000,
-+  DIAG_SIZE_SEMA = 5010,
-   DIAG_SIZE_ANALYSIS = 100,
-   DIAG_SIZE_REFACTORING = 1000,
-   DIAG_SIZE_INSTALLAPI = 100,
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
 index e1e16343e7bb..f5ed72337b06 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
@@ -147,7 +106,7 @@ index c4f2ddac174a..cbe944523201 100644
    /// static_assert-declaration.
    ///
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index d2a89fc6693f..04687a67b6ed 100644
+index c7916438cdeb..beaadb4bcf2d 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -197,6 +197,21 @@ class UnresolvedSetImpl;
@@ -485,7 +444,7 @@ index af3023c140f8..ebdbb8af6f23 100644
      *OwnedType = DeclFromDeclSpec;
  
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index e38481f05da6..35f630fdfe60 100644
+index 2987d32d6e0d..76ad65117af0 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -86,6 +86,12 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -1213,5 +1172,5 @@ index 000000000000..1cfc4a62c959
 +static_assert(__is_same(decltype(D{}.test), bool));
 +auto missing = D{}.value; // expected-error {{no member named 'value'}}
 -- 
-2.54.0
+2.52.0.windows.1
 

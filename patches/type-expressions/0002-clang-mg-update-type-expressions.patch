@@ -1,71 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 22:17:00 -0400
-Subject: [PATCH] clang-mg: update type-expressions
+Subject: [PATCH 02/12] clang-mg: update type-expressions
 
----
- clang/include/clang/AST/ASTContext.h          |   2 +
- clang/include/clang/AST/CXXMGTypeExpr.h       | 113 ++++++++++++++
- clang/include/clang/AST/ExprCXXMG.h           |  68 ++++++++
- clang/include/clang/AST/PropertiesBase.td     |   1 +
- clang/include/clang/AST/RecursiveASTVisitor.h |  22 +++
- clang/include/clang/AST/TextNodeDumper.h      |   3 +
- clang/include/clang/AST/TypeBase.h            |  25 +++
- clang/include/clang/AST/TypeLoc.h             |  11 ++
- clang/include/clang/AST/TypeProperties.td     |   9 ++
- clang/include/clang/Basic/StmtNodes.td        |   1 +
- clang/include/clang/Basic/TypeNodes.td        |   1 +
- clang/include/clang/Sema/Sema.h               |   8 +
- .../include/clang/Serialization/ASTBitCodes.h |   1 +
- .../clang/Serialization/ASTRecordReader.h     |   2 +
- .../clang/Serialization/ASTRecordWriter.h     |   6 +
- .../clang/Serialization/TypeBitCodes.def      |   1 +
- clang/lib/AST/ASTContext.cpp                  |  21 +++
- clang/lib/AST/CMakeLists.txt                  |   1 +
- clang/lib/AST/CXXMGTypeExpr.cpp               |  84 ++++++++++
- clang/lib/AST/Expr.cpp                        |  21 +++
- clang/lib/AST/StmtPrinter.cpp                 |  21 +++
- clang/lib/AST/StmtProfile.cpp                 |  19 +++
- clang/lib/AST/TextNodeDumper.cpp              |  14 ++
- clang/lib/AST/Type.cpp                        |   8 +
- clang/lib/AST/TypePrinter.cpp                 |  26 ++++
- clang/lib/Sema/SemaCXXMGTypeExpr.cpp          | 146 ++++++++++++++----
- .../lib/Sema/SemaTemplateInstantiateDecl.cpp  |   4 +
- clang/lib/Sema/TreeTransform.h                |  69 +++++++++
- clang/lib/Serialization/ASTReader.cpp         |  19 +++
- clang/lib/Serialization/ASTReaderStmt.cpp     |  10 ++
- clang/lib/Serialization/ASTWriter.cpp         |  19 +++
- clang/lib/Serialization/ASTWriterStmt.cpp     |   7 +
- .../type-expr-ast-dump-dependent-alias.cpp    |  11 ++
- ...type-expr-ast-dump-dependent-predicate.cpp |  11 ++
- .../type-expr-dependent-alias-subtract.cpp    |  22 +++
- .../type-expr-dependent-alias.cpp             |  18 +++
- .../type-expr-dependent-predicate-any.cpp     |  21 +++
- .../type-expr-dependent-predicate-invalid.cpp |  11 ++
- .../type-expr-dependent-predicate.cpp         |  20 +++
- .../type-expr-dependent-trait-composition.cpp |  22 +++
- .../type-expr-pch-dependent-alias.cpp         |  24 +++
- .../type-expr-pch-dependent-predicate.cpp     |  21 +++
- 42 files changed, 915 insertions(+), 29 deletions(-)
- create mode 100644 clang/include/clang/AST/CXXMGTypeExpr.h
- create mode 100644 clang/include/clang/AST/ExprCXXMG.h
- create mode 100644 clang/lib/AST/CXXMGTypeExpr.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-alias-subtract.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-alias.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
- create mode 100644 clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 
 diff --git a/clang/include/clang/AST/ASTContext.h b/clang/include/clang/AST/ASTContext.h
-index c952b8d46974..857c3ed4f394 100644
+index 134e1f1422e5..f869324691c2 100644
 --- a/clang/include/clang/AST/ASTContext.h
 +++ b/clang/include/clang/AST/ASTContext.h
-@@ -264,6 +264,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
+@@ -261,6 +261,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
  
    mutable llvm::ContextualFoldingSet<PackIndexingType, ASTContext &>
        DependentPackIndexingTypes;
@@ -73,7 +16,7 @@ index c952b8d46974..857c3ed4f394 100644
  
    mutable llvm::FoldingSet<TemplateTypeParmType> TemplateTypeParmTypes;
    mutable llvm::FoldingSet<ObjCTypeParamType> ObjCTypeParamTypes;
-@@ -2100,6 +2101,7 @@ public:
+@@ -2097,6 +2098,7 @@ public:
                                 bool FullySubstituted = false,
                                 ArrayRef<QualType> Expansions = {},
                                 UnsignedOrNone Index = std::nullopt) const;
@@ -485,7 +428,7 @@ index a9965a4a89aa..95a16bc29fa4 100644
  def ObjCObjectType : TypeNode<Type>;
  def ObjCInterfaceType : TypeNode<ObjCObjectType>, AlwaysCanonical;
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 04687a67b6ed..067c72732828 100644
+index beaadb4bcf2d..d02ce8f06db1 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -26,6 +26,7 @@
@@ -518,10 +461,10 @@ index 04687a67b6ed..067c72732828 100644
    /// Enter a new C++ default initializer scope. After calling this, the
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index 4ef832231bfe..8104f3e303e0 100644
+index 890da0e78241..9ee5af71ef59 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
-@@ -1950,6 +1950,7 @@ enum StmtCode {
+@@ -1946,6 +1946,7 @@ enum StmtCode {
    EXPR_CXX_FOLD,                          // CXXFoldExpr
    EXPR_CONCEPT_SPECIALIZATION,            // ConceptSpecializationExpr
    EXPR_REQUIRES,                          // RequiresExpr
@@ -1219,7 +1162,7 @@ index 682d265d7b9f..0bf6b44c4a30 100644
    Typedef->setReferenced(D->isReferenced());
  
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index c3bf71dbf10d..46cad65e07fd 100644
+index 70cdc47e42d5..e67ac7e7c74d 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -20,6 +20,7 @@
@@ -1357,7 +1300,7 @@ index 74a7b51368c2..94d7f56df83d 100644
    return (ID & llvm::maskTrailingOnes<TypeID>(32)) >> Qualifiers::FastWidth;
  }
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index 7e51ce8c0aca..b5cc74ab63bd 100644
+index 02ccf8d4d41c..4557c7346bcb 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -24,6 +24,7 @@
@@ -1422,7 +1365,7 @@ index 074b0fccdb65..9cac63ce7722 100644
    TypeLocWriter TLW(*this);
    for (; !TL.isNull(); TL = TL.getNextTypeLoc())
 diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
-index a7e815a1ef43..9d0183c70967 100644
+index 4e9eadd730a5..1cbdd75db365 100644
 --- a/clang/lib/Serialization/ASTWriterStmt.cpp
 +++ b/clang/lib/Serialization/ASTWriterStmt.cpp
 @@ -16,6 +16,7 @@
@@ -1688,5 +1631,5 @@ index 000000000000..7b592899e15e
 +
 +#endif
 -- 
-2.54.0
+2.52.0.windows.1
 
