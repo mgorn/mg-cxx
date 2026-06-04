@@ -36,10 +36,10 @@ index e1e16343e7bb..f5ed72337b06 100644
    "the number of preprocessor source tokens (%0) exceeds this token limit (%1)">,
    InGroup<MaxTokens>, DefaultIgnore;
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 14004784730d..2a18a5f666b1 100644
+index 66612f00a1bc..98da041d383f 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14271,6 +14271,32 @@ def warn_comparison_in_enum_initializer : Warning<
+@@ -14275,6 +14275,32 @@ def warn_comparison_in_enum_initializer : Warning<
  def note_enum_compare_typo_suggest : Note<
    "use '%0' to perform a bitwise shift">;
  
@@ -106,7 +106,7 @@ index c4f2ddac174a..cbe944523201 100644
    /// static_assert-declaration.
    ///
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index c7916438cdeb..beaadb4bcf2d 100644
+index 8f73964794d1..2fcc1ded6007 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -197,6 +197,21 @@ class UnresolvedSetImpl;
@@ -396,7 +396,7 @@ index 000000000000..d36514d82a1b
 +  return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), TE);
 +}
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index af3023c140f8..ebdbb8af6f23 100644
+index c5fddf941e0f..e2301e501419 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -889,11 +889,38 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(

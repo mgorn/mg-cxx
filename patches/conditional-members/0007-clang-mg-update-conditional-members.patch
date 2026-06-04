@@ -180,10 +180,10 @@ index 000000000000..3092e259deaa
 +#endif // LLVM_CLANG_AST_DECLCXXMG_H
 \ No newline at end of file
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index febdf715698d..8a7f7247eff2 100644
+index 3b9bafffe1bc..64cd19bcd58b 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
-@@ -2505,6 +2505,16 @@ DEF_TRAVERSE_DECL(ImplicitConceptSpecializationDecl, {
+@@ -2507,6 +2507,16 @@ DEF_TRAVERSE_DECL(ImplicitConceptSpecializationDecl, {
    TRY_TO(TraverseTemplateArguments(D->getTemplateArguments()));
  })
  
@@ -278,10 +278,10 @@ index 000000000000..7b4450f48b5e
 +}
 \ No newline at end of file
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index c9bc613a7c4e..551cc0909686 100644
+index aa381f09138d..e701b20d39a3 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -4767,6 +4767,18 @@ Decl *Sema::SubstDecl(Decl *D, DeclContext *Owner,
+@@ -4825,6 +4825,18 @@ Decl *Sema::SubstDecl(Decl *D, DeclContext *Owner,
    return SubstD;
  }
  

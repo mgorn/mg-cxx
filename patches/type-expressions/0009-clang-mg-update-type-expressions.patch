@@ -68,7 +68,7 @@ index 32a66d385110..cae1e9bcffde 100644
      return ExprNode ? ExprNode->getBeginLoc() : SourceLocation();
    }
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index f94b837b0fa9..77e8c70f4554 100644
+index e5c717bc697d..bdb032937c3a 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -694,6 +694,7 @@ namespace clang {
@@ -79,7 +79,7 @@ index f94b837b0fa9..77e8c70f4554 100644
      ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
      ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
      ExpectedStmt VisitRequiresExpr(RequiresExpr* E);
-@@ -1715,8 +1716,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+@@ -1721,8 +1722,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
    return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
  }
  
@@ -88,7 +88,7 @@ index f94b837b0fa9..77e8c70f4554 100644
  ExpectedStmt
  ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    Expected<CXXMGTypeExprNode *> NodeOrErr =
-@@ -1725,9 +1724,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+@@ -1731,9 +1730,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    if (!NodeOrErr)
      return NodeOrErr.takeError();
  
@@ -173,7 +173,7 @@ index a61a2d7a839b..40ba6b7b036d 100644
  
  CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
 diff --git a/clang/lib/AST/ExprConstant.cpp b/clang/lib/AST/ExprConstant.cpp
-index f78854d15a9f..e11310ded18f 100644
+index 86c162cc040f..8e1b58ddea40 100644
 --- a/clang/lib/AST/ExprConstant.cpp
 +++ b/clang/lib/AST/ExprConstant.cpp
 @@ -44,6 +44,7 @@
@@ -216,10 +216,10 @@ index f103926d7ac5..d73d2f8fa8cf 100644
  
  void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index ea72a19549d4..d544c1b693a4 100644
+index 639857077c5f..3e407a62c39a 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -1834,8 +1834,10 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
+@@ -1837,8 +1837,10 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
  }
  
  void TextNodeDumper::VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *Node) {
@@ -247,10 +247,10 @@ index 9f5c0e899b9f..65a7e36c4641 100644
  
  ExprResult Sema::ActOnCXXMGTypePredicateExpression(
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 3392618f9956..fcf8a52332c5 100644
+index 29cbaebd81b2..f87bfd51fe3c 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
-@@ -14783,7 +14783,21 @@ TreeTransform<Derived>::TransformCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+@@ -14793,7 +14793,21 @@ TreeTransform<Derived>::TransformCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
        getDerived().TransformCXXMGTypeExprNode(E->getTypeExprNode());
    if (!NewNode)
      return ExprError();

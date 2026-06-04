@@ -134,10 +134,10 @@ index db80eecce490..8dfbf3d91bc6 100644
    /// the buffers associated with remapped files.
    ///
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 8451a3698ef1..eb7e4d670998 100644
+index 8f515c802bc1..67cf02f1c7b6 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
-@@ -3119,6 +3119,37 @@ defm gnu89_inline : BoolFOption<"gnu89-inline",
+@@ -3123,6 +3123,37 @@ defm gnu89_inline : BoolFOption<"gnu89-inline",
    NegFlag<SetFalse>>, ShouldParseIf<!strconcat("!", cplusplus.KeyPath)>;
  def fgnu_runtime : Flag<["-"], "fgnu-runtime">, Group<f_Group>,
    HelpText<"Generate output compatible with the standard GNU Objective-C runtime">;
@@ -188,10 +188,10 @@ index 4f6c8ea04477..61435f62debd 100644
  
    CASE(14, '_', 'p', __public_macro);
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index f574a75b71de..25a3a851a07d 100644
+index fd7b117fb3aa..841570d1319b 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
-@@ -6335,6 +6335,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -6334,6 +6334,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
    }
    Args.AddLastArg(CmdArgs, options::OPT_P);
    Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
@@ -810,10 +810,10 @@ index 00f251300438..a48e3949e2e2 100644
      InclusionDirective::InclusionKind Kind
        = static_cast<InclusionDirective::InclusionKind>(Record[2]);
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 91b247264062..e26b2db131cd 100644
+index 26cde47683ac..735192cf8d5e 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
-@@ -2863,7 +2863,7 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec,
+@@ -2840,7 +2840,7 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec,
      Abbrev->Add(BitCodeAbbrevOp(PPD_INCLUSION_DIRECTIVE));
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 32)); // filename length
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // in quotes

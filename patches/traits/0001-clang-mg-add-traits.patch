@@ -5,10 +5,10 @@ Subject: [PATCH 1/3] clang-mg: add traits
 
 
 diff --git a/clang/include/clang/AST/Decl.h b/clang/include/clang/AST/Decl.h
-index 620206612f98..6c1af78c33f3 100644
+index e3f513732e58..3eec601e7631 100644
 --- a/clang/include/clang/AST/Decl.h
 +++ b/clang/include/clang/AST/Decl.h
-@@ -3948,6 +3948,7 @@ public:
+@@ -3932,6 +3932,7 @@ public:
    bool isInterface() const { return getTagKind() == TagTypeKind::Interface; }
    bool isClass() const { return getTagKind() == TagTypeKind::Class; }
    bool isUnion() const { return getTagKind() == TagTypeKind::Union; }
@@ -79,10 +79,10 @@ index 914c8a6276c2..036886d51ae7 100644
  ///
  /// In the terminology of the C++ Standard, these are the (static and
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 8a7f7247eff2..32b8b627bd55 100644
+index 64cd19bcd58b..6380212cbd26 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
-@@ -2500,6 +2500,7 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
+@@ -2502,6 +2502,7 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
  })
  
  DEF_TRAVERSE_DECL(RequiresExprBodyDecl, {})
@@ -156,10 +156,10 @@ index 7bcd1870a260..e1e16343e7bb 100644
    "missing '}' at end of definition of %q0">;
  def note_missing_end_of_definition_before : Note<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 077aace32126..14004784730d 100644
+index 4e3585b7b819..66612f00a1bc 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -7823,6 +7823,17 @@ def err_typecheck_pointer_arith_void_type : Error<
+@@ -7827,6 +7827,17 @@ def err_typecheck_pointer_arith_void_type : Error<
    "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
  def err_typecheck_decl_incomplete_type : Error<
    "variable has incomplete type %0">;
@@ -206,7 +206,7 @@ index 41420ece94bf..a2e3da3ebfe5 100644
             ~KEYNOHLSL // KEYNOMS18, KEYNOOPENCL, KEYNOZOS, KEYNOHLSL excluded.
  };
 diff --git a/clang/include/clang/Basic/Specifiers.h b/clang/include/clang/Basic/Specifiers.h
-index 8da6fd4cf454..a3192668521f 100644
+index 1fe50760eff9..d0c8ecd81161 100644
 --- a/clang/include/clang/Basic/Specifiers.h
 +++ b/clang/include/clang/Basic/Specifiers.h
 @@ -82,6 +82,7 @@ namespace clang {
@@ -264,7 +264,7 @@ index b3c459821c79..a22e9267853c 100644
    static bool isTransformTypeTrait(TST T) {
      constexpr std::array<TST, 16> Traits = {
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index eb9dc371a3be..c7916438cdeb 100644
+index fbe9f30fabdb..8f73964794d1 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5873,6 +5873,14 @@ public:
@@ -311,10 +311,10 @@ index 8a96f3ab6453..8180d7be0607 100644
      case ObjCTypeParam:
        return IDNS_Ordinary | IDNS_Type;
 diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
-index 2de8ba8f484f..c4f3d3d892cc 100644
+index fc8a15287f43..d77f81c7d8ae 100644
 --- a/clang/lib/AST/DeclCXX.cpp
 +++ b/clang/lib/AST/DeclCXX.cpp
-@@ -2410,6 +2410,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+@@ -2409,6 +2409,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
    return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
  }
  
@@ -339,10 +339,10 @@ index 2de8ba8f484f..c4f3d3d892cc 100644
  
  bool CXXMethodDecl::isStatic() const {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 2b1c0cac25b6..49a39ea7cd85 100644
+index abb6869a2b46..04875767b3c9 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2702,6 +2702,14 @@ void TextNodeDumper::VisitTypeAliasDecl(const TypeAliasDecl *D) {
+@@ -2705,6 +2705,14 @@ void TextNodeDumper::VisitTypeAliasDecl(const TypeAliasDecl *D) {
    }
  }
  
@@ -487,7 +487,7 @@ index 405dddf7991b..7062de15f83e 100644
    case tok::kw_enum:
  
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 0ebc4b0a3998..af3023c140f8 100644
+index b64d856beaaa..c5fddf941e0f 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -1553,6 +1553,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
@@ -499,7 +499,7 @@ index 0ebc4b0a3998..af3023c140f8 100644
    else if (TagTokKind == tok::kw_class)
      TagType = DeclSpec::TST_class;
    else {
-@@ -3499,7 +3501,8 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
+@@ -3501,7 +3503,8 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
                                           unsigned TagType, Decl *TagDecl) {
    assert((TagType == DeclSpec::TST_struct ||
            TagType == DeclSpec::TST_interface ||
@@ -509,7 +509,7 @@ index 0ebc4b0a3998..af3023c140f8 100644
           "Invalid TagType!");
  
    llvm::TimeTraceScope TimeScope("ParseClass", [&]() {
-@@ -3618,7 +3621,10 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
+@@ -3620,7 +3623,10 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
      }
    }
  
@@ -521,7 +521,7 @@ index 0ebc4b0a3998..af3023c140f8 100644
      ParseScope InheritanceScope(this, getCurScope()->getFlags() |
                                            Scope::ClassInheritanceScope);
  
-@@ -3688,8 +3694,11 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
+@@ -3690,8 +3696,11 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
      while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
             Tok.isNot(tok::eof)) {
        // Each iteration of this loop reads one member-declaration.
@@ -629,7 +629,7 @@ index 660b1805c450..63c711a94e01 100644
    case DeclSpec::TST_struct:      return "struct";
    case DeclSpec::TST_interface:   return "__interface";
 diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
-index 44723750bccf..58b8e947e07d 100644
+index 022e03ddef87..f3adee318ca9 100644
 --- a/clang/lib/Sema/SemaDecl.cpp
 +++ b/clang/lib/Sema/SemaDecl.cpp
 @@ -702,6 +702,8 @@ DeclSpec::TST Sema::isTagName(IdentifierInfo &II, Scope *S) {
@@ -665,7 +665,7 @@ index 44723750bccf..58b8e947e07d 100644
  
    // Defer checking an 'auto' type until its initializer is attached.
    if (T->isUndeducedType())
-@@ -12333,6 +12345,14 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
+@@ -12334,6 +12346,14 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
      NewFD->setInvalidDecl();
    }
  
@@ -680,7 +680,7 @@ index 44723750bccf..58b8e947e07d 100644
    CheckConstPureAttributesUsage(*this, NewFD);
  
    // C++ [dcl.spec.auto.general]p12:
-@@ -15941,6 +15961,12 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
+@@ -15942,6 +15962,12 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
      New->setType(T);
    }
  
@@ -693,7 +693,7 @@ index 44723750bccf..58b8e947e07d 100644
    // __ptrauth is forbidden on parameters.
    if (T.getPointerAuth()) {
      Diag(NameLoc, diag::err_ptrauth_qualifier_invalid) << T << 1;
-@@ -17758,6 +17784,8 @@ NonTagKind Sema::getNonTagTypeDeclKind(const Decl *PrevDecl, TagTypeKind TTK) {
+@@ -17759,6 +17785,8 @@ NonTagKind Sema::getNonTagTypeDeclKind(const Decl *PrevDecl, TagTypeKind TTK) {
    case TagTypeKind::Class:
      return getLangOpts().CPlusPlus ? NonTagKind::NonClass
                                     : NonTagKind::NonStruct;
@@ -702,7 +702,7 @@ index 44723750bccf..58b8e947e07d 100644
    case TagTypeKind::Union:
      return NonTagKind::NonUnion;
    case TagTypeKind::Enum:
-@@ -17967,6 +17995,12 @@ Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
+@@ -17968,6 +17996,12 @@ Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
  
    OwnedDecl = false;
    TagTypeKind Kind = TypeWithKeyword::getTagTypeKindForTypeSpec(TagSpec);
@@ -715,7 +715,7 @@ index 44723750bccf..58b8e947e07d 100644
    bool ScopedEnum = ScopedEnumKWLoc.isValid();
  
    // FIXME: Check member specializations more carefully.
-@@ -19403,6 +19437,13 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -19404,6 +19438,13 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
      T = Context.IntTy;
    }
  
@@ -730,7 +730,7 @@ index 44723750bccf..58b8e947e07d 100644
    if (!EltTy->isDependentType() && !EltTy->containsErrors()) {
      bool isIncomplete =
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 538ff831ab96..d818e05924ee 100644
+index 14790ac90176..0be654f0965f 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3540,6 +3540,70 @@ Decl *Sema::ActOnCXXMGConditionalMember(
@@ -823,7 +823,7 @@ index ad6e7183cb3a..fd036a454871 100644
    //   When alignof or _Alignof is applied to an array type, the result
    //   is the alignment of the element type.
 diff --git a/clang/lib/Sema/SemaExprCXX.cpp b/clang/lib/Sema/SemaExprCXX.cpp
-index 00c873833c8a..c940bf857748 100644
+index 4e1652462b3a..6e461a2aaf34 100644
 --- a/clang/lib/Sema/SemaExprCXX.cpp
 +++ b/clang/lib/Sema/SemaExprCXX.cpp
 @@ -2154,6 +2154,12 @@ ExprResult Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
@@ -840,10 +840,10 @@ index 00c873833c8a..c940bf857748 100644
    if (DirectInitRange.isValid()) {
      assert(Initializer && "Have parens but no initializer.");
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index cb8e412100bc..682d265d7b9f 100644
+index 6f22fc5dd4f9..c3ab6ec6f6e1 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -4769,6 +4769,13 @@ TemplateDeclInstantiator::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
+@@ -4827,6 +4827,13 @@ TemplateDeclInstantiator::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
                                        D->getBeginLoc());
  }
  
@@ -858,7 +858,7 @@ index cb8e412100bc..682d265d7b9f 100644
    llvm_unreachable("Unexpected decl");
  }
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index fb291a4b0f2c..c7dd9087a555 100644
+index ea4e3f920417..b49841edc3f5 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -384,6 +384,7 @@ public:
@@ -869,7 +869,7 @@ index fb291a4b0f2c..c7dd9087a555 100644
    RedeclarableResult VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
    void VisitClassTemplateDecl(ClassTemplateDecl *D);
    void VisitBuiltinTemplateDecl(BuiltinTemplateDecl *D);
-@@ -2446,6 +2447,14 @@ void ASTDeclReader::VisitImplicitConceptSpecializationDecl(
+@@ -2453,6 +2454,14 @@ void ASTDeclReader::VisitImplicitConceptSpecializationDecl(
  void ASTDeclReader::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
  }
  
@@ -884,7 +884,7 @@ index fb291a4b0f2c..c7dd9087a555 100644
  void ASTDeclReader::ReadSpecializations(ModuleFile &M, Decl *D,
                                          llvm::BitstreamCursor &DeclsCursor,
                                          bool IsPartial) {
-@@ -4130,6 +4139,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
+@@ -4135,6 +4144,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
    case DECL_REQUIRES_EXPR_BODY:
      D = RequiresExprBodyDecl::CreateDeserialized(Context, ID);
      break;
@@ -895,7 +895,7 @@ index fb291a4b0f2c..c7dd9087a555 100644
      D = StaticAssertDecl::CreateDeserialized(Context, ID);
      break;
 diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
-index 7f5005aa666c..2c1bfcc8ae0f 100644
+index 1390bc7c8dc9..a7dfff31f5ad 100644
 --- a/clang/lib/Serialization/ASTWriterDecl.cpp
 +++ b/clang/lib/Serialization/ASTWriterDecl.cpp
 @@ -124,6 +124,7 @@ namespace clang {
@@ -906,7 +906,7 @@ index 7f5005aa666c..2c1bfcc8ae0f 100644
      void VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
      void VisitClassTemplateDecl(ClassTemplateDecl *D);
      void VisitVarTemplateDecl(VarTemplateDecl *D);
-@@ -1881,6 +1882,14 @@ void ASTDeclWriter::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
+@@ -1891,6 +1892,14 @@ void ASTDeclWriter::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
    Code = serialization::DECL_REQUIRES_EXPR_BODY;
  }
  

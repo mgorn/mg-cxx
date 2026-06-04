@@ -24,7 +24,7 @@ index 7e874e2c57af..088a698719e5 100644
    /// ParseConstructorInitializer - Parse a C++ constructor initializer,
    /// which explicitly initializes the members or base classes of a
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index b8d760e7e097..eb9dc371a3be 100644
+index ff474fdd9956..fbe9f30fabdb 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -3909,6 +3909,17 @@ public:
@@ -77,7 +77,7 @@ index ea01e3263896..8a96f3ab6453 100644
        return 0;
    }
 diff --git a/clang/lib/CodeGen/CGDecl.cpp b/clang/lib/CodeGen/CGDecl.cpp
-index 63ad0bc9ec23..7a11acd93f8b 100644
+index 7608f8cb6fc7..473740d751ee 100644
 --- a/clang/lib/CodeGen/CGDecl.cpp
 +++ b/clang/lib/CodeGen/CGDecl.cpp
 @@ -108,6 +108,7 @@ void CodeGenFunction::EmitDecl(const Decl &D, bool EvaluateConditionDecl) {
@@ -257,7 +257,7 @@ index b2d281464004..20cd1d4a1d42 100644
 +  return SourceRange(LBraceLoc, RBraceLoc);
 +}
 diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
-index cddcf3a01027..44723750bccf 100644
+index 694067bea9e4..022e03ddef87 100644
 --- a/clang/lib/Sema/SemaDecl.cpp
 +++ b/clang/lib/Sema/SemaDecl.cpp
 @@ -6693,7 +6693,8 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
@@ -270,7 +270,7 @@ index cddcf3a01027..44723750bccf 100644
      PushOnScopeChains(New, S);
  
    if (OpenMP().isInOpenMPDeclareTargetContext())
-@@ -19370,7 +19371,9 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
+@@ -19371,7 +19372,9 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
    if (D.getDeclSpec().isModulePrivateSpecified())
      NewFD->setModulePrivate();
  
@@ -282,7 +282,7 @@ index cddcf3a01027..44723750bccf 100644
      // with the same name in the same scope.
    } else if (II) {
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 9bbe99df064c..b8bd7d06bbc4 100644
+index 9f9e76bf336b..98da9ca0c0a6 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3464,6 +3464,79 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
@@ -378,10 +378,10 @@ index 9bbe99df064c..b8bd7d06bbc4 100644
  
    if (isInstField) {
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 5309ec4430e9..96561efc5050 100644
+index 6df6d5505c61..9cf9c96c44be 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-@@ -3590,7 +3590,47 @@ bool Sema::InstantiateClassImpl(
+@@ -3356,7 +3356,47 @@ bool Sema::InstantiateClassImpl(
    Instantiator.enableLateAttributeInstantiation(&LateAttrs);
  
    bool MightHaveConstexprVirtualFunctions = false;
@@ -429,7 +429,7 @@ index 5309ec4430e9..96561efc5050 100644
      // Don't instantiate members not belonging in this semantic context.
      // e.g. for:
      // @code
-@@ -3616,37 +3656,46 @@ bool Sema::InstantiateClassImpl(
+@@ -3382,37 +3422,46 @@ bool Sema::InstantiateClassImpl(
        continue;
      }
  
@@ -504,10 +504,10 @@ index 5309ec4430e9..96561efc5050 100644
        // FIXME: Eventually, a NULL return will mean that one of the
        // instantiations was a semantic disaster, and we'll want to mark the
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 551cc0909686..cb8e412100bc 100644
+index e701b20d39a3..6f22fc5dd4f9 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -1912,9 +1912,28 @@ Decl *TemplateDeclInstantiator::VisitFieldDecl(FieldDecl *D) {
+@@ -1928,9 +1928,28 @@ Decl *TemplateDeclInstantiator::VisitFieldDecl(FieldDecl *D) {
    if (Invalid)
      Field->setInvalidDecl();
  

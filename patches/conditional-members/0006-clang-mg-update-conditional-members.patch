@@ -17,10 +17,10 @@ index 8dd120f529b1..07169bfc9129 100644
    ParseExprCXX.cpp
    ParseHLSL.cpp
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index fca2cdb811ae..0ebc4b0a3998 100644
+index 529f6a82a506..b64d856beaaa 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
-@@ -3493,56 +3493,6 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
+@@ -3495,56 +3495,6 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
    }
  }
  

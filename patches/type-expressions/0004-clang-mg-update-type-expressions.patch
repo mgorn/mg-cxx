@@ -5,7 +5,7 @@ Subject: [PATCH 04/12] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index ebdbb8af6f23..fc50fd51770b 100644
+index e2301e501419..b349ddf48f59 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -889,38 +889,63 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(

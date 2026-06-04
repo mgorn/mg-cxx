@@ -29,10 +29,10 @@ index 8b7b728deaff..6ce7999eab1e 100644
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 301c81962fb1..f94b837b0fa9 100644
+index b8fc635b8add..e5c717bc697d 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
-@@ -1715,6 +1715,20 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+@@ -1721,6 +1721,20 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
    return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
  }
  

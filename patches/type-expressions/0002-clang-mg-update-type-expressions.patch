@@ -230,7 +230,7 @@ index fd3cce10be30..f397142a57fa 100644
  def ExceptionSpecInfo : PropertyType<"FunctionProtoType::ExceptionSpecInfo"> {
    let BufferElementTypes = [ QualType ];
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 32b8b627bd55..ed8043f43488 100644
+index 6380212cbd26..b941ca78ee7b 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -26,6 +26,7 @@
@@ -279,7 +279,7 @@ index 32b8b627bd55..ed8043f43488 100644
  DEF_TRAVERSE_TYPELOC(UnaryTransformType, {
    TRY_TO(TraverseTypeLoc(TL.getUnderlyingTInfo()->getTypeLoc()));
  })
-@@ -2867,6 +2885,10 @@ DEF_TRAVERSE_STMT(TypeTraitExpr, {
+@@ -2869,6 +2887,10 @@ DEF_TRAVERSE_STMT(TypeTraitExpr, {
      TRY_TO(TraverseTypeLoc(S->getArg(I)->getTypeLoc()));
  })
  
@@ -428,7 +428,7 @@ index a9965a4a89aa..95a16bc29fa4 100644
  def ObjCObjectType : TypeNode<Type>;
  def ObjCInterfaceType : TypeNode<ObjCObjectType>, AlwaysCanonical;
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index beaadb4bcf2d..d02ce8f06db1 100644
+index 2fcc1ded6007..53b59c94f899 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -26,6 +26,7 @@
@@ -528,7 +528,7 @@ index 9f1da65e0f94..5eec26d430ab 100644
  
  #undef TYPE_BIT_CODE
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index a401a7471e6f..15ff9467408a 100644
+index a1f4994eef8a..003e7baaf349 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
 @@ -21,6 +21,7 @@
@@ -798,7 +798,7 @@ index eb25e5260fd1..f103926d7ac5 100644
    VisitExpr(S);
    ID.AddInteger(S->getTrait());
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 49a39ea7cd85..fed5fdd996f9 100644
+index 04875767b3c9..91421b7629be 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -15,6 +15,7 @@
@@ -809,7 +809,7 @@ index 49a39ea7cd85..fed5fdd996f9 100644
  #include "clang/AST/LocInfoType.h"
  #include "clang/AST/NestedNameSpecifier.h"
  #include "clang/AST/Type.h"
-@@ -1832,6 +1833,13 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
+@@ -1835,6 +1836,13 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
    OS << " " << getTraitSpelling(Node->getTrait());
  }
  
@@ -823,7 +823,7 @@ index 49a39ea7cd85..fed5fdd996f9 100644
  void TextNodeDumper::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *Node) {
    OS << " " << getTraitSpelling(Node->getTrait());
  }
-@@ -2216,6 +2224,12 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
+@@ -2219,6 +2227,12 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
    }
  }
  
@@ -863,7 +863,7 @@ index 895b9d0f1266..faf3a2be34a3 100644
    return (*this != Other) &&
           // CVR qualifiers superset
 diff --git a/clang/lib/AST/TypePrinter.cpp b/clang/lib/AST/TypePrinter.cpp
-index 80f5b90ba35c..9f70863334db 100644
+index d85ed244f643..2646d0ee9abe 100644
 --- a/clang/lib/AST/TypePrinter.cpp
 +++ b/clang/lib/AST/TypePrinter.cpp
 @@ -12,6 +12,7 @@
@@ -1147,10 +1147,10 @@ index b87cf3a38595..b628f353e1ce 100644
 +  RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 682d265d7b9f..0bf6b44c4a30 100644
+index c3ab6ec6f6e1..d234f57f9795 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -1624,6 +1624,10 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
+@@ -1640,6 +1640,10 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
    if (D->getUnderlyingType()->getAs<DependentNameType>())
      SemaRef.inferGslPointerAttribute(Typedef);
  
@@ -1162,7 +1162,7 @@ index 682d265d7b9f..0bf6b44c4a30 100644
    Typedef->setReferenced(D->isReferenced());
  
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 70cdc47e42d5..e67ac7e7c74d 100644
+index 77c8f17439a1..d69e13143636 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -20,6 +20,7 @@
@@ -1173,7 +1173,7 @@ index 70cdc47e42d5..e67ac7e7c74d 100644
  #include "clang/AST/ExprConcepts.h"
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
-@@ -858,6 +859,7 @@ public:
+@@ -859,6 +860,7 @@ public:
  
    ExprResult TransformUnresolvedLookupExpr(UnresolvedLookupExpr *E,
                                             bool IsAddressOfOperand);
@@ -1181,7 +1181,7 @@ index 70cdc47e42d5..e67ac7e7c74d 100644
  
    StmtResult TransformOMPExecutableDirective(OMPExecutableDirective *S);
  
-@@ -5458,6 +5460,36 @@ TypeSourceInfo *TreeTransform<Derived>::TransformType(TypeSourceInfo *TSI) {
+@@ -5459,6 +5461,36 @@ TypeSourceInfo *TreeTransform<Derived>::TransformType(TypeSourceInfo *TSI) {
    return TLB.getTypeSourceInfo(SemaRef.Context, Result);
  }
  
@@ -1218,7 +1218,7 @@ index 70cdc47e42d5..e67ac7e7c74d 100644
  template<typename Derived>
  QualType
  TreeTransform<Derived>::TransformType(TypeLocBuilder &TLB, TypeLoc T) {
-@@ -7198,6 +7230,33 @@ TreeTransform<Derived>::TransformPackIndexingType(TypeLocBuilder &TLB,
+@@ -7199,6 +7231,33 @@ TreeTransform<Derived>::TransformPackIndexingType(TypeLocBuilder &TLB,
    return Out;
  }
  
@@ -1252,7 +1252,7 @@ index 70cdc47e42d5..e67ac7e7c74d 100644
  template<typename Derived>
  QualType TreeTransform<Derived>::TransformUnaryTransformType(
                                                              TypeLocBuilder &TLB,
-@@ -14716,6 +14775,16 @@ TreeTransform<Derived>::TransformCXXBoolLiteralExpr(CXXBoolLiteralExpr *E) {
+@@ -14726,6 +14785,16 @@ TreeTransform<Derived>::TransformCXXBoolLiteralExpr(CXXBoolLiteralExpr *E) {
    return E;
  }
  
@@ -1335,10 +1335,10 @@ index 02ccf8d4d41c..4557c7346bcb 100644
        S = new (Context) ExpressionTraitExpr(Empty);
        break;
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 074b0fccdb65..9cac63ce7722 100644
+index 6497c22a762a..6f6a486738ff 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
-@@ -6996,6 +6996,25 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
+@@ -6973,6 +6973,25 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
    AddTypeLoc(TInfo->getTypeLoc());
  }
  

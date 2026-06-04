@@ -27,10 +27,10 @@ index ee1cf38cb29c..876cb5dce8a1 100644
    RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 0bf6b44c4a30..9b5d4a66dd04 100644
+index d234f57f9795..0f983a84a5ae 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -1624,7 +1624,7 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
+@@ -1640,7 +1640,7 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
    if (D->getUnderlyingType()->getAs<DependentNameType>())
      SemaRef.inferGslPointerAttribute(Typedef);
  

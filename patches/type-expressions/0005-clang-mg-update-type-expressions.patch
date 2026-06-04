@@ -174,7 +174,7 @@ index d36514d82a1b..e1f167655a3c 100644
      TPA.Revert();
      return ExprEmpty();
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index fc50fd51770b..12480e41a7ba 100644
+index b349ddf48f59..bb0f2a981887 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -925,7 +925,8 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(

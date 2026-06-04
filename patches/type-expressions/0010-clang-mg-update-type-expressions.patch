@@ -36,10 +36,10 @@ index f5ed72337b06..693fa764049c 100644
  
  def warn_max_tokens : Warning<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index de0f9632adf8..2e9683caf520 100644
+index 7437d2def40e..09c6ff1109f0 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14288,6 +14288,12 @@ def err_cxxmg_type_expr_union_operand :
+@@ -14292,6 +14292,12 @@ def err_cxxmg_type_expr_union_operand :
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
    Error<"operator %0 is not supported in a type predicate expression">;
@@ -90,7 +90,7 @@ index d6198a4f6df8..4b6c81b13a41 100644
    /// ParseStaticAssertDeclaration - Parse C++0x or C11
    /// static_assert-declaration.
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 63d47983656b..d32929db7bb9 100644
+index e7f85ca1a205..0013b18be1d6 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -198,14 +198,22 @@ class UnresolvedSetImpl;
@@ -422,7 +422,7 @@ index e1f167655a3c..fbb71606c4d6 100644
        Actions, Sema::ExpressionEvaluationContext::Unevaluated);
    return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), TE);
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 8872ceda305d..18d5b3af2da4 100644
+index d7e9e23b4338..e66c45686fcb 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -899,7 +899,15 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(

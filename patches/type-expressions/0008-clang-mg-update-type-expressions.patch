@@ -48,10 +48,10 @@ index 036886d51ae7..b0736d85c6d7 100644
    /// (C++11 [class.ctor]p5).
    bool hasTrivialDefaultConstructor() const {
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 2a18a5f666b1..de0f9632adf8 100644
+index 98da041d383f..7437d2def40e 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14280,6 +14280,10 @@ def err_cxxmg_type_expr_invalid_operand :
+@@ -14284,6 +14284,10 @@ def err_cxxmg_type_expr_invalid_operand :
    Error<"type expression operand %0 is not a struct, class, or trait">;
  def err_cxxmg_type_expr_incomplete_operand :
    Error<"type expression operand %0 is incomplete">;
@@ -63,7 +63,7 @@ index 2a18a5f666b1..de0f9632adf8 100644
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index d02ce8f06db1..63d47983656b 100644
+index 53b59c94f899..e7f85ca1a205 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5526,10 +5526,23 @@ public:
@@ -91,10 +91,10 @@ index d02ce8f06db1..63d47983656b 100644
    /// BuildCXXConstructExpr - Creates a complete call to a constructor,
    /// including handling of its default argument expressions.
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index fed5fdd996f9..ea72a19549d4 100644
+index 91421b7629be..639857077c5f 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2732,6 +2732,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
+@@ -2735,6 +2735,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
  
  void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
    VisitRecordDecl(D);
@@ -106,7 +106,7 @@ index fed5fdd996f9..ea72a19549d4 100644
      OS << " instantiated_from";
      dumpPointer(Instance);
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 12480e41a7ba..8872ceda305d 100644
+index bb0f2a981887..d7e9e23b4338 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -934,15 +934,22 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -450,22 +450,22 @@ index 876cb5dce8a1..9f5c0e899b9f 100644
    if (!TE)
      return ExprError();
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 96561efc5050..c097521c9778 100644
+index 9cf9c96c44be..0cd6181b8910 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-@@ -4157,6 +4157,11 @@ bool Sema::InstantiateClassTemplateSpecialization(
-   if (!Pattern.isUsable())
-     return Pattern.isInvalid();
+@@ -3930,6 +3930,11 @@ bool Sema::InstantiateClassTemplateSpecialization(
+       ClassTemplateSpec, /*Innermost=*/std::nullopt,
+       /*NumLevels=*/Pattern.get()->getTemplateDepth());
  
 +  if (Pattern.get()->isCXXMGTypeExpressionGenerated())
 +    return InstantiateCXXMGTypeExpressionClassTemplateSpecialization(
-+        PointOfInstantiation, ClassTemplateSpec, Pattern.get(),
-+        getTemplateInstantiationArgs(ClassTemplateSpec), TSK, Complain);
++      PointOfInstantiation, ClassTemplateSpec, Pattern.get(),
++      TemplateArgs, TSK, Complain);
 +
-   bool Err = InstantiateClassImpl(
-       PointOfInstantiation, ClassTemplateSpec, Pattern.get(),
-       getTemplateInstantiationArgs(ClassTemplateSpec), TSK, Complain);
-@@ -4173,6 +4178,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
+   bool Err = InstantiateClassImpl(PointOfInstantiation, ClassTemplateSpec,
+                                   Pattern.get(), TemplateArgs, TSK, Complain);
+ 
+@@ -3945,6 +3950,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
    return Err;
  }
  
@@ -484,10 +484,10 @@ index 96561efc5050..c097521c9778 100644
  Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
                                CXXRecordDecl *Instantiation,
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index c7dd9087a555..2b4ccdb6bb54 100644
+index b49841edc3f5..c2f26795e5bf 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
-@@ -2027,6 +2027,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
+@@ -2034,6 +2034,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
        Data.VBases = ReadGlobalOffset();
  
      Data.FirstFriend = readDeclID().getRawValue();
@@ -496,10 +496,10 @@ index c7dd9087a555..2b4ccdb6bb54 100644
      using Capture = LambdaCapture;
  
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 8df1550a55dc..91b247264062 100644
+index 7d7b7769a919..26cde47683ac 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
-@@ -7513,6 +7513,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
+@@ -7490,6 +7490,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
        AddCXXBaseSpecifiers(Data.vbases());
  
      AddDeclRef(D->getFirstFriend());

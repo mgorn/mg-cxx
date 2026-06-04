@@ -31,10 +31,10 @@ index c6c492b4980a..eae0d6791742 100644
    /// which explicitly initializes the members or base classes of a
    /// class (C++ [class.base.init]). For example, the three initializers
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 198b5416965e..0de69dbceead 100644
+index 81f06435438d..b75a90f61f7f 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
-@@ -3495,42 +3495,48 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+@@ -3497,42 +3497,48 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
                                DeclSpec::TST TagType, Decl *Tag) {
    assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
  

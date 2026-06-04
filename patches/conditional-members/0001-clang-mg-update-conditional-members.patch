@@ -5,10 +5,10 @@ Subject: [PATCH 01/10] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 893989bd2398..8f707e120c96 100644
+index 86f18d10f08b..5613f80c7beb 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
-@@ -3490,6 +3490,15 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
+@@ -3492,6 +3492,15 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
    }
  }
  
