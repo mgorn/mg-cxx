@@ -1,8 +1,18 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 19:20:14 -0400
-Subject: [PATCH 10/10] clang-mg: update conditional-members
+Subject: [PATCH] clang-mg: update conditional-members
 
+---
+ clang/include/clang/Basic/Features.def        |  3 +
+ clang/lib/Frontend/InitPreprocessor.cpp       |  4 ++
+ .../Parser/cxxmg-if-constexpr-members.cpp     | 35 +++++++++
+ ...xxmg-if-constexpr-members-feature-test.cpp | 70 ++++++++++++++++++
+ .../SemaCXX/cxxmg-if-constexpr-members.cpp    | 71 +++++++++++++++++++
+ 5 files changed, 183 insertions(+)
+ create mode 100644 clang/test/Parser/cxxmg-if-constexpr-members.cpp
+ create mode 100644 clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
+ create mode 100644 clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
 
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
 index 2f7741ff74f9..b5a8fd2cb128 100644

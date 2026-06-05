@@ -1,0 +1,295 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 4 Jun 2026 19:41:42 -0400
+Subject: [PATCH] clang-mg: update conditional-members
+
+---
+ clang/lib/Sema/SemaExpr.cpp                   | 156 ++++++++++++++++++
+ .../SemaCXX/cxxmg-if-constexpr-members.cpp    | 100 +++++++++++
+ 2 files changed, 256 insertions(+)
+
+diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
+index fd036a454871..e0fabad20b43 100644
+--- a/clang/lib/Sema/SemaExpr.cpp
++++ b/clang/lib/Sema/SemaExpr.cpp
+@@ -2814,6 +2814,156 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
+       TemplateArgs);
+ }
+ 
++static bool cxxmgIsExpressionUsableConditionalMemberPatternDecl(
++    const NamedDecl *ND) {
++  if (!ND || ND->isInvalidDecl())
++    return false;
++
++  // FieldDecl, CXXMethodDecl, VarDecl, EnumConstantDecl, etc. are ValueDecls.
++  // This deliberately excludes TypeDecl / TypeAliasDecl so expression lookup
++  // does not recover a type-only conditional member as a value expression.
++  if (isa<ValueDecl>(ND))
++    return true;
++
++  if (const auto *Shadow = dyn_cast<UsingShadowDecl>(ND))
++    return cxxmgIsExpressionUsableConditionalMemberPatternDecl(
++        Shadow->getTargetDecl());
++
++  // A dependent using-declaration that names a value may be represented this
++  // way before target lookup is complete.
++  if (isa<UnresolvedUsingValueDecl>(ND))
++    return true;
++
++  return false;
++}
++
++static bool cxxmgConditionalMemberPatternDeclMatchesName(
++    const Decl *D, DeclarationName Name) {
++  if (!D)
++    return false;
++
++  if (const auto *ND = dyn_cast<NamedDecl>(D)) {
++    if (ND->getDeclName() == Name &&
++        cxxmgIsExpressionUsableConditionalMemberPatternDecl(ND))
++      return true;
++  }
++
++  // Your 0009 patch handles BaseUsingDecl shadows when materializing a
++  // selected arm. Match the same shape here so conditional using-declarations
++  // can participate in the recovery when they expose value members.
++  if (const auto *BUD = dyn_cast<BaseUsingDecl>(D)) {
++    for (const UsingShadowDecl *Shadow : BUD->shadows()) {
++      if (Shadow->getDeclName() == Name &&
++          cxxmgIsExpressionUsableConditionalMemberPatternDecl(Shadow))
++        return true;
++    }
++  }
++
++  return false;
++}
++
++static constexpr unsigned CXXMGInvalidConditionalMemberArmIndex = ~0u;
++
++static unsigned CXXMGGetFirstPossiblySelectedConditionalMemberArm(
++    Sema &S, const CXXMGConditionalMemberDecl *CMD) {
++  unsigned Index = 0;
++
++  for (const CXXMGConditionalMemberArm &Arm : CMD->arms()) {
++    // If we reached an unconditional else arm, and every previous condition was
++    // non-dependent false, selection is fully known. No lookup recovery should
++    // happen for this chain; the selected declarations should already have been
++    // materialized by ActOnCXXMGConditionalMember.
++    if (!Arm.hasCondition())
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    // The first value-dependent condition is the point where the selected arm
++    // becomes unknown. This arm and all later arms are potentially selected.
++    if (Arm.Condition->isValueDependent())
++      return Index;
++
++    bool ConditionValue = false;
++    if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, S.Context))
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    // A known-true arm means selection is known. If ordinary lookup failed, the
++    // requested name is not part of the active record and should get Clang's
++    // normal diagnostic.
++    if (ConditionValue)
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    ++Index;
++  }
++
++  return CXXMGInvalidConditionalMemberArmIndex;
++}
++
++static bool CXXMGRecordHasConditionalMemberExpressionCandidate(
++    Sema &S, const CXXRecordDecl *RD, DeclarationName Name) {
++  if (!RD || !RD->hasDefinition())
++    return false;
++
++  // This recovery is only for template-pattern lookup. Non-dependent records
++  // should keep the normal immediate diagnostic for inactive arms.
++  if (!RD->isDependentContext())
++    return false;
++
++  for (const Decl *D : RD->decls()) {
++    const auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(D);
++    if (!CMD)
++      continue;
++
++    unsigned FirstPossibleArm =
++        CXXMGGetFirstPossiblySelectedConditionalMemberArm(S, CMD);
++    if (FirstPossibleArm == CXXMGInvalidConditionalMemberArmIndex)
++      continue;
++
++    ArrayRef<CXXMGConditionalMemberArm> Arms = CMD->arms();
++    for (const CXXMGConditionalMemberArm &Arm :
++         Arms.drop_front(FirstPossibleArm)) {
++      for (const Decl *PatternDecl : Arm.Decls) {
++        if (cxxmgConditionalMemberPatternDeclMatchesName(PatternDecl, Name))
++          return true;
++      }
++    }
++  }
++
++  return false;
++}
++
++static Expr *recoverFromCXXMGConditionalMemberLookup(
++    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
++    SourceLocation TemplateKWLoc,
++    const TemplateArgumentListInfo *TemplateArgs) {
++  QualType ThisType = S.getCurrentThisType();
++
++  // Minimal first patch: only support contexts where an implicit `this` exists.
++  // This fixes normal non-static member functions and const member functions.
++  // Static member functions can be handled later with a DependentScopeDeclRefExpr
++  // style recovery if needed.
++  if (ThisType.isNull() || !ThisType->isPointerType())
++    return nullptr;
++
++  const CXXRecordDecl *RD = ThisType->getPointeeType()->getAsCXXRecordDecl();
++  if (!RD)
++    return nullptr;
++
++  if (!CXXMGRecordHasConditionalMemberExpressionCandidate(
++          S, RD, NameInfo.getName()))
++    return nullptr;
++
++  return CXXDependentScopeMemberExpr::Create(
++      Context,
++      /*This=*/nullptr,
++      ThisType,
++      /*IsArrow=*/true,
++      /*Op=*/SourceLocation(),
++      NestedNameSpecifierLoc(),
++      TemplateKWLoc,
++      /*FirstQualifierFoundInScope=*/nullptr,
++      NameInfo,
++      TemplateArgs);
++}
++
+ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
+                                    SourceLocation TemplateKWLoc,
+                                    UnqualifiedId &Id, bool HasTrailingLParen,
+@@ -2918,6 +3068,12 @@ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
+   bool ADL = UseArgumentDependentLookup(SS, R, HasTrailingLParen);
+ 
+   if (R.empty() && !ADL) {
++    if (SS.isEmpty() && getLangOpts().CPlusPlusMG) {
++      if (Expr *E = recoverFromCXXMGConditionalMemberLookup(
++              *this, Context, NameInfo, TemplateKWLoc, TemplateArgs))
++        return E;
++    }
++
+     if (SS.isEmpty() && getLangOpts().MSVCCompat) {
+       if (Expr *E = recoverFromMSUnqualifiedLookup(*this, Context, NameInfo,
+                                                    TemplateKWLoc, TemplateArgs))
+diff --git a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
+index d306aa92f7ce..d30fa7112a00 100644
+--- a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
++++ b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
+@@ -69,3 +69,103 @@ void checkDependentFalse(DependentPick<false> &value) {
+   value.disabled = 1;
+   (void)value.enabled; // expected-error {{no member named 'enabled'}}
+ }
++
++struct CXXMGFakeMutex {};
++
++template <class T>
++struct CXXMGFakeLock {
++  explicit CXXMGFakeLock(T &) {}
++};
++
++template <bool thread_safe>
++struct CXXMGCounterWithConditionalMutex {
++  int m_value = 0;
++
++  if constexpr (thread_safe) {
++    mutable CXXMGFakeMutex m_mutex;
++  }
++
++  void increment() {
++    if constexpr (thread_safe) {
++      CXXMGFakeLock<CXXMGFakeMutex> lock{m_mutex};
++    }
++    ++m_value;
++  }
++
++  int get() const {
++    if constexpr (thread_safe) {
++      CXXMGFakeLock<CXXMGFakeMutex> lock{m_mutex};
++    }
++    return m_value;
++  }
++};
++
++static_assert(sizeof(CXXMGCounterWithConditionalMutex<true>) > sizeof(int));
++static_assert(sizeof(CXXMGCounterWithConditionalMutex<false>) == sizeof(int));
++
++template struct CXXMGCounterWithConditionalMutex<true>;
++template struct CXXMGCounterWithConditionalMutex<false>;
++
++template <bool Enabled>
++struct CXXMGDependentConditionalMemberUse {
++  if constexpr (Enabled) {
++    int enabled;
++  } else {
++    int disabled;
++  }
++
++  int get() {
++    if constexpr (Enabled)
++      return enabled;
++    else
++      return disabled;
++  }
++};
++
++template struct CXXMGDependentConditionalMemberUse<true>;
++template struct CXXMGDependentConditionalMemberUse<false>;
++
++template <bool Enabled>
++struct CXXMGConditionalMemberTypoStillDiagnosed {
++  if constexpr (Enabled) {
++    int value;
++  }
++
++  void f() {
++    if constexpr (Enabled) {
++      valu = 1; // expected-error {{use of undeclared identifier 'valu'}}
++    }
++  }
++};
++
++template <class T>
++struct CXXMGKnownFalseArmStillHidden {
++  if constexpr (false) {
++    int never;
++  }
++
++  void f() {
++    never = 1; // expected-error {{use of undeclared identifier 'never'}}
++  }
++};
++
++template <bool Enabled>
++struct CXXMGDependentElseIfAfterKnownFalse {
++  if constexpr (false) {
++    int impossible;
++  } else if constexpr (Enabled) {
++    int selected_true;
++  } else {
++    int selected_false;
++  }
++
++  int get() {
++    if constexpr (Enabled)
++      return selected_true;
++    else
++      return selected_false;
++  }
++};
++
++template struct CXXMGDependentElseIfAfterKnownFalse<true>;
++template struct CXXMGDependentElseIfAfterKnownFalse<false>;
+-- 
+2.54.0
+

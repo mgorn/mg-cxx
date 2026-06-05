@@ -1,8 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:50:58 -0400
-Subject: [PATCH 09/10] clang-mg: update conditional-members
+Subject: [PATCH] clang-mg: update conditional-members
 
+---
+ clang/lib/Sema/SemaDeclCXX.cpp | 31 +++++++++++++++++++++++++++----
+ 1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
 index 98da9ca0c0a6..14790ac90176 100644
