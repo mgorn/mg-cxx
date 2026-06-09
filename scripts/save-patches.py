@@ -238,47 +238,223 @@ Diff:
 """
 
 
-def parse_ai_message(text: str) -> tuple[str, str]:
-    cleaned = text.strip()
-    if not cleaned:
-        return "", ""
+AI_REASONING_LABELS = {
+    "thinking",
+    "think",
+    "thought",
+    "thoughts",
+    "reasoning",
+    "plan",
+    "analysis",
+    "steps",
+    "step",
+    "changes",
+    "diff",
+    "output",
+    "answer",
+    "final",
+    "final answer",
+    "commit message",
+    "commit",
+    "message",
+}
 
+
+def strip_markdown_fence(line: str) -> str:
+    stripped = line.strip()
+    if stripped.startswith("```") and stripped.endswith("```") and len(stripped) > 6:
+        return stripped.strip("`").strip()
+    return stripped
+
+
+def parse_json_ai_message(cleaned: str) -> tuple[str, str] | None:
     # Accept JSON if the model returns it despite the plain-text request.
-    try:
-        data = json.loads(cleaned)
+    json_candidates = [cleaned]
+    json_candidates += re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    json_candidates += re.findall(r"(\{.*?\})", cleaned, flags=re.DOTALL)
+
+    for candidate in json_candidates:
+        try:
+            data = json.loads(candidate)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
         subject = str(data.get("subject") or data.get("message") or "").strip()
         description = str(data.get("description") or data.get("body") or "").strip()
-        return subject, description
-    except Exception:
-        pass
+        if subject or description:
+            return subject, description
+    return None
 
+
+def normalize_ai_subject_candidate(line: str) -> str:
+    line = strip_markdown_fence(line)
+    line = re.sub(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", "", line).strip()
+    line = line.strip().strip('"').strip("'").strip("`").strip()
+    line = re.sub(r"\s+", " ", line)
+    return line
+
+
+def is_ai_reasoning_label(line: str) -> bool:
+    stripped = normalize_ai_subject_candidate(line).strip(":").strip().lower()
+    stripped = re.sub(r'["*_`#>]', "", stripped).strip()
+    if stripped in AI_REASONING_LABELS:
+        return True
+    return bool(re.match(
+        r"^(?:thinking|reasoning|plan|analysis|steps?|commit message|description|body|changes|final answer)\b\s*:*$",
+        stripped,
+    ))
+
+
+def looks_like_ai_reasoning(line: str) -> bool:
+    raw = line.strip()
+    raw_lowered = raw.lower()
+    if re.match(r"^\d+[.)]\s+", raw_lowered):
+        return True
+
+    candidate = normalize_ai_subject_candidate(line)
+    lowered = candidate.lower()
+    if not candidate:
+        return True
+    if is_ai_reasoning_label(candidate):
+        return True
+    if lowered in {"thinking...", "thinking …", "thinking", "analysis:"}:
+        return True
+    if lowered.startswith((
+        "here is", "here's", "i would", "i will", "let me", "we need to",
+        "analyze ", "analyse ", "determine ", "draft ", "format ",
+    )):
+        return True
+    if re.match(r"^(?:plan|analysis|reasoning|thinking)\s*:", lowered):
+        return True
+    return False
+
+
+def is_usable_ai_subject(subject: str) -> bool:
+    candidate = normalize_ai_subject_candidate(subject)
+    lowered = candidate.lower()
+    if looks_like_ai_reasoning(candidate):
+        return False
+    if len(candidate) < 8 or len(candidate) > 120:
+        return False
+    if not re.search(r"[A-Za-z]", candidate):
+        return False
+    if "\n" in candidate:
+        return False
+    if re.search(r"\b\w+\.(?:cpp|cxx|cc|h|hpp|td|py|txt|md)\b", candidate):
+        return False
+    if "/" in candidate or "\\" in candidate:
+        return False
+    return True
+
+
+def find_subject_after_marker(lines: list[str], start_index: int) -> tuple[str, int] | None:
+    for idx in range(start_index + 1, min(len(lines), start_index + 8)):
+        candidate = normalize_ai_subject_candidate(lines[idx])
+        if not candidate or looks_like_ai_reasoning(candidate):
+            continue
+        if is_usable_ai_subject(candidate):
+            return candidate, idx
+    return None
+
+
+def find_best_untagged_subject(lines: list[str]) -> tuple[str, int] | None:
+    scored: list[tuple[int, int, str]] = []
+    for idx, line in enumerate(lines):
+        candidate = normalize_ai_subject_candidate(line)
+        if not is_usable_ai_subject(candidate):
+            continue
+
+        score = 0
+        if re.match(r"^[A-Za-z0-9][A-Za-z0-9_.+/ -]{0,40}:\s+\S", candidate):
+            score += 20
+        if candidate.lower().startswith("clang-mg:"):
+            score += 20
+        if not candidate.endswith("."):
+            score += 4
+        word_count = len(candidate.split())
+        if 3 <= word_count <= 10:
+            score += 4
+        if idx > 0 and is_ai_reasoning_label(lines[idx - 1]):
+            score += 10
+        if re.search(r"\b(add|update|fix|remove|rename|split|merge|parse|handle|support|preserve|avoid)\b", candidate, re.IGNORECASE):
+            score += 3
+        scored.append((score, idx, candidate))
+
+    if not scored:
+        return None
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    score, idx, candidate = scored[0]
+    if score < 4:
+        return None
+    return candidate, idx
+
+
+def parse_tagged_ai_message(lines: list[str]) -> tuple[str, str]:
     subject = ""
-    description = ""
-    lines = cleaned.splitlines()
-    in_description = False
     desc_lines: list[str] = []
+    in_description = False
+
     for line in lines:
-        if re.match(r"^subject\s*:", line, flags=re.IGNORECASE):
-            subject = re.sub(r"^subject\s*:\s*", "", line, flags=re.IGNORECASE).strip()
+        if re.match(r"^\s*subject\s*:", line, flags=re.IGNORECASE):
+            subject = re.sub(r"^\s*subject\s*:\s*", "", line, flags=re.IGNORECASE).strip()
             in_description = False
             continue
-        if re.match(r"^(description|body)\s*:", line, flags=re.IGNORECASE):
-            after = re.sub(r"^(description|body)\s*:\s*", "", line, flags=re.IGNORECASE).strip()
+        if re.match(r"^\s*(description|body)\s*:", line, flags=re.IGNORECASE):
+            after = re.sub(r"^\s*(description|body)\s*:\s*", "", line, flags=re.IGNORECASE).strip()
             if after:
                 desc_lines.append(after)
             in_description = True
             continue
         if in_description:
+            if re.match(r"^\s*(changes|diff|analysis|plan)\s*:", line, flags=re.IGNORECASE):
+                break
             desc_lines.append(line)
 
-    description = "\n".join(desc_lines).strip()
-    if not subject:
-        subject = lines[0].strip().strip('"') if lines else ""
-        rest = lines[1:]
-        if not description and rest:
-            description = "\n".join(rest).strip()
-    subject = re.sub(r"^[-*\s]+", "", subject).strip()
-    return subject, description
+    return normalize_ai_subject_candidate(subject), "\n".join(desc_lines).strip()
+
+
+def parse_ai_message(text: str) -> tuple[str, str]:
+    cleaned = text.strip()
+    if not cleaned:
+        return "", ""
+
+    parsed_json = parse_json_ai_message(cleaned)
+    if parsed_json is not None:
+        subject, description = parsed_json
+        return normalize_ai_subject_candidate(subject), description.strip()
+
+    lines = cleaned.splitlines()
+    subject, description = parse_tagged_ai_message(lines)
+    if is_usable_ai_subject(subject):
+        return subject, description
+
+    # Many local models ignore formatting instructions and preface the useful
+    # answer with "Thinking...", "Plan:", or "Analysis:". Never allow those
+    # scaffolding lines to become the default commit subject.
+    for idx, line in enumerate(lines):
+        if is_ai_reasoning_label(line):
+            found = find_subject_after_marker(lines, idx)
+            if found is not None:
+                subject, subject_idx = found
+                if not description:
+                    description = "\n".join(
+                        l for l in lines[subject_idx + 1:]
+                        if l.strip() and not looks_like_ai_reasoning(l)
+                    ).strip()
+                return subject, description
+
+    found = find_best_untagged_subject(lines)
+    if found is not None:
+        subject, subject_idx = found
+        if not description:
+            description = "\n".join(
+                l for l in lines[subject_idx + 1:]
+                if l.strip() and not looks_like_ai_reasoning(l)
+            ).strip()
+        return subject, description
+
+    return "", ""
 
 
 def generate_ai_message(llvm_dir: Path, model: str) -> tuple[str, str]:
@@ -287,6 +463,9 @@ def generate_ai_message(llvm_dir: Path, model: str) -> tuple[str, str]:
 Create a concise Git patch commit message for the uncommitted changes below.
 
 Rules:
+- Output only the commit message fields.
+- Do not output thinking, reasoning, analysis, a plan, markdown, or commentary.
+- The first non-empty line must begin with "Subject:".
 - The subject must be one line, imperative mood, no trailing period.
 - Prefer the prefix "clang-mg:" unless a narrower prefix is obvious.
 - The description should be 2-5 short lines explaining what changed and why.
@@ -312,7 +491,38 @@ Changes:
         if cp.stderr:
             print(cp.stderr.strip())
         return "", ""
-    return parse_ai_message(cp.stdout or "")
+
+    raw_output = cp.stdout or ""
+    subject, description = parse_ai_message(raw_output)
+    if is_usable_ai_subject(subject):
+        return subject, description
+
+    retry_prompt = f"""Your previous response did not follow the requested commit-message format.
+Return only the final commit message fields now.
+Do not output thinking, reasoning, analysis, a plan, markdown, or commentary.
+The first non-empty line must begin with "Subject:".
+
+Required format:
+Subject: <one-line imperative subject>
+Description:
+<2-5 short lines>
+
+Previous response to fix:
+{truncate(raw_output, 6000)}
+
+Changes:
+{change_summary}
+"""
+    try:
+        retry = run_cmd(["ollama", "run", model, retry_prompt], timeout=90)
+    except Exception:
+        return "", ""
+    if retry.returncode != 0:
+        return "", ""
+    subject, description = parse_ai_message(retry.stdout or "")
+    if is_usable_ai_subject(subject):
+        return subject, description
+    return "", ""
 
 
 def maybe_generate_ai_message(llvm_dir: Path) -> tuple[str, str]:
