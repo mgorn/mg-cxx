@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 19:05:02 -0400
+Subject: [PATCH] Remove unused functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Removes specific helper functions used for checking complex or redundant gr[2D[K
+grammar patterns in type expressions.
+This cleans up the parser logic related to trait and type declarations with[4D[K
+within clang-mg.
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index d6ddab35f7b5..92a89ed93020 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -17,10 +17,6 @@ static bool isCXXMGImplementsFollowOperator(Parser &P) {
+           P.GetLookAheadToken(2).is(tok::greater));
+ }
+ 
+-static bool isCXXMGImplementsOperator(Parser &P) {
+-  return P.getCurToken().is(tok::kw_implements) || isCXXMGAngleImplements(P);
+-}
+-
+ static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
+   unsigned I = 0;
+   if (P.GetLookAheadToken(I).is(tok::coloncolon))
+diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+index 261d516b409b..24be122c587a 100644
+--- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+@@ -11,30 +11,6 @@
+ 
+ using namespace clang;
+ 
+-static bool mayStartCXXMGTypePredicate(Parser &P) {
+-  tok::TokenKind K = P.getCurToken().getKind();
+-  if (K == tok::annot_typename || K == tok::kw_typename ||
+-      K == tok::kw_decltype || K == tok::kw_struct || K == tok::kw_class ||
+-      K == tok::kw_trait)
+-    return true;
+-
+-  if (K == tok::identifier) {
+-    tok::TokenKind Next = P.NextToken().getKind();
+-    return Next == tok::plus || Next == tok::minus || Next == tok::ampamp ||
+-           Next == tok::pipepipe;
+-  }
+-
+-  if (K == tok::l_paren) {
+-    tok::TokenKind First = P.GetLookAheadToken(1).getKind();
+-    tok::TokenKind Second = P.GetLookAheadToken(2).getKind();
+-    return First == tok::identifier &&
+-           (Second == tok::plus || Second == tok::minus ||
+-            Second == tok::ampamp || Second == tok::pipepipe);
+-  }
+-
+-  return false;
+-}
+-
+ static bool isCXXMGTypeExprPrimaryFollowOperator(Parser &P) {
+   return P.NextToken().isOneOf(tok::plus, tok::minus, tok::kw_implements) ||
+          (P.NextToken().is(tok::less) &&
+-- 
+2.54.0
+
