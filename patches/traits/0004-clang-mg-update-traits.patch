@@ -1,40 +1,17 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 12:37:57 -0400
-Subject: [PATCH] clang-mg: update traits
+Subject: [PATCH 4/7] clang-mg: update traits
 
----
- clang/lib/Parse/CMakeLists.txt     |  1 +
- clang/lib/Parse/ParseDeclCXXMG.cpp | 72 ++++++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
- create mode 100644 clang/lib/Parse/ParseDeclCXXMG.cpp
 
-diff --git a/clang/lib/Parse/CMakeLists.txt b/clang/lib/Parse/CMakeLists.txt
-index 8dd120f529b1..07169bfc9129 100644
---- a/clang/lib/Parse/CMakeLists.txt
-+++ b/clang/lib/Parse/CMakeLists.txt
-@@ -12,6 +12,7 @@ add_clang_library(clangParse
-   ParseCXXInlineMethods.cpp
-   ParseDecl.cpp
-   ParseDeclCXX.cpp
-+  ParseDeclCXXMG.cpp
-   ParseExpr.cpp
-   ParseExprCXX.cpp
-   ParseHLSL.cpp
 diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
-new file mode 100644
-index 000000000000..8fb795fb5767
---- /dev/null
+index 20cd1d4a1d42..52eff5ac6c93 100644
+--- a/clang/lib/Parse/ParseDeclCXXMG.cpp
 +++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
-@@ -0,0 +1,72 @@
-+//===--- ParseDeclCXXMG.cpp - C++MG Declaration Parsing -------*- C++MG -*-===//
-+//
-+//  This file implements the C++MG Declaration portions of the Parser
-+//  interfaces.
-+//
-+//===----------------------------------------------------------------------===//
-+
-+#include "clang/Parse/Parser.h"
+@@ -132,3 +132,67 @@ SourceRange Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+     RBraceLoc = ConsumeBrace();
+   return SourceRange(LBraceLoc, RBraceLoc);
+ }
 +
 +using namespace clang;
 +
@@ -99,7 +76,6 @@ index 000000000000..8fb795fb5767
 +  Actions.ActOnCXXMGTraitMemberDeclaration(TagDecl, DG);
 +  return DG;
 +}
-\ No newline at end of file
 -- 
 2.54.0
 

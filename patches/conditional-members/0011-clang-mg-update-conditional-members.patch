@@ -1,15 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 4 Jun 2026 19:41:42 -0400
-Subject: [PATCH] clang-mg: update conditional-members
+Subject: [PATCH 11/11] clang-mg: update conditional-members
 
----
- clang/lib/Sema/SemaExpr.cpp                   | 156 ++++++++++++++++++
- .../SemaCXX/cxxmg-if-constexpr-members.cpp    | 100 +++++++++++
- 2 files changed, 256 insertions(+)
 
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index fd036a454871..e0fabad20b43 100644
+index ad6e7183cb3a..825d15398fcd 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
 @@ -2814,6 +2814,156 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,

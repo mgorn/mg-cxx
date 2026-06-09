@@ -1,0 +1,1393 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Mon, 8 Jun 2026 22:32:58 -0400
+Subject: [PATCH 6/7] clang-mg: update traits
+
+
+diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
+new file mode 100644
+index 000000000000..ea1c89e8bcb7
+--- /dev/null
++++ b/clang/include/clang/AST/ExprCXXMG.h
+@@ -0,0 +1,75 @@
++//===- ExprCXXMG.h - C++MG expression AST nodes -----------------*- C++ -*-===//
++
++#ifndef LLVM_CLANG_AST_EXPRCXXMG_H
++#define LLVM_CLANG_AST_EXPRCXXMG_H
++
++#include "clang/AST/Expr.h"
++
++namespace clang {
++
++class CXXMGImplementsExpr final : public Expr {
++  TypeSourceInfo *CandidateTSI = nullptr;
++  TypeSourceInfo *RequirementTSI = nullptr;
++  SourceLocation OpLoc;
++  SourceLocation OpEndLoc;
++  SourceRange Range;
++  bool UsesAngleSyntax = false;
++
++public:
++  CXXMGImplementsExpr(QualType BoolTy, TypeSourceInfo *CandidateTSI,
++                      TypeSourceInfo *RequirementTSI, SourceLocation OpLoc,
++                      SourceLocation OpEndLoc, SourceRange Range,
++                      bool UsesAngleSyntax, ExprDependence Dependence)
++      : Expr(CXXMGImplementsExprClass, BoolTy, VK_PRValue, OK_Ordinary),
++        CandidateTSI(CandidateTSI), RequirementTSI(RequirementTSI),
++        OpLoc(OpLoc), OpEndLoc(OpEndLoc), Range(Range),
++        UsesAngleSyntax(UsesAngleSyntax) {
++    setDependence(Dependence);
++  }
++
++  explicit CXXMGImplementsExpr(EmptyShell Empty)
++      : Expr(CXXMGImplementsExprClass, Empty) {}
++
++  static CXXMGImplementsExpr *
++  Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
++         TypeSourceInfo *RequirementTSI, SourceLocation OpLoc,
++         SourceLocation OpEndLoc, SourceRange Range, bool UsesAngleSyntax);
++  static CXXMGImplementsExpr *CreateEmpty(ASTContext &Ctx);
++
++  TypeSourceInfo *getCandidateTypeSourceInfo() const { return CandidateTSI; }
++  TypeSourceInfo *getRequirementTypeSourceInfo() const {
++    return RequirementTSI;
++  }
++  void setCandidateTypeSourceInfo(TypeSourceInfo *TSI) { CandidateTSI = TSI; }
++  void setRequirementTypeSourceInfo(TypeSourceInfo *TSI) {
++    RequirementTSI = TSI;
++  }
++
++  SourceLocation getOperatorLoc() const { return OpLoc; }
++  SourceLocation getOperatorEndLoc() const { return OpEndLoc; }
++  bool usesAngleSyntax() const { return UsesAngleSyntax; }
++  void setOperatorLoc(SourceLocation Loc) { OpLoc = Loc; }
++  void setOperatorEndLoc(SourceLocation Loc) { OpEndLoc = Loc; }
++  void setUsesAngleSyntax(bool Value) { UsesAngleSyntax = Value; }
++
++  SourceLocation getBeginLoc() const LLVM_READONLY { return Range.getBegin(); }
++  SourceLocation getEndLoc() const LLVM_READONLY { return Range.getEnd(); }
++  SourceLocation getExprLoc() const LLVM_READONLY { return OpLoc; }
++  SourceRange getSourceRange() const LLVM_READONLY { return Range; }
++  void setSourceRange(SourceRange R) { Range = R; }
++
++  child_range children() {
++    return child_range(child_iterator(), child_iterator());
++  }
++  const_child_range children() const {
++    return const_child_range(const_child_iterator(), const_child_iterator());
++  }
++
++  static bool classof(const Stmt *T) {
++    return T->getStmtClass() == CXXMGImplementsExprClass;
++  }
++};
++
++} // namespace clang
++
++#endif
+diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
+index 6380212cbd26..a5b91503d27b 100644
+--- a/clang/include/clang/AST/RecursiveASTVisitor.h
++++ b/clang/include/clang/AST/RecursiveASTVisitor.h
+@@ -26,6 +26,7 @@
+ #include "clang/AST/DeclarationName.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+@@ -2869,6 +2870,13 @@ DEF_TRAVERSE_STMT(TypeTraitExpr, {
+     TRY_TO(TraverseTypeLoc(S->getArg(I)->getTypeLoc()));
+ })
+ 
++DEF_TRAVERSE_STMT(CXXMGImplementsExpr, {
++  if (TypeSourceInfo *TSI = S->getCandidateTypeSourceInfo())
++    TRY_TO(TraverseTypeLoc(TSI->getTypeLoc()));
++  if (TypeSourceInfo *TSI = S->getRequirementTypeSourceInfo())
++    TRY_TO(TraverseTypeLoc(TSI->getTypeLoc()));
++})
++
+ DEF_TRAVERSE_STMT(ArrayTypeTraitExpr, {
+   TRY_TO(TraverseTypeLoc(S->getQueriedTypeSourceInfo()->getTypeLoc()));
+ })
+diff --git a/clang/include/clang/AST/StmtVisitor.h b/clang/include/clang/AST/StmtVisitor.h
+index 8b7b728deaff..6ce7999eab1e 100644
+--- a/clang/include/clang/AST/StmtVisitor.h
++++ b/clang/include/clang/AST/StmtVisitor.h
+@@ -14,6 +14,7 @@
+ #define LLVM_CLANG_AST_STMTVISITOR_H
+ 
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
+index 7a5883b45c53..88d6a8936550 100644
+--- a/clang/include/clang/AST/TextNodeDumper.h
++++ b/clang/include/clang/AST/TextNodeDumper.h
+@@ -21,6 +21,7 @@
+ #include "clang/AST/DeclVisitor.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/StmtVisitor.h"
+ #include "clang/AST/TemplateArgumentVisitor.h"
+ #include "clang/AST/Type.h"
+@@ -302,6 +303,7 @@ public:
+   void VisitCXXNewExpr(const CXXNewExpr *Node);
+   void VisitCXXDeleteExpr(const CXXDeleteExpr *Node);
+   void VisitTypeTraitExpr(const TypeTraitExpr *Node);
++  void VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *Node);
+   void VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *Node);
+   void VisitExpressionTraitExpr(const ExpressionTraitExpr *Node);
+   void VisitCXXDefaultArgExpr(const CXXDefaultArgExpr *Node);
+diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
+index e1e16343e7bb..f10fcd6ca039 100644
+--- a/clang/include/clang/Basic/DiagnosticParseKinds.td
++++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
+@@ -643,6 +643,10 @@ def err_cxxmg_trait_invalid_base_clause : Error<
+   "traits cannot have base classes yet">;
+ def err_cxxmg_trait_access_specifier : Error<
+   "traits do not use access specifiers">;
++def err_cxxmg_expected_type_after_implements :
++  Error<"expected trait requirement after C++MG 'implements' operator">;
++def err_cxxmg_expected_type_before_implements :
++  Error<"expected type before C++MG 'implements' operator">;
+ def err_missing_end_of_definition : Error<
+   "missing '}' at end of definition of %q0">;
+ def note_missing_end_of_definition_before : Note<
+diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+index 758861ffb26d..2d2b79ddc02f 100644
+--- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -7838,6 +7838,16 @@ def err_cxxmg_trait_special_member : Error<
+ def err_cxxmg_trait_invalid_member : Error<"invalid trait requirement">;
+ def err_cxxmg_trait_object_type : Error<
+   "trait %0 is a requirement shape, not an object type">;
++def err_cxxmg_implements_requires_cxxmg : Error<
++  "'implements' expressions require C++MG">;
++def err_cxxmg_implements_lhs_not_type : Error<
++  "left side of C++MG 'implements' must name a struct, class, or trait">;
++def err_cxxmg_implements_rhs_not_trait : Error<
++  "right side of C++MG 'implements' must name a trait">;
++def err_cxxmg_implements_incomplete_operand : Error<
++  "C++MG 'implements' operand %0 is incomplete">;
++def err_cxxmg_implements_union_operand : Error<
++  "union type %0 cannot be used in a C++MG 'implements' expression">;
+ def ext_typecheck_decl_incomplete_type : Extension<
+   "tentative definition of variable with internal linkage has incomplete "
+   "%select{non-array|array}0 type %1">,
+diff --git a/clang/include/clang/Basic/StmtNodes.td b/clang/include/clang/Basic/StmtNodes.td
+index e166894ea024..dad01ceadf0b 100644
+--- a/clang/include/clang/Basic/StmtNodes.td
++++ b/clang/include/clang/Basic/StmtNodes.td
+@@ -135,6 +135,7 @@ def CXXFunctionalCastExpr : StmtNode<ExplicitCastExpr>;
+ def CXXTypeidExpr : StmtNode<Expr>;
+ def UserDefinedLiteral : StmtNode<CallExpr>;
+ def CXXBoolLiteralExpr : StmtNode<Expr>;
++def CXXMGImplementsExpr : StmtNode<Expr>;
+ def CXXNullPtrLiteralExpr : StmtNode<Expr>;
+ def CXXThisExpr : StmtNode<Expr>;
+ def CXXThrowExpr : StmtNode<Expr>;
+diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
+index aec5d827ae11..0d7bf62fded9 100644
+--- a/clang/include/clang/Basic/TokenKinds.def
++++ b/clang/include/clang/Basic/TokenKinds.def
+@@ -390,6 +390,7 @@ KEYWORD(template                    , KEYCXX)
+ KEYWORD(this                        , KEYCXX)
+ KEYWORD(throw                       , KEYCXX)
+ KEYWORD(trait                       , KEYCXXMG)
++KEYWORD(implements                  , KEYCXXMG)
+ KEYWORD(true                        , BOOLSUPPORT|KEYC23)
+ KEYWORD(try                         , KEYCXX)
+ KEYWORD(typename                    , KEYCXX)
+diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
+index 25d66866ca21..99085ea9769a 100644
+--- a/clang/include/clang/Parse/Parser.h
++++ b/clang/include/clang/Parse/Parser.h
+@@ -3559,6 +3559,10 @@ private:
+ 
+   DeclGroupPtrTy ParseCXXMGTraitMemberDeclaration(
+     AccessSpecifier &AS, ParsedAttributes &AccessAttrs, Decl *Tag);
++  bool ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
++                                       SourceRange &Range,
++                                       bool AllowTypeNameFallback = true);
++  ExprResult TryParseCXXMGImplementsExpression();
+ 
+   /// ParseConstructorInitializer - Parse a C++ constructor initializer,
+   /// which explicitly initializes the members or base classes of a
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index c8da6ffcb11c..aed2289a9828 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -5883,6 +5883,15 @@ public:
+       TypeSourceInfo *FunctionTypeInfo);
+   void ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl, DeclGroupPtrTy DG);
+ 
++  ExprResult ActOnCXXMGImplementsExpression(
++      Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
++      SourceLocation OpEndLoc, bool UsesAngleSyntax,
++      TypeSourceInfo *RequirementTSI, SourceRange Range);
++  ExprResult BuildCXXMGImplementsExpr(
++      TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
++      SourceLocation OpEndLoc, bool UsesAngleSyntax,
++      TypeSourceInfo *RequirementTSI, SourceRange Range);
++
+   /// Enter a new C++ default initializer scope. After calling this, the
+   /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
+   /// parsing or instantiating the initializer failed.
+diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
+index 06d101215fc5..ad0dfd4eef77 100644
+--- a/clang/include/clang/Serialization/ASTBitCodes.h
++++ b/clang/include/clang/Serialization/ASTBitCodes.h
+@@ -1930,6 +1930,7 @@ enum StmtCode {
+   EXPR_OPAQUE_VALUE,                // OpaqueValueExpr
+   EXPR_BINARY_CONDITIONAL_OPERATOR, // BinaryConditionalOperator
+   EXPR_TYPE_TRAIT,                  // TypeTraitExpr
++  EXPR_CXXMG_IMPLEMENTS,            // CXXMGImplementsExpr
+   EXPR_ARRAY_TYPE_TRAIT,            // ArrayTypeTraitIntExpr
+ 
+   EXPR_PACK_EXPANSION,                    // PackExpansionExpr
+diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
+index f3acb366dc07..02c33e539674 100644
+--- a/clang/lib/AST/Expr.cpp
++++ b/clang/lib/AST/Expr.cpp
+@@ -22,6 +22,7 @@
+ #include "clang/AST/DependenceFlags.h"
+ #include "clang/AST/EvaluatedExprVisitor.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/IgnoreExpr.h"
+ #include "clang/AST/Mangle.h"
+ #include "clang/AST/RecordLayout.h"
+@@ -42,6 +43,45 @@
+ #include <optional>
+ using namespace clang;
+ 
++static ExprDependence
++computeCXXMGImplementsExprDependence(TypeSourceInfo *CandidateTSI,
++                                      TypeSourceInfo *RequirementTSI) {
++  ExprDependence D = ExprDependence::None;
++
++  auto AddTypeDependence = [&](TypeSourceInfo *TSI) {
++    if (!TSI)
++      return;
++    QualType T = TSI->getType();
++    if (T.isNull())
++      return;
++    if (T->isDependentType())
++      D |= ExprDependence::Type | ExprDependence::Value;
++    if (T->isInstantiationDependentType())
++      D |= ExprDependence::Instantiation | ExprDependence::Value;
++    if (T->containsUnexpandedParameterPack())
++      D |= ExprDependence::UnexpandedPack;
++  };
++
++  AddTypeDependence(CandidateTSI);
++  AddTypeDependence(RequirementTSI);
++  return D;
++}
++
++CXXMGImplementsExpr *
++CXXMGImplementsExpr::Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
++                            TypeSourceInfo *RequirementTSI,
++                            SourceLocation OpLoc, SourceLocation OpEndLoc,
++                            SourceRange Range, bool UsesAngleSyntax) {
++  return new (Ctx) CXXMGImplementsExpr(
++      Ctx.BoolTy, CandidateTSI, RequirementTSI, OpLoc, OpEndLoc, Range,
++      UsesAngleSyntax,
++      computeCXXMGImplementsExprDependence(CandidateTSI, RequirementTSI));
++}
++
++CXXMGImplementsExpr *CXXMGImplementsExpr::CreateEmpty(ASTContext &Ctx) {
++  return new (Ctx) CXXMGImplementsExpr(EmptyShell());
++}
++
+ const Expr *Expr::getBestDynamicClassTypeExpr() const {
+   const Expr *E = this;
+   while (true) {
+diff --git a/clang/lib/AST/Stmt.cpp b/clang/lib/AST/Stmt.cpp
+index 15d0e6435aaf..762f887a5d15 100644
+--- a/clang/lib/AST/Stmt.cpp
++++ b/clang/lib/AST/Stmt.cpp
+@@ -18,6 +18,7 @@
+ #include "clang/AST/DeclGroup.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
+index 6c3294573e9d..c9f2fd5d2618 100644
+--- a/clang/lib/AST/StmtPrinter.cpp
++++ b/clang/lib/AST/StmtPrinter.cpp
+@@ -22,6 +22,7 @@
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+ #include "clang/AST/NestedNameSpecifier.h"
+@@ -2637,6 +2638,14 @@ void StmtPrinter::VisitTypeTraitExpr(TypeTraitExpr *E) {
+   OS << ")";
+ }
+ 
++void StmtPrinter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
++  if (TypeSourceInfo *TSI = E->getCandidateTypeSourceInfo())
++    TSI->getType().print(OS, Policy);
++  OS << (E->usesAngleSyntax() ? " <> " : " implements ");
++  if (TypeSourceInfo *TSI = E->getRequirementTypeSourceInfo())
++    TSI->getType().print(OS, Policy);
++}
++
+ void StmtPrinter::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   OS << getTraitSpelling(E->getTrait()) << '(';
+   E->getQueriedType().print(OS, Policy);
+diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
+index eb25e5260fd1..a0636a95e2ec 100644
+--- a/clang/lib/AST/StmtProfile.cpp
++++ b/clang/lib/AST/StmtProfile.cpp
+@@ -16,6 +16,7 @@
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+ #include "clang/AST/ODRHash.h"
+@@ -2280,6 +2281,15 @@ void StmtProfiler::VisitTypeTraitExpr(const TypeTraitExpr *S) {
+     VisitType(S->getArg(I)->getType());
+ }
+ 
++void StmtProfiler::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *S) {
++  VisitExpr(S);
++  if (TypeSourceInfo *TSI = S->getCandidateTypeSourceInfo())
++    VisitType(TSI->getType());
++  if (TypeSourceInfo *TSI = S->getRequirementTypeSourceInfo())
++    VisitType(TSI->getType());
++  ID.AddBoolean(S->usesAngleSyntax());
++}
++
+ void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
+   VisitExpr(S);
+   ID.AddInteger(S->getTrait());
+diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
+index 04875767b3c9..aba4eca6ccb3 100644
+--- a/clang/lib/AST/TextNodeDumper.cpp
++++ b/clang/lib/AST/TextNodeDumper.cpp
+@@ -13,6 +13,7 @@
+ #include "clang/AST/TextNodeDumper.h"
+ #include "clang/AST/APValue.h"
+ #include "clang/AST/DeclFriend.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/DeclOpenMP.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/LocInfoType.h"
+@@ -1835,6 +1836,13 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
+   OS << " " << getTraitSpelling(Node->getTrait());
+ }
+ 
++void TextNodeDumper::VisitCXXMGImplementsExpr(
++    const CXXMGImplementsExpr *Node) {
++  OS << (Node->usesAngleSyntax() ? " angle" : " keyword");
++  if (Node->isValueDependent())
++    OS << " unresolved";
++}
++
+ void TextNodeDumper::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *Node) {
+   OS << " " << getTraitSpelling(Node->getTrait());
+ }
+diff --git a/clang/lib/Parse/CMakeLists.txt b/clang/lib/Parse/CMakeLists.txt
+index 07169bfc9129..eb648d905297 100644
+--- a/clang/lib/Parse/CMakeLists.txt
++++ b/clang/lib/Parse/CMakeLists.txt
+@@ -13,6 +13,7 @@ add_clang_library(clangParse
+   ParseDecl.cpp
+   ParseDeclCXX.cpp
+   ParseDeclCXXMG.cpp
++  ParseCXXMGTraitExpr.cpp
+   ParseExpr.cpp
+   ParseExprCXX.cpp
+   ParseHLSL.cpp
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+new file mode 100644
+index 000000000000..883df3239e37
+--- /dev/null
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -0,0 +1,162 @@
++//===--- ParseCXXMGTraitExpr.cpp - C++MG trait expressions ----------------===//
++
++#include "clang/Basic/DiagnosticParse.h"
++#include "clang/Parse/Parser.h"
++#include "clang/Parse/RAIIObjectsForParser.h"
++#include "clang/Sema/EnterExpressionEvaluationContext.h"
++
++using namespace clang;
++
++static bool isCXXMGAngleImplements(Parser &P) {
++  return P.getCurToken().is(tok::less) && P.NextToken().is(tok::greater);
++}
++
++static bool isCXXMGImplementsFollowOperator(Parser &P) {
++  return P.NextToken().is(tok::kw_implements) ||
++         (P.NextToken().is(tok::less) &&
++          P.GetLookAheadToken(2).is(tok::greater));
++}
++
++static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
++  unsigned I = 0;
++  if (P.GetLookAheadToken(I).is(tok::coloncolon))
++    ++I;
++  if (!P.GetLookAheadToken(I).is(tok::identifier))
++    return false;
++  ++I;
++  while (P.GetLookAheadToken(I).is(tok::coloncolon) &&
++         P.GetLookAheadToken(I + 1).is(tok::identifier))
++    I += 2;
++  if (P.GetLookAheadToken(I).is(tok::kw_implements))
++    return true;
++
++  if (!P.GetLookAheadToken(I).is(tok::less) ||
++      !P.GetLookAheadToken(I + 1).is(tok::greater))
++    return false;
++
++  tok::TokenKind After = P.GetLookAheadToken(I + 2).getKind();
++  return After == tok::identifier || After == tok::coloncolon ||
++         After == tok::annot_typename || After == tok::kw_typename ||
++         After == tok::kw_decltype || After == tok::kw_struct ||
++         After == tok::kw_class || After == tok::kw_trait;
++}
++
++static bool mayStartCXXMGImplementsExpression(Parser &P) {
++  if (!P.getLangOpts().CPlusPlusMG)
++    return false;
++  tok::TokenKind K = P.getCurToken().getKind();
++  if (K == tok::annot_typename || K == tok::kw_typename ||
++      K == tok::kw_decltype || K == tok::kw_struct || K == tok::kw_class ||
++      K == tok::kw_trait || K == tok::l_paren)
++    return true;
++  if (K == tok::identifier || K == tok::coloncolon)
++    return mayStartQualifiedCXXMGImplementsExpression(P);
++  return false;
++}
++
++bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
++                                             SourceRange &Range,
++                                             bool AllowTypeNameFallback) {
++  (void)AllowTypeNameFallback;
++  TSI = nullptr;
++  Range = SourceRange();
++
++  if ((Tok.is(tok::identifier) && NextToken().is(tok::coloncolon)) ||
++      Tok.is(tok::coloncolon)) {
++    if (TryAnnotateTypeOrScopeToken())
++      return false;
++  }
++
++  if (Tok.is(tok::identifier) && isCXXMGImplementsFollowOperator(*this)) {
++    if (TryAnnotateTypeOrScopeToken())
++      return false;
++  }
++
++  SourceLocation Begin = Tok.getLocation();
++  if (Tok.is(tok::annot_typename)) {
++    ParsedType Ty = getTypeAnnotation(Tok).get();
++    Range = Tok.getAnnotationRange();
++    ConsumeAnnotationToken();
++    QualType QT = Actions.GetTypeFromParser(Ty, &TSI);
++    if (QT.isNull())
++      return false;
++    if (!TSI)
++      TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, Begin);
++    return true;
++  }
++
++  TypeResult TR = ParseTypeName(&Range);
++  if (TR.isInvalid() || !TR.get())
++    return false;
++  QualType QT = Actions.GetTypeFromParser(TR.get(), &TSI);
++  if (QT.isNull())
++    return false;
++  if (!TSI)
++    TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, Begin);
++  return true;
++}
++
++ExprResult Parser::TryParseCXXMGImplementsExpression() {
++  if (!getLangOpts().CPlusPlusMG || !mayStartCXXMGImplementsExpression(*this))
++    return ExprEmpty();
++
++  if (Tok.is(tok::l_paren)) {
++    TentativeParsingAction TPA(*this);
++    ConsumeParen();
++    ExprResult Inner = TryParseCXXMGImplementsExpression();
++    if (!Inner.isUsable() || Tok.isNot(tok::r_paren)) {
++      TPA.Revert();
++      return ExprEmpty();
++    }
++    ConsumeParen();
++    TPA.Commit();
++    return Inner;
++  }
++
++  TentativeParsingAction TPA(*this);
++  TypeSourceInfo *CandidateTSI = nullptr;
++  SourceRange CandidateRange;
++  if (!ParseCXXMGImplementsTypeOperand(CandidateTSI, CandidateRange,
++                                       /*AllowTypeNameFallback=*/false)) {
++    TPA.Revert();
++    return ExprEmpty();
++  }
++
++  SourceLocation OpLoc;
++  SourceLocation OpEndLoc;
++  bool UsesAngleSyntax = false;
++  if (Tok.is(tok::kw_implements)) {
++    OpLoc = ConsumeToken();
++    OpEndLoc = OpLoc;
++  } else if (isCXXMGAngleImplements(*this)) {
++    OpLoc = ConsumeToken();
++    OpEndLoc = ConsumeToken();
++    UsesAngleSyntax = true;
++  } else {
++    TPA.Revert();
++    return ExprEmpty();
++  }
++
++  if (Tok.isOneOf(tok::semi, tok::comma, tok::r_paren, tok::eof)) {
++    TPA.Commit();
++    Diag(Tok.getLocation(), diag::err_cxxmg_expected_type_after_implements);
++    return ExprError();
++  }
++
++  TypeSourceInfo *RequirementTSI = nullptr;
++  SourceRange RequirementRange;
++  if (!ParseCXXMGImplementsTypeOperand(RequirementTSI, RequirementRange,
++                                       /*AllowTypeNameFallback=*/true)) {
++    TPA.Commit();
++    Diag(Tok.getLocation(), diag::err_cxxmg_expected_type_after_implements);
++    return ExprError();
++  }
++
++  TPA.Commit();
++  EnterExpressionEvaluationContext Unevaluated(
++      Actions, Sema::ExpressionEvaluationContext::Unevaluated);
++  return Actions.ActOnCXXMGImplementsExpression(
++      getCurScope(), CandidateTSI, OpLoc, OpEndLoc, UsesAngleSyntax,
++      RequirementTSI,
++      SourceRange(CandidateRange.getBegin(), RequirementRange.getEnd()));
++}
+diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
+index 2987d32d6e0d..b5fe0558b38a 100644
+--- a/clang/lib/Parse/ParseExpr.cpp
++++ b/clang/lib/Parse/ParseExpr.cpp
+@@ -86,6 +86,14 @@ ExprResult Parser::ParseAssignmentExpression(
+   if (Tok.is(tok::kw_co_yield))
+     return ParseCoyieldExpression();
+ 
++  if (getLangOpts().CPlusPlusMG) {
++    ExprResult TE = TryParseCXXMGImplementsExpression();
++    if (TE.isInvalid())
++      return TE;
++    if (TE.isUsable())
++      return ParseRHSOfBinaryExpression(TE, prec::Assignment);
++  }
++
+   ExprResult LHS =
+       ParseCastExpression(CastParseKind::AnyCastExpr,
+                           /*isAddressOfOperand=*/false, CorrectionBehavior);
+@@ -100,6 +108,14 @@ ExprResult Parser::ParseConditionalExpression() {
+     return ExprError();
+   }
+ 
++  if (getLangOpts().CPlusPlusMG) {
++    ExprResult TE = TryParseCXXMGImplementsExpression();
++    if (TE.isInvalid())
++      return TE;
++    if (TE.isUsable())
++      return ParseRHSOfBinaryExpression(TE, prec::Conditional);
++  }
++
+   ExprResult LHS = ParseCastExpression(
+       CastParseKind::AnyCastExpr,
+       /*isAddressOfOperand=*/false, TypoCorrectionTypeBehavior::AllowNonTypes);
+@@ -124,6 +140,16 @@ ExprResult Parser::ParseConstantExpressionInExprEvalContext(
+              Sema::ExpressionEvaluationContext::ConstantEvaluated &&
+          "Call this function only if your ExpressionEvaluationContext is "
+          "already ConstantEvaluated");
++  if (getLangOpts().CPlusPlusMG) {
++    ExprResult TE = TryParseCXXMGImplementsExpression();
++    if (TE.isInvalid())
++      return Actions.ActOnConstantExpression(TE);
++    if (TE.isUsable()) {
++      ExprResult Res(ParseRHSOfBinaryExpression(TE, prec::Conditional));
++      return Actions.ActOnConstantExpression(Res);
++    }
++  }
++
+   ExprResult LHS(ParseCastExpression(CastParseKind::AnyCastExpr, false,
+                                      CorrectionBehavior));
+   ExprResult Res(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+@@ -754,6 +780,14 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
+   auto SavedType = PreferredType;
+   NotCastExpr = false;
+ 
++  if (getLangOpts().CPlusPlusMG) {
++    ExprResult TE = TryParseCXXMGImplementsExpression();
++    if (TE.isInvalid())
++      return TE;
++    if (TE.isUsable())
++      return TE;
++  }
++
+   // Are postfix-expression suffix operators permitted after this
+   // cast-expression? If not, and we find some, we'll parse them anyway and
+   // diagnose them.
+diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
+index 49f4cefccdc1..3a7236fa3ab8 100644
+--- a/clang/lib/Sema/CMakeLists.txt
++++ b/clang/lib/Sema/CMakeLists.txt
+@@ -52,6 +52,7 @@ add_clang_library(clangSema
+   SemaDeclAttr.cpp
+   SemaDeclCXX.cpp
+   SemaDeclCXXMG.cpp
++  SemaCXXMGTraitExpr.cpp
+   SemaDeclObjC.cpp
+   SemaExceptionSpec.cpp
+   SemaExpr.cpp
+diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+new file mode 100644
+index 000000000000..cfba2c41a15d
+--- /dev/null
++++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+@@ -0,0 +1,286 @@
++//===------ SemaCXXMGTraitExpr.cpp - C++MG Trait Expressions --------------===//
++
++#include "clang/Sema/SemaInternal.h"
++
++#include "clang/AST/ASTContext.h"
++#include "clang/AST/DeclCXX.h"
++#include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
++#include "clang/Basic/DiagnosticSema.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/Support/Casting.h"
++
++using namespace clang;
++
++namespace {
++
++enum class CXXMGTraitMemberKind {
++  Field,
++  StaticData,
++  InstanceMethod,
++  StaticMethod,
++  TypeAliasExact,
++  AssociatedTypeAny,
++  StaticFunctionAnyReturn
++};
++
++struct CXXMGTraitMemberDescriptor {
++  CXXMGTraitMemberKind Kind;
++  DeclarationName Name;
++  SourceLocation Loc;
++  NamedDecl *SourceDecl = nullptr;
++  QualType ValueType;
++  QualType FunctionType;
++  TypeSourceInfo *FunctionTypeInfo = nullptr;
++};
++
++struct CXXMGTraitMemberSet {
++  SmallVector<CXXMGTraitMemberDescriptor, 16> Members;
++  bool Invalid = false;
++};
++
++static bool sameValueType(ASTContext &Ctx, QualType A, QualType B) {
++  return !A.isNull() && !B.isNull() &&
++         Ctx.hasSameType(A.getCanonicalType(), B.getCanonicalType());
++}
++
++static const FunctionProtoType *getProto(QualType T) {
++  return T.isNull() ? nullptr : T->getAs<FunctionProtoType>();
++}
++
++static bool sameFunctionSignature(ASTContext &Ctx,
++                                  const CXXMGTraitMemberDescriptor &A,
++                                  const CXXMGTraitMemberDescriptor &B,
++                                  bool IgnoreReturnType) {
++  const auto *AP = getProto(A.FunctionType);
++  const auto *BP = getProto(B.FunctionType);
++  if (!AP || !BP)
++    return false;
++  if (!IgnoreReturnType &&
++      !Ctx.hasSameType(AP->getReturnType().getCanonicalType(),
++                       BP->getReturnType().getCanonicalType()))
++    return false;
++  if (AP->getNumParams() != BP->getNumParams())
++    return false;
++  if (AP->getMethodQuals() != BP->getMethodQuals() ||
++      AP->getRefQualifier() != BP->getRefQualifier())
++    return false;
++  for (unsigned I = 0, E = AP->getNumParams(); I != E; ++I)
++    if (!Ctx.hasSameType(AP->getParamType(I).getCanonicalType(),
++                         BP->getParamType(I).getCanonicalType()))
++      return false;
++  return true;
++}
++
++static bool memberMatches(ASTContext &Ctx,
++                          const CXXMGTraitMemberDescriptor &Req,
++                          const CXXMGTraitMemberDescriptor &Cand) {
++  if (Req.Name != Cand.Name)
++    return false;
++  if (Req.Kind == CXXMGTraitMemberKind::AssociatedTypeAny)
++    return Cand.Kind == CXXMGTraitMemberKind::AssociatedTypeAny ||
++           Cand.Kind == CXXMGTraitMemberKind::TypeAliasExact;
++  if (Req.Kind == CXXMGTraitMemberKind::StaticFunctionAnyReturn)
++    return Cand.Kind == CXXMGTraitMemberKind::StaticMethod &&
++           sameFunctionSignature(Ctx, Req, Cand, /*IgnoreReturnType=*/true);
++  if (Req.Kind != Cand.Kind)
++    return false;
++  switch (Req.Kind) {
++  case CXXMGTraitMemberKind::Field:
++  case CXXMGTraitMemberKind::StaticData:
++  case CXXMGTraitMemberKind::TypeAliasExact:
++    return sameValueType(Ctx, Req.ValueType, Cand.ValueType);
++  case CXXMGTraitMemberKind::InstanceMethod:
++  case CXXMGTraitMemberKind::StaticMethod:
++    return sameFunctionSignature(Ctx, Req, Cand, /*IgnoreReturnType=*/false);
++  case CXXMGTraitMemberKind::AssociatedTypeAny:
++  case CXXMGTraitMemberKind::StaticFunctionAnyReturn:
++    llvm_unreachable("handled above");
++  }
++  llvm_unreachable("unknown C++MG trait member kind");
++}
++
++static CXXRecordDecl *
++resolveImplementsOperand(Sema &S, TypeSourceInfo *TSI, SourceLocation Loc,
++                         bool RequirementSide, bool Diagnose) {
++  if (!TSI) {
++    if (Diagnose)
++      S.Diag(Loc, RequirementSide ? diag::err_cxxmg_implements_rhs_not_trait
++                                  : diag::err_cxxmg_implements_lhs_not_type);
++    return nullptr;
++  }
++  QualType QT = TSI->getType();
++  if (QT.isNull())
++    return nullptr;
++  if (QT->isDependentType() || QT->isInstantiationDependentType())
++    return nullptr;
++  if (QT->isReferenceType() || QT->isPointerType() || QT->isArrayType() ||
++      QT->isFunctionType()) {
++    if (Diagnose)
++      S.Diag(Loc, RequirementSide ? diag::err_cxxmg_implements_rhs_not_trait
++                                  : diag::err_cxxmg_implements_lhs_not_type);
++    return nullptr;
++  }
++  QT = QT.getUnqualifiedType();
++  CXXRecordDecl *RD = QT.getDesugaredType(S.Context)->getAsCXXRecordDecl();
++  if (!RD) {
++    if (Diagnose)
++      S.Diag(Loc, RequirementSide ? diag::err_cxxmg_implements_rhs_not_trait
++                                  : diag::err_cxxmg_implements_lhs_not_type);
++    return nullptr;
++  }
++  if (RD->isUnion()) {
++    if (Diagnose)
++      S.Diag(Loc, diag::err_cxxmg_implements_union_operand) << QT;
++    return nullptr;
++  }
++  if (!RD->hasDefinition()) {
++    if (Diagnose)
++      S.Diag(Loc, diag::err_cxxmg_implements_incomplete_operand) << QT;
++    return nullptr;
++  }
++  RD = RD->getDefinitionOrSelf();
++  if (RequirementSide && !RD->isTrait()) {
++    if (Diagnose)
++      S.Diag(Loc, diag::err_cxxmg_implements_rhs_not_trait);
++    return nullptr;
++  }
++  if (RD->isInvalidDecl())
++    return nullptr;
++  return RD;
++}
++
++static bool collectMembers(Sema &S, CXXRecordDecl *RD,
++                           SmallVectorImpl<CXXMGTraitMemberDescriptor> &Out) {
++  ASTContext &Ctx = S.Context;
++  bool Invalid = false;
++  for (Decl *D : RD->decls()) {
++    if (auto *FD = dyn_cast<FieldDecl>(D)) {
++      if (!FD->getDeclName() || FD->isBitField()) {
++        Invalid = true;
++        continue;
++      }
++      Out.push_back({CXXMGTraitMemberKind::Field, FD->getDeclName(),
++                     FD->getLocation(), FD, FD->getType(), QualType(),
++                     nullptr});
++      continue;
++    }
++    if (auto *VD = dyn_cast<VarDecl>(D)) {
++      if (!VD->isStaticDataMember())
++        continue;
++      Out.push_back({CXXMGTraitMemberKind::StaticData, VD->getDeclName(),
++                     VD->getLocation(), VD, VD->getType(), QualType(),
++                     nullptr});
++      continue;
++    }
++    if (auto *TD = dyn_cast<TypedefNameDecl>(D)) {
++      Out.push_back({CXXMGTraitMemberKind::TypeAliasExact, TD->getDeclName(),
++                     TD->getLocation(), TD, TD->getUnderlyingType(),
++                     QualType(), nullptr});
++      continue;
++    }
++    if (auto *TR = dyn_cast<TraitRequirementDecl>(D)) {
++      CXXMGTraitMemberDescriptor M;
++      M.Kind = TR->isAssociatedTypeAny()
++                   ? CXXMGTraitMemberKind::AssociatedTypeAny
++                   : CXXMGTraitMemberKind::StaticFunctionAnyReturn;
++      M.Name = TR->getDeclName();
++      M.Loc = TR->getLocation();
++      M.SourceDecl = TR;
++      M.FunctionTypeInfo = TR->getFunctionTypeInfo();
++      if (M.FunctionTypeInfo)
++        M.FunctionType = M.FunctionTypeInfo->getType();
++      else if (TR->isStaticFunctionAnyReturn())
++        M.FunctionType =
++            Ctx.getFunctionType(Ctx.VoidTy, {}, FunctionProtoType::ExtProtoInfo());
++      Out.push_back(M);
++      continue;
++    }
++    if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
++      if (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD) ||
++          isa<CXXConversionDecl>(MD) ||
++          MD->getDeclName().getNameKind() == DeclarationName::CXXOperatorName)
++        continue;
++      if (MD->isTemplated())
++        continue;
++      Out.push_back({MD->isStatic() ? CXXMGTraitMemberKind::StaticMethod
++                                    : CXXMGTraitMemberKind::InstanceMethod,
++                     MD->getDeclName(), MD->getLocation(), MD, QualType(),
++                     MD->getType(), MD->getTypeSourceInfo()});
++      continue;
++    }
++  }
++  return !Invalid;
++}
++
++static CXXMGTraitMemberSet buildMemberSet(Sema &S, CXXRecordDecl *RD) {
++  CXXMGTraitMemberSet Set;
++  if (!collectMembers(S, RD, Set.Members))
++    Set.Invalid = true;
++  return Set;
++}
++
++static bool evaluateImplements(Sema &S, CXXRecordDecl *Candidate,
++                               CXXRecordDecl *Requirement, bool &Result) {
++  CXXMGTraitMemberSet Cand = buildMemberSet(S, Candidate);
++  CXXMGTraitMemberSet Req = buildMemberSet(S, Requirement);
++  if (Cand.Invalid || Req.Invalid)
++    return false;
++  ASTContext &Ctx = S.Context;
++  Result = llvm::all_of(Req.Members, [&](const auto &R) {
++    return llvm::any_of(Cand.Members,
++                        [&](const auto &C) { return memberMatches(Ctx, R, C); });
++  });
++  return true;
++}
++
++static bool isDependentImplementsOperand(TypeSourceInfo *TSI) {
++  if (!TSI)
++    return false;
++  QualType QT = TSI->getType();
++  return !QT.isNull() &&
++         (QT->isDependentType() || QT->isInstantiationDependentType() ||
++          QT->containsUnexpandedParameterPack());
++}
++
++} // namespace
++
++ExprResult Sema::ActOnCXXMGImplementsExpression(
++    Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
++    SourceLocation OpEndLoc, bool UsesAngleSyntax,
++    TypeSourceInfo *RequirementTSI, SourceRange Range) {
++  (void)S;
++  if (!getLangOpts().CPlusPlusMG) {
++    Diag(OpLoc, diag::err_cxxmg_implements_requires_cxxmg);
++    return ExprError();
++  }
++  return BuildCXXMGImplementsExpr(CandidateTSI, OpLoc, OpEndLoc,
++                                  UsesAngleSyntax, RequirementTSI, Range);
++}
++
++ExprResult Sema::BuildCXXMGImplementsExpr(
++    TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
++    SourceLocation OpEndLoc, bool UsesAngleSyntax,
++    TypeSourceInfo *RequirementTSI, SourceRange Range) {
++  if (isDependentImplementsOperand(CandidateTSI) ||
++      isDependentImplementsOperand(RequirementTSI))
++    return CXXMGImplementsExpr::Create(Context, CandidateTSI, RequirementTSI,
++                                       OpLoc, OpEndLoc, Range,
++                                       UsesAngleSyntax);
++
++  CXXRecordDecl *Candidate =
++      resolveImplementsOperand(*this, CandidateTSI, Range.getBegin(),
++                               /*RequirementSide=*/false,
++                               /*Diagnose=*/true);
++  CXXRecordDecl *Requirement = resolveImplementsOperand(
++      *this, RequirementTSI,
++      RequirementTSI ? RequirementTSI->getTypeLoc().getBeginLoc() : OpEndLoc,
++      /*RequirementSide=*/true, /*Diagnose=*/true);
++  if (!Candidate || !Requirement)
++    return ExprError();
++
++  bool Result = false;
++  if (!evaluateImplements(*this, Candidate, Requirement, Result))
++    return ExprError();
++  return CXXBoolLiteralExpr::Create(Context, Result, Context.BoolTy, OpLoc);
++}
+diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
+index 77c8f17439a1..d1ca368771c3 100644
+--- a/clang/lib/Sema/TreeTransform.h
++++ b/clang/lib/Sema/TreeTransform.h
+@@ -20,6 +20,7 @@
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+@@ -841,7 +842,6 @@ public:
+ 
+   StmtResult TransformCompoundStmt(CompoundStmt *S, bool IsStmtExpr);
+   ExprResult TransformCXXNamedCastExpr(CXXNamedCastExpr *E);
+-
+   TemplateParameterList *TransformTemplateParameterList(
+         TemplateParameterList *TPL) {
+     return TPL;
+@@ -15346,6 +15346,24 @@ TreeTransform<Derived>::TransformTypeTraitExpr(TypeTraitExpr *E) {
+                                        E->getEndLoc());
+ }
+ 
++template <typename Derived>
++ExprResult
++TreeTransform<Derived>::TransformCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
++  TypeSourceInfo *CandidateTSI =
++      getDerived().TransformType(E->getCandidateTypeSourceInfo());
++  if (!CandidateTSI)
++    return ExprError();
++
++  TypeSourceInfo *RequirementTSI =
++      getDerived().TransformType(E->getRequirementTypeSourceInfo());
++  if (!RequirementTSI)
++    return ExprError();
++
++  return getSema().BuildCXXMGImplementsExpr(
++      CandidateTSI, E->getOperatorLoc(), E->getOperatorEndLoc(),
++      E->usesAngleSyntax(), RequirementTSI, E->getSourceRange());
++}
++
+ template<typename Derived>
+ ExprResult
+ TreeTransform<Derived>::TransformConceptSpecializationExpr(
+diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
+index 02ccf8d4d41c..493fda644d58 100644
+--- a/clang/lib/Serialization/ASTReaderStmt.cpp
++++ b/clang/lib/Serialization/ASTReaderStmt.cpp
+@@ -24,6 +24,7 @@
+ #include "clang/AST/DependenceFlags.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/ExprOpenMP.h"
+ #include "clang/AST/NestedNameSpecifier.h"
+@@ -2218,6 +2219,18 @@ void ASTStmtReader::VisitTypeTraitExpr(TypeTraitExpr *E) {
+     Args[I] = readTypeSourceInfo();
+ }
+ 
++void ASTStmtReader::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
++  VisitExpr(E);
++  E->setCandidateTypeSourceInfo(readTypeSourceInfo());
++  E->setRequirementTypeSourceInfo(readTypeSourceInfo());
++  E->setOperatorLoc(readSourceLocation());
++  E->setOperatorEndLoc(readSourceLocation());
++  E->setUsesAngleSyntax(Record.readInt());
++  SourceLocation Begin = readSourceLocation();
++  SourceLocation End = readSourceLocation();
++  E->setSourceRange(SourceRange(Begin, End));
++}
++
+ void ASTStmtReader::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   VisitExpr(E);
+   E->ArrayTypeTraitExprBits.ATT = (ArrayTypeTrait)Record.readInt();
+@@ -4405,6 +4418,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
+           Record[ASTStmtReader::NumExprFields + 1]);
+       break;
+ 
++    case EXPR_CXXMG_IMPLEMENTS:
++      S = CXXMGImplementsExpr::CreateEmpty(Context);
++      break;
++
+     case EXPR_ARRAY_TYPE_TRAIT:
+       S = new (Context) ArrayTypeTraitExpr(Empty);
+       break;
+diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
+index 4e9eadd730a5..90028a12fb58 100644
+--- a/clang/lib/Serialization/ASTWriterStmt.cpp
++++ b/clang/lib/Serialization/ASTWriterStmt.cpp
+@@ -16,6 +16,7 @@
+ #include "clang/AST/DeclCXX.h"
+ #include "clang/AST/DeclObjC.h"
+ #include "clang/AST/DeclTemplate.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprOpenMP.h"
+ #include "clang/AST/StmtVisitor.h"
+ #include "clang/AST/TypeBase.h"
+@@ -2229,6 +2230,18 @@ void ASTStmtWriter::VisitTypeTraitExpr(TypeTraitExpr *E) {
+   Code = serialization::EXPR_TYPE_TRAIT;
+ }
+ 
++void ASTStmtWriter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
++  VisitExpr(E);
++  Record.AddTypeSourceInfo(E->getCandidateTypeSourceInfo());
++  Record.AddTypeSourceInfo(E->getRequirementTypeSourceInfo());
++  Record.AddSourceLocation(E->getOperatorLoc());
++  Record.AddSourceLocation(E->getOperatorEndLoc());
++  Record.push_back(E->usesAngleSyntax());
++  Record.AddSourceLocation(E->getBeginLoc());
++  Record.AddSourceLocation(E->getEndLoc());
++  Code = serialization::EXPR_CXXMG_IMPLEMENTS;
++}
++
+ void ASTStmtWriter::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   VisitExpr(E);
+   Record.push_back(E->getTrait());
+diff --git a/clang/test/CXXMG/traits/trait-implements-basic.cpp b/clang/test/CXXMG/traits/trait-implements-basic.cpp
+new file mode 100644
+index 000000000000..9dd50912770d
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-basic.cpp
+@@ -0,0 +1,18 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++trait HasValue {
++  int value;
++};
++
++struct S {
++  int value;
++};
++
++struct Empty {};
++
++static_assert(S implements HasValue);
++static_assert(S <> HasValue);
++
++static_assert(!(Empty implements HasValue));
++static_assert(!(Empty <> HasValue));
+diff --git a/clang/test/CXXMG/traits/trait-implements-dependent.cpp b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
+new file mode 100644
+index 000000000000..36d0ccd662a4
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
+@@ -0,0 +1,32 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++trait HasGenerate {
++  void generate();
++};
++
++struct Graphviz {
++  void generate();
++};
++
++struct Empty {};
++
++template <typename T>
++constexpr bool has_generate_keyword() {
++  using type_t = T;
++  constexpr bool result = type_t implements HasGenerate;
++  return result;
++}
++
++template <typename T>
++constexpr bool has_generate_shorthand() {
++  using type_t = T;
++  constexpr bool result = type_t <> HasGenerate;
++  return result;
++}
++
++static_assert(has_generate_keyword<Graphviz>());
++static_assert(!has_generate_keyword<Empty>());
++
++static_assert(has_generate_shorthand<Graphviz>());
++static_assert(!has_generate_shorthand<Empty>());
+diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp
+new file mode 100644
+index 000000000000..3f767c17e27b
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp
+@@ -0,0 +1,16 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++template <class T = int>
++int make_default();
++
++template <class T>
++int make();
++
++int use_default() {
++  return make_default<>();
++}
++
++int use_explicit() {
++  return make<int>();
++}
+diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp
+new file mode 100644
+index 000000000000..7a0207cf462e
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp
+@@ -0,0 +1,43 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++namespace std {
++  template <class T>
++  T declval();
++
++  template <class It, class T>
++  It find(It, It, const T&);
++}
++
++template <class...>
++using __void_t = void;
++
++template <class _Tp, class _Up, class = void>
++struct swappable_test {};
++
++template <class _Tp, class _Up>
++struct swappable_test<
++    _Tp,
++    _Up,
++    __void_t<decltype(std::declval<_Tp>()),
++             decltype(std::declval<_Up>())>> {};
++
++struct __num_get_base {
++  static const int __num_get_buf_sz = 32;
++};
++
++unsigned global_array[__num_get_base::__num_get_buf_sz];
++
++struct ordering {
++  static const int less = -1;
++  static const int greater = 1;
++};
++
++constexpr int choose(bool b) {
++  return b ? ordering::less : ordering::greater;
++}
++
++void use_find(char *first, char *last, char value) {
++  char *ret = std::find(first, last, value);
++  (void)ret;
++}
+diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp
+new file mode 100644
+index 000000000000..e97732a41ff8
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp
+@@ -0,0 +1,16 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++template <class A, class B>
++inline constexpr bool is_same_v = false;
++
++template <class _Tp, class... _Args>
++inline constexpr bool one_of_v = (is_same_v<_Tp, _Args> || ...);
++
++constexpr int cmp_int(int v) {
++  return v < 0 ? -1 : (v > 0 ? 1 : 0);
++}
++
++constexpr bool logic(bool a, bool b) {
++  return a && b || !a;
++}
+diff --git a/clang/test/CXXMG/traits/trait-implements-errors.cpp b/clang/test/CXXMG/traits/trait-implements-errors.cpp
+new file mode 100644
+index 000000000000..1509be27e398
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-errors.cpp
+@@ -0,0 +1,15 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++trait HasValue {
++  int value;
++};
++
++struct S {
++  int value;
++};
++
++constexpr bool missing_rhs_keyword = S implements;
++// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
++
++constexpr bool missing_rhs_shorthand = S <>;
++// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
+diff --git a/clang/test/CXXMG/traits/trait-implements-false.cpp b/clang/test/CXXMG/traits/trait-implements-false.cpp
+new file mode 100644
+index 000000000000..f4e3ddca03a4
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-false.cpp
+@@ -0,0 +1,13 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++trait HasBuild {
++  void build();
++};
++
++struct OnlyGenerate {
++  void generate();
++};
++
++static_assert((OnlyGenerate implements HasBuild) == false);
++static_assert((OnlyGenerate <> HasBuild) == false);
+diff --git a/clang/test/CXXMG/traits/trait-implements-qualified.cpp b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
+new file mode 100644
+index 000000000000..ba54733d1ef2
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
+@@ -0,0 +1,57 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++namespace backend {
++  trait generator {
++    void generate();
++  };
++
++  trait builder {
++    void build();
++  };
++
++  struct graphviz {
++    void generate();
++  };
++
++  struct ninja {
++    void generate();
++    void build();
++  };
++}
++
++template <typename Backend>
++constexpr bool has_generator() {
++  using backend_t = Backend;
++  return backend_t <> backend::generator;
++}
++
++template <typename Backend>
++constexpr bool has_builder() {
++  using backend_t = Backend;
++  return backend_t implements backend::builder;
++}
++
++static_assert(has_generator<backend::graphviz>());
++static_assert(!has_builder<backend::graphviz>());
++
++static_assert(has_generator<backend::ninja>());
++static_assert(has_builder<backend::ninja>());
++
++namespace mgmake::backend {
++  trait generator {
++    void generate();
++  };
++
++  struct graphviz {
++    void generate();
++  };
++}
++
++template <typename Backend>
++constexpr bool global_qualified_check() {
++  using backend_t = Backend;
++  return backend_t <> ::mgmake::backend::generator;
++}
++
++static_assert(global_qualified_check<mgmake::backend::graphviz>());
+diff --git a/clang/test/CXXMG/traits/trait-implements-special-members.cpp b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
+new file mode 100644
+index 000000000000..d13a841aa6c0
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
+@@ -0,0 +1,55 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++trait HasRun {
++  void run();
++};
++
++struct Weird {
++  Weird();
++  Weird(const Weird&);
++  Weird& operator=(const Weird&);
++  ~Weird();
++
++  void run();
++};
++
++static_assert(Weird implements HasRun);
++static_assert(Weird <> HasRun);
++
++trait Generator {
++  void generate();
++};
++
++trait Builder {
++  void build();
++};
++
++struct Graphviz {
++  void generate();
++};
++
++struct Ninja {
++  void generate();
++  void build();
++};
++
++template <typename Backend>
++constexpr bool has_generator() {
++  using backend_t = Backend;
++  constexpr bool result = backend_t <> Generator;
++  return result;
++}
++
++template <typename Backend>
++constexpr bool has_builder() {
++  using backend_t = Backend;
++  constexpr bool result = backend_t implements Builder;
++  return result;
++}
++
++static_assert(has_generator<Graphviz>());
++static_assert(has_builder<Graphviz>() == false);
++
++static_assert(has_generator<Ninja>());
++static_assert(has_builder<Ninja>());
+-- 
+2.54.0
+

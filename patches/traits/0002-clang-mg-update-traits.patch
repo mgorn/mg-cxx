@@ -1,14 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:23:48 -0400
-Subject: [PATCH] clang-mg: update traits
+Subject: [PATCH 2/7] clang-mg: update traits
 
----
- clang/lib/Sema/CMakeLists.txt    |  1 +
- clang/lib/Sema/SemaDeclCXX.cpp   | 64 ----------------------------
- clang/lib/Sema/SemaDeclCXXMG.cpp | 73 ++++++++++++++++++++++++++++++++
- 3 files changed, 74 insertions(+), 64 deletions(-)
- create mode 100644 clang/lib/Sema/SemaDeclCXXMG.cpp
 
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
 index 0ebf56ecffe6..49f4cefccdc1 100644
@@ -22,81 +16,6 @@ index 0ebf56ecffe6..49f4cefccdc1 100644
    SemaDeclObjC.cpp
    SemaExceptionSpec.cpp
    SemaExpr.cpp
-diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 7ad0de86ae4f..9f9e76bf336b 100644
---- a/clang/lib/Sema/SemaDeclCXX.cpp
-+++ b/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -3464,70 +3464,6 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
-   return false;
- }
- 
--Decl *Sema::ActOnCXXMGTraitAssociatedTypeRequirement(
--    Scope *S, Decl *TraitDecl, SourceLocation UsingLoc, SourceLocation NameLoc,
--    IdentifierInfo *Name) {
--  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
--  if (!Record || !Record->isTrait())
--    return nullptr;
--  auto *D = TraitRequirementDecl::Create(
--      Context, Record, UsingLoc, NameLoc, Name,
--      TraitRequirementDecl::AssociatedTypeAny, nullptr);
--  Record->addDecl(D);
--  return D;
--}
--
--Decl *Sema::ActOnCXXMGTraitStaticFunctionRequirement(
--    Scope *S, Decl *TraitDecl, SourceLocation StaticLoc, SourceLocation NameLoc,
--    IdentifierInfo *Name, TypeSourceInfo *FunctionTypeInfo) {
--  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
--  if (!Record || !Record->isTrait())
--    return nullptr;
--  auto *D = TraitRequirementDecl::Create(
--      Context, Record, StaticLoc, NameLoc, Name,
--      TraitRequirementDecl::StaticFunctionAnyReturn, FunctionTypeInfo);
--  Record->addDecl(D);
--  return D;
--}
--
--void Sema::ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl,
--                                            DeclGroupPtrTy DG) {
--  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
--  if (!Record || !Record->isTrait() || !DG)
--    return;
--
--  for (Decl *D : DG.get()) {
--    if (!D)
--      continue;
--    if (auto *FD = dyn_cast<FieldDecl>(D)) {
--      if (!FD->getIdentifier() || FD->isBitField())
--        Diag(FD->getLocation(), diag::err_cxxmg_trait_invalid_member);
--      if (FD->hasInClassInitializer())
--        Diag(FD->getLocation(), diag::err_cxxmg_trait_initializer);
--      continue;
--    }
--    if (auto *VD = dyn_cast<VarDecl>(D)) {
--      if (!VD->isStaticDataMember())
--        Diag(VD->getLocation(), diag::err_cxxmg_trait_invalid_member);
--      if (VD->hasInit())
--        Diag(VD->getLocation(), diag::err_cxxmg_trait_initializer);
--      continue;
--    }
--    if (isa<TypeAliasDecl>(D) || isa<TraitRequirementDecl>(D))
--      continue;
--    if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
--      if (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD) ||
--          isa<CXXConversionDecl>(MD) ||
--          MD->getDeclName().getNameKind() == DeclarationName::CXXOperatorName)
--        Diag(MD->getLocation(), diag::err_cxxmg_trait_special_member);
--      if (MD->doesThisDeclarationHaveABody())
--        Diag(MD->getLocation(), diag::err_cxxmg_trait_function_body);
--      continue;
--    }
--    Diag(D->getLocation(), diag::err_cxxmg_trait_invalid_member);
--  }
--}
--
- NamedDecl *
- Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
-                                MultiTemplateParamsArg TemplateParameterLists,
 diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
 new file mode 100644
 index 000000000000..2f50d8cb4e3c

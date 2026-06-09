@@ -1,19 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:32:16 -0400
-Subject: [PATCH] clang-mg: update conditional-members
+Subject: [PATCH 08/11] clang-mg: update conditional-members
 
----
- clang/include/clang/Parse/Parser.h            |   7 +-
- clang/include/clang/Sema/Sema.h               |  23 +++
- clang/lib/AST/DeclBase.cpp                    |   1 +
- clang/lib/CodeGen/CGDecl.cpp                  |   1 +
- clang/lib/Parse/ParseDeclCXXMG.cpp            | 139 ++++++++++++++----
- clang/lib/Sema/SemaDecl.cpp                   |   7 +-
- clang/lib/Sema/SemaDeclCXX.cpp                |  78 ++++++++++
- clang/lib/Sema/SemaTemplateInstantiate.cpp    | 103 +++++++++----
- .../lib/Sema/SemaTemplateInstantiateDecl.cpp  |  19 +++
- 9 files changed, 314 insertions(+), 64 deletions(-)
 
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
 index 7e874e2c57af..088a698719e5 100644
