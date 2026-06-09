@@ -48,10 +48,10 @@ index 036886d51ae7..b0736d85c6d7 100644
    /// (C++11 [class.ctor]p5).
    bool hasTrivialDefaultConstructor() const {
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 98da041d383f..7437d2def40e 100644
+index e99237d429f4..faa036f97954 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14284,6 +14284,10 @@ def err_cxxmg_type_expr_invalid_operand :
+@@ -14305,6 +14305,10 @@ def err_cxxmg_type_expr_invalid_operand :
    Error<"type expression operand %0 is not a struct, class, or trait">;
  def err_cxxmg_type_expr_incomplete_operand :
    Error<"type expression operand %0 is incomplete">;
@@ -63,7 +63,7 @@ index 98da041d383f..7437d2def40e 100644
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 53b59c94f899..e7f85ca1a205 100644
+index 0659a34729f2..27c22055a0c9 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5526,10 +5526,23 @@ public:
@@ -91,10 +91,10 @@ index 53b59c94f899..e7f85ca1a205 100644
    /// BuildCXXConstructExpr - Creates a complete call to a constructor,
    /// including handling of its default argument expressions.
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 91421b7629be..639857077c5f 100644
+index 169a9c161ae4..b7ed6bf49c6a 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2735,6 +2735,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
+@@ -2742,6 +2742,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
  
  void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
    VisitRecordDecl(D);
@@ -496,7 +496,7 @@ index b49841edc3f5..c2f26795e5bf 100644
      using Capture = LambdaCapture;
  
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 7d7b7769a919..26cde47683ac 100644
+index c68c01da0a30..47f40117c92e 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -7490,6 +7490,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {

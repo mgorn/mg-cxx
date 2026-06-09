@@ -19,10 +19,10 @@ index 018c9c7e4c4b..886c34175216 100644
  
  const char *getCXXMGTypeExprOpcodeSpelling(CXXMGTypeExprOpcode Op);
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index f5ed72337b06..693fa764049c 100644
+index d77f413c1a36..f02ff4e7ad3b 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
-@@ -1866,6 +1866,12 @@ def err_cxxmg_type_expr_invalid_operator_alias :
+@@ -1878,6 +1878,12 @@ def err_cxxmg_type_expr_invalid_operator_alias :
    Error<"operator %0 does not produce a type in a type alias expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate :
    Error<"operator %0 is not supported in a type predicate expression">;
@@ -36,10 +36,10 @@ index f5ed72337b06..693fa764049c 100644
  
  def warn_max_tokens : Warning<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 7437d2def40e..09c6ff1109f0 100644
+index faa036f97954..df23ef4e49f8 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14292,6 +14292,12 @@ def err_cxxmg_type_expr_union_operand :
+@@ -14313,6 +14313,12 @@ def err_cxxmg_type_expr_union_operand :
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
    Error<"operator %0 is not supported in a type predicate expression">;
@@ -52,20 +52,8 @@ index 7437d2def40e..09c6ff1109f0 100644
  def err_cxxmg_type_expr_conflicting_member :
    Error<"conflicting member %0 in type expression result">;
  def note_cxxmg_type_expr_previous_member :
-diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index aec5d827ae11..0d7bf62fded9 100644
---- a/clang/include/clang/Basic/TokenKinds.def
-+++ b/clang/include/clang/Basic/TokenKinds.def
-@@ -390,6 +390,7 @@ KEYWORD(template                    , KEYCXX)
- KEYWORD(this                        , KEYCXX)
- KEYWORD(throw                       , KEYCXX)
- KEYWORD(trait                       , KEYCXXMG)
-+KEYWORD(implements                  , KEYCXXMG)
- KEYWORD(true                        , BOOLSUPPORT|KEYC23)
- KEYWORD(try                         , KEYCXX)
- KEYWORD(typename                    , KEYCXX)
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index d6198a4f6df8..4b6c81b13a41 100644
+index 785f245e5987..8cd42a81c8fc 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3354,18 +3354,15 @@ private:
@@ -90,7 +78,7 @@ index d6198a4f6df8..4b6c81b13a41 100644
    /// ParseStaticAssertDeclaration - Parse C++0x or C11
    /// static_assert-declaration.
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index e7f85ca1a205..0013b18be1d6 100644
+index 27c22055a0c9..616981cf2608 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -198,14 +198,22 @@ class UnresolvedSetImpl;
@@ -118,7 +106,7 @@ index e7f85ca1a205..0013b18be1d6 100644
    std::unique_ptr<ParsedCXXMGTypeExpr> RHS;
    SourceLocation BeginLoc;
 diff --git a/clang/lib/AST/ASTStructuralEquivalence.cpp b/clang/lib/AST/ASTStructuralEquivalence.cpp
-index b104c5fa0c76..ea9768dc68b0 100644
+index b837efeaf512..e8bda5d4ec32 100644
 --- a/clang/lib/AST/ASTStructuralEquivalence.cpp
 +++ b/clang/lib/AST/ASTStructuralEquivalence.cpp
 @@ -170,6 +170,24 @@ namespace {
@@ -450,54 +438,6 @@ index d7e9e23b4338..e66c45686fcb 100644
                                   /*AllowTypeNameFallback=*/true)) {
          TypeAlias = true;
        } else if (!TE.SawTypeExprOperator) {
-diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 76ad65117af0..399b6c85d0f6 100644
---- a/clang/lib/Parse/ParseExpr.cpp
-+++ b/clang/lib/Parse/ParseExpr.cpp
-@@ -87,9 +87,11 @@ ExprResult Parser::ParseAssignmentExpression(
-     return ParseCoyieldExpression();
- 
-   if (getLangOpts().CPlusPlusMG) {
--    ExprResult TE = TryParseCXXMGTypePredicateExpression();
--    if (TE.isUsable() || TE.isInvalid())
-+    ExprResult TE = TryParseCXXMGImplementsExpression();
-+    if (TE.isInvalid())
-       return TE;
-+    if (TE.isUsable())
-+      return ParseRHSOfBinaryExpression(TE, prec::Assignment);
-   }
- 
-   ExprResult LHS =
-@@ -107,9 +109,11 @@ ExprResult Parser::ParseConditionalExpression() {
-   }
- 
-   if (getLangOpts().CPlusPlusMG) {
--    ExprResult TE = TryParseCXXMGTypePredicateExpression();
--    if (TE.isUsable() || TE.isInvalid())
-+    ExprResult TE = TryParseCXXMGImplementsExpression();
-+    if (TE.isInvalid())
-       return TE;
-+    if (TE.isUsable())
-+      return ParseRHSOfBinaryExpression(TE, prec::Conditional);
-   }
- 
-   ExprResult LHS = ParseCastExpression(
-@@ -137,9 +141,13 @@ ExprResult Parser::ParseConstantExpressionInExprEvalContext(
-          "Call this function only if your ExpressionEvaluationContext is "
-          "already ConstantEvaluated");
-   if (getLangOpts().CPlusPlusMG) {
--    ExprResult TE = TryParseCXXMGTypePredicateExpression();
--    if (TE.isUsable() || TE.isInvalid())
-+    ExprResult TE = TryParseCXXMGImplementsExpression();
-+    if (TE.isInvalid())
-       return Actions.ActOnConstantExpression(TE);
-+    if (TE.isUsable()) {
-+      ExprResult Res = ParseRHSOfBinaryExpression(TE, prec::Conditional);
-+      return Actions.ActOnConstantExpression(Res);
-+    }
-   }
- 
-   ExprResult LHS(ParseCastExpression(CastParseKind::AnyCastExpr, false,
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 index 65a7e36c4641..0dae8aca12e4 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp

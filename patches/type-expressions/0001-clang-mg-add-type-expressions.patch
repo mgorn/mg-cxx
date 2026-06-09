@@ -4,6 +4,33 @@ Date: Sat, 23 May 2026 21:31:20 -0400
 Subject: [PATCH 01/12] clang-mg: add type-expressions
 
 
+diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
+index 36d6f520b576..51365741cc12 100644
+--- a/clang/include/clang/AST/RecursiveASTVisitor.h
++++ b/clang/include/clang/AST/RecursiveASTVisitor.h
+@@ -2877,6 +2877,10 @@ DEF_TRAVERSE_STMT(CXXMGImplementsExpr, {
+     TRY_TO(TraverseTypeLoc(TSI->getTypeLoc()));
+ })
+ 
++DEF_TRAVERSE_STMT(CXXMGTypeCheckExpr, {
++  TRY_TO(TraverseCXXMGTypeExprNode(S->getTypeExprNode()));
++})
++
+ DEF_TRAVERSE_STMT(ArrayTypeTraitExpr, {
+   TRY_TO(TraverseTypeLoc(S->getQueriedTypeSourceInfo()->getTypeLoc()));
+ })
+diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
+index 88d6a8936550..a521b991440f 100644
+--- a/clang/include/clang/AST/TextNodeDumper.h
++++ b/clang/include/clang/AST/TextNodeDumper.h
+@@ -304,6 +304,7 @@ public:
+   void VisitCXXDeleteExpr(const CXXDeleteExpr *Node);
+   void VisitTypeTraitExpr(const TypeTraitExpr *Node);
+   void VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *Node);
++  void VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *Node);
+   void VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *Node);
+   void VisitExpressionTraitExpr(const ExpressionTraitExpr *Node);
+   void VisitCXXDefaultArgExpr(const CXXDefaultArgExpr *Node);
 diff --git a/clang/include/clang/Basic/DiagnosticGroups.td b/clang/include/clang/Basic/DiagnosticGroups.td
 index 8031f99419bd..f15bbf9dfb80 100644
 --- a/clang/include/clang/Basic/DiagnosticGroups.td
@@ -18,10 +45,10 @@ index 8031f99419bd..f15bbf9dfb80 100644
  // Warnings about unguarded usages of AMDGPU target specific constructs
  def UnguardedBuiltinUsageAMDGPU : DiagGroup<"amdgpu-unguarded-builtin-usage">;
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index e1e16343e7bb..f5ed72337b06 100644
+index a69394abd2ad..d77f413c1a36 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
-@@ -1861,6 +1861,13 @@ def err_cannot_reflect_operand : Error<
+@@ -1873,6 +1873,13 @@ def err_cannot_reflect_operand : Error<
    "unknown or unimplemented reflectable entity">;
  }
  
@@ -36,10 +63,10 @@ index e1e16343e7bb..f5ed72337b06 100644
    "the number of preprocessor source tokens (%0) exceeds this token limit (%1)">,
    InGroup<MaxTokens>, DefaultIgnore;
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 66612f00a1bc..98da041d383f 100644
+index 6101226f2c85..e99237d429f4 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14275,6 +14275,32 @@ def warn_comparison_in_enum_initializer : Warning<
+@@ -14296,6 +14296,32 @@ def warn_comparison_in_enum_initializer : Warning<
  def note_enum_compare_typo_suggest : Note<
    "use '%0' to perform a bitwise shift">;
  
@@ -73,19 +100,21 @@ index 66612f00a1bc..98da041d383f 100644
      : Error<"device-side kernel call/launch is not supported">;
  def err_cuda_device_kernel_launch_require_rdc
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
-index 1028a2594adc..3c43cb23b937 100644
+index 71a79db381d6..3c43cb23b937 100644
 --- a/clang/include/clang/Basic/Features.def
 +++ b/clang/include/clang/Basic/Features.def
-@@ -384,6 +384,7 @@ FEATURE(clang_atomic_attributes, true)
+@@ -383,8 +383,8 @@ FEATURE(clang_atomic_attributes, true)
+ 
  // C++MG features.
  FEATURE(cxxmg_if_constexpr_members, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
+-// C++MG Features
  FEATURE(cxxmg_traits, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
 +FEATURE(cxxmg_type_expressions, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
  
  // CUDA/HIP Features
  FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index c4f2ddac174a..cbe944523201 100644
+index a678fde7f7f0..2e0400a7d285 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3354,6 +3354,16 @@ private:
@@ -106,7 +135,7 @@ index c4f2ddac174a..cbe944523201 100644
    /// static_assert-declaration.
    ///
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 8f73964794d1..2fcc1ded6007 100644
+index aed2289a9828..ea7ee3c9baf9 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -197,6 +197,21 @@ class UnresolvedSetImpl;
@@ -143,15 +172,119 @@ index 8f73964794d1..2fcc1ded6007 100644
  
    /// BuildCXXConstructExpr - Creates a complete call to a constructor,
    /// including handling of its default argument expressions.
-@@ -5881,6 +5901,8 @@ public:
-       SourceLocation NameLoc, IdentifierInfo *Name,
+@@ -5883,6 +5903,9 @@ public:
        TypeSourceInfo *FunctionTypeInfo);
    void ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl, DeclGroupPtrTy DG);
+ 
 +  ExprResult ActOnCXXMGTypePredicateExpression(Scope *S,
 +                                               const ParsedCXXMGTypeExpr &TE);
++
+   ExprResult ActOnCXXMGImplementsExpression(
+       Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
+       SourceLocation OpEndLoc, bool UsesAngleSyntax,
+diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
+index 02c33e539674..d62de57f5859 100644
+--- a/clang/lib/AST/Expr.cpp
++++ b/clang/lib/AST/Expr.cpp
+@@ -43,6 +43,26 @@
+ #include <optional>
+ using namespace clang;
  
-   /// Enter a new C++ default initializer scope. After calling this, the
-   /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
++CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::Create(ASTContext &Ctx,
++                                               CXXMGTypeExprNode *ExprNode) {
++  ExprDependence D = ExprDependence::None;
++  if (ExprNode) {
++    if (ExprNode->isDependent())
++      D |= ExprDependence::Type;
++    if (ExprNode->isInstantiationDependent())
++      D |= ExprDependence::Instantiation;
++    if (ExprNode->containsUnexpandedParameterPack())
++      D |= ExprDependence::UnexpandedPack;
++    if (ExprNode->isDependent() || ExprNode->isInstantiationDependent())
++      D |= ExprDependence::Value;
++  }
++  return new (Ctx) CXXMGTypeCheckExpr(Ctx.BoolTy, ExprNode, D);
++}
++
++CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
++  return new (Ctx) CXXMGTypeCheckExpr(EmptyShell());
++}
++
+ static ExprDependence
+ computeCXXMGImplementsExprDependence(TypeSourceInfo *CandidateTSI,
+                                       TypeSourceInfo *RequirementTSI) {
+diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
+index c9f2fd5d2618..8e7a53375f7a 100644
+--- a/clang/lib/AST/StmtPrinter.cpp
++++ b/clang/lib/AST/StmtPrinter.cpp
+@@ -2646,6 +2646,10 @@ void StmtPrinter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+     TSI->getType().print(OS, Policy);
+ }
+ 
++void StmtPrinter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
++  printCXXMGTypeExprNode(E->getTypeExprNode(), OS, Policy);
++}
++
+ void StmtPrinter::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   OS << getTraitSpelling(E->getTrait()) << '(';
+   E->getQueriedType().print(OS, Policy);
+diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
+index f8597dc441df..994dcb6957ab 100644
+--- a/clang/lib/AST/StmtProfile.cpp
++++ b/clang/lib/AST/StmtProfile.cpp
+@@ -2304,6 +2304,22 @@ void StmtProfiler::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *S) {
+   ID.AddBoolean(S->usesAngleSyntax());
+ }
+ 
++void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
++  ID.AddInteger(Node->getKind());
++  if (Node->isOperand()) {
++    VisitType(Node->getOperandTypeSourceInfo()->getType());
++    return;
++  }
++  ID.AddInteger(static_cast<unsigned>(Node->getOpcode()));
++  VisitCXXMGTypeExprNode(Node->getLHS());
++  VisitCXXMGTypeExprNode(Node->getRHS());
++}
++
++void StmtProfiler::VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *S) {
++  VisitExpr(S);
++  VisitCXXMGTypeExprNode(S->getTypeExprNode());
++}
++
+ void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
+   VisitExpr(S);
+   ID.AddInteger(S->getTrait());
+diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
+index aba4eca6ccb3..66a50d231895 100644
+--- a/clang/lib/AST/TextNodeDumper.cpp
++++ b/clang/lib/AST/TextNodeDumper.cpp
+@@ -1843,6 +1843,13 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
+     OS << " unresolved";
+ }
+ 
++void TextNodeDumper::VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *Node) {
++  if (Node->isValueDependent())
++    OS << " value-dependent";
++  if (auto *TE = Node->getTypeExprNode(); TE && TE->isBinary())
++    OS << " '" << getCXXMGTypeExprOpcodeSpelling(TE->getOpcode()) << "'";
++}
++
+ void TextNodeDumper::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *Node) {
+   OS << " " << getTraitSpelling(Node->getTrait());
+ }
+diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
+index cd1f3cd0ccc3..2c2ad0ed613f 100644
+--- a/clang/lib/AST/Type.cpp
++++ b/clang/lib/AST/Type.cpp
+@@ -15,6 +15,7 @@
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/Attr.h"
+ #include "clang/AST/Attrs.inc"
++#include "clang/AST/CXXMGTypeExpr.h"
+ #include "clang/AST/CharUnits.h"
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclBase.h"
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
 index 8aa0faebe182..6656f2bd076c 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
@@ -165,13 +298,13 @@ index 8aa0faebe182..6656f2bd076c 100644
  }
  
 diff --git a/clang/lib/Parse/CMakeLists.txt b/clang/lib/Parse/CMakeLists.txt
-index 07169bfc9129..82e9b3908878 100644
+index eb648d905297..65304c11ca77 100644
 --- a/clang/lib/Parse/CMakeLists.txt
 +++ b/clang/lib/Parse/CMakeLists.txt
-@@ -13,6 +13,7 @@ add_clang_library(clangParse
-   ParseDecl.cpp
+@@ -14,6 +14,7 @@ add_clang_library(clangParse
    ParseDeclCXX.cpp
    ParseDeclCXXMG.cpp
+   ParseCXXMGTraitExpr.cpp
 +  ParseCXXMGTypeExpr.cpp
    ParseExpr.cpp
    ParseExprCXX.cpp
@@ -444,7 +577,7 @@ index c5fddf941e0f..e2301e501419 100644
      *OwnedType = DeclFromDeclSpec;
  
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 2987d32d6e0d..76ad65117af0 100644
+index b5fe0558b38a..60d60f8d3ccf 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -86,6 +86,12 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -457,10 +590,10 @@ index 2987d32d6e0d..76ad65117af0 100644
 +      return TE;
 +  }
 +
-   ExprResult LHS =
-       ParseCastExpression(CastParseKind::AnyCastExpr,
-                           /*isAddressOfOperand=*/false, CorrectionBehavior);
-@@ -100,6 +106,12 @@ ExprResult Parser::ParseConditionalExpression() {
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGImplementsExpression();
+     if (TE.isInvalid())
+@@ -108,6 +114,12 @@ ExprResult Parser::ParseConditionalExpression() {
      return ExprError();
    }
  
@@ -470,10 +603,10 @@ index 2987d32d6e0d..76ad65117af0 100644
 +      return TE;
 +  }
 +
-   ExprResult LHS = ParseCastExpression(
-       CastParseKind::AnyCastExpr,
-       /*isAddressOfOperand=*/false, TypoCorrectionTypeBehavior::AllowNonTypes);
-@@ -124,6 +136,12 @@ ExprResult Parser::ParseConstantExpressionInExprEvalContext(
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGImplementsExpression();
+     if (TE.isInvalid())
+@@ -140,6 +152,12 @@ ExprResult Parser::ParseConstantExpressionInExprEvalContext(
               Sema::ExpressionEvaluationContext::ConstantEvaluated &&
           "Call this function only if your ExpressionEvaluationContext is "
           "already ConstantEvaluated");
@@ -483,11 +616,11 @@ index 2987d32d6e0d..76ad65117af0 100644
 +      return Actions.ActOnConstantExpression(TE);
 +  }
 +
-   ExprResult LHS(ParseCastExpression(CastParseKind::AnyCastExpr, false,
-                                      CorrectionBehavior));
-   ExprResult Res(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGImplementsExpression();
+     if (TE.isInvalid())
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
-index 49f4cefccdc1..30c77d5d3968 100644
+index 3a7236fa3ab8..a77b26c75b2d 100644
 --- a/clang/lib/Sema/CMakeLists.txt
 +++ b/clang/lib/Sema/CMakeLists.txt
 @@ -46,6 +46,7 @@ add_clang_library(clangSema
@@ -1067,6 +1200,39 @@ index 000000000000..b87cf3a38595
 +
 +  return CXXBoolLiteralExpr::Create(Context, Result, Context.BoolTy, TE.OpLoc);
 +}
+diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
+index 493fda644d58..691543924495 100644
+--- a/clang/lib/Serialization/ASTReaderStmt.cpp
++++ b/clang/lib/Serialization/ASTReaderStmt.cpp
+@@ -2231,6 +2231,11 @@ void ASTStmtReader::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+   E->setSourceRange(SourceRange(Begin, End));
+ }
+ 
++void ASTStmtReader::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
++  VisitExpr(E);
++  E->setTypeExprNode(Record.readCXXMGTypeExprNodeRef());
++}
++
+ void ASTStmtReader::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   VisitExpr(E);
+   E->ArrayTypeTraitExprBits.ATT = (ArrayTypeTrait)Record.readInt();
+diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
+index 90028a12fb58..de7a6c7ff9f8 100644
+--- a/clang/lib/Serialization/ASTWriterStmt.cpp
++++ b/clang/lib/Serialization/ASTWriterStmt.cpp
+@@ -2242,6 +2242,12 @@ void ASTStmtWriter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+   Code = serialization::EXPR_CXXMG_IMPLEMENTS;
+ }
+ 
++void ASTStmtWriter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
++  VisitExpr(E);
++  Record.AddCXXMGTypeExprNode(E->getTypeExprNode());
++  Code = serialization::EXPR_CXXMG_TYPE_CHECK;
++}
++
+ void ASTStmtWriter::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
+   VisitExpr(E);
+   Record.push_back(E->getTrait());
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-add-records.cpp b/clang/test/CXXMG/type-expressions/type-expr-add-records.cpp
 new file mode 100644
 index 000000000000..6fa28ea30e80

@@ -5,7 +5,7 @@ Subject: [PATCH 03/12] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index b941ca78ee7b..b687987b196f 100644
+index a02d85affda8..588b66f58a2c 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -1148,6 +1148,10 @@ DEF_TRAVERSE_TYPE(PackIndexingType, {
@@ -164,7 +164,7 @@ index 2e74aeb558e3..df7574f254a1 100644
    mangleSourceName(T->getDecl()->getIdentifier());
  }
 diff --git a/clang/lib/AST/MicrosoftMangle.cpp b/clang/lib/AST/MicrosoftMangle.cpp
-index 5c0bc14b6780..66506efaa1ba 100644
+index adfe260a0d09..411d0af7a1eb 100644
 --- a/clang/lib/AST/MicrosoftMangle.cpp
 +++ b/clang/lib/AST/MicrosoftMangle.cpp
 @@ -12,6 +12,7 @@
@@ -175,7 +175,7 @@ index 5c0bc14b6780..66506efaa1ba 100644
  #include "clang/AST/CXXInheritance.h"
  #include "clang/AST/CharUnits.h"
  #include "clang/AST/Decl.h"
-@@ -3858,6 +3859,12 @@ void MicrosoftCXXNameMangler::mangleType(const PackIndexingType *T,
+@@ -3864,6 +3865,12 @@ void MicrosoftCXXNameMangler::mangleType(const PackIndexingType *T,
    mangleType(T->getSelectedType(), Range);
  }
  
@@ -267,10 +267,10 @@ index 7228cc6ff402..b8bc3c545468 100644
                                                      const UnaryTransformType*) {
    return false;
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index d69e13143636..29cbaebd81b2 100644
+index b0652f58e6aa..4a4fd99f3071 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
-@@ -7242,7 +7242,8 @@ QualType TreeTransform<Derived>::TransformCXXMGTypeExprType(
+@@ -7241,7 +7241,8 @@ QualType TreeTransform<Derived>::TransformCXXMGTypeExprType(
    if (NewNode->isDependent() || NewNode->isInstantiationDependent()) {
      QualType NewTy = getSema().Context.getCXXMGTypeExprType(NewNode);
      auto NewTL = TLB.push<CXXMGTypeExprTypeLoc>(NewTy);
@@ -281,7 +281,7 @@ index d69e13143636..29cbaebd81b2 100644
    }
  
 diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
-index 94d7f56df83d..00f251300438 100644
+index 65874047f157..9c1b7d27a32e 100644
 --- a/clang/lib/Serialization/ASTReader.cpp
 +++ b/clang/lib/Serialization/ASTReader.cpp
 @@ -7821,6 +7821,11 @@ void TypeLocReader::VisitPredefinedSugarTypeLoc(PredefinedSugarTypeLoc TL) {
@@ -297,7 +297,7 @@ index 94d7f56df83d..00f251300438 100644
    TypeLocReader TLR(*this);
    for (; !TL.isNull(); TL = TL.getNextTypeLoc())
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 6f6a486738ff..7d7b7769a919 100644
+index 7b18d24036e4..c68c01da0a30 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -697,6 +697,11 @@ void TypeLocWriter::VisitPredefinedSugarTypeLoc(
