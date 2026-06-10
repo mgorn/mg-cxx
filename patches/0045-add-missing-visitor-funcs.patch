@@ -1,0 +1,230 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 20:51:32 -0400
+Subject: [PATCH] Add missing visitor funcs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adds comprehensive support for new AST nodes related to advanced type const[5D[K
+constraints, including `TraitRequirementDecl` and `CXXMGConditionalMemberDe[25D[K
+`CXXMGConditionalMemberDecl`.
+
+Updates Sema code completion logic and enhances cursor utilities (CXType/CI[10D[K
+(CXType/CIndex) to correctly recognize these constructs. This ensures libcl[5D[K
+libclang tooling can accurately traverse and understand modern C++ syntax i[1D[K
+involving traits and requirements.
+
+diff --git a/clang/lib/Sema/SemaCodeComplete.cpp b/clang/lib/Sema/SemaCodeComplete.cpp
+index c8177e027a3a..862fa75f6af0 100644
+--- a/clang/lib/Sema/SemaCodeComplete.cpp
++++ b/clang/lib/Sema/SemaCodeComplete.cpp
+@@ -4409,6 +4409,9 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
+     return CXCursor_EnumConstantDecl;
+   case Decl::Field:
+     return CXCursor_FieldDecl;
++  case Decl::TraitRequirement:
++  case Decl::CXXMGConditionalMember:
++    return CXCursor_UnexposedDecl;
+   case Decl::Function:
+     return CXCursor_FunctionDecl;
+   case Decl::ObjCCategory:
+diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
+index 0a849154c5d5..71154c67ac7b 100644
+--- a/clang/tools/libclang/CIndex.cpp
++++ b/clang/tools/libclang/CIndex.cpp
+@@ -24,9 +24,12 @@
+ #include "clang-c/FatalErrorHandler.h"
+ #include "clang/AST/Attr.h"
+ #include "clang/AST/AttrVisitor.h"
++#include "clang/AST/CXXMGTypeExpr.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclObjCCommon.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/Mangle.h"
+ #include "clang/AST/OpenACCClause.h"
+ #include "clang/AST/OpenMPClause.h"
+@@ -1332,6 +1335,30 @@ bool CursorVisitor::VisitConceptDecl(ConceptDecl *D) {
+   return false;
+ }
+ 
++bool CursorVisitor::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
++  if (TypeSourceInfo *TSI = D->getFunctionTypeInfo())
++    return Visit(TSI->getTypeLoc());
++  return false;
++}
++
++bool CursorVisitor::VisitCXXMGConditionalMemberDecl(
++    CXXMGConditionalMemberDecl *D) {
++  for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
++    if (Arm.Condition &&
++        Visit(MakeCXCursor(Arm.Condition, StmtParent, TU, RegionOfInterest)))
++      return true;
++
++    for (Decl *SubD : Arm.Decls) {
++      if (!SubD)
++        continue;
++      if (Visit(MakeCXCursor(SubD, TU, RegionOfInterest)))
++        return true;
++    }
++  }
++
++  return false;
++}
++
+ bool CursorVisitor::VisitTypeConstraint(const TypeConstraint &TC) {
+   if (TC.getNestedNameSpecifierLoc()) {
+     if (VisitNestedNameSpecifierLoc(TC.getNestedNameSpecifierLoc()))
+@@ -1865,6 +1892,25 @@ bool CursorVisitor::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
+   return Visit(MakeCXCursor(TL.getIndexExpr(), StmtParent, TU));
+ }
+ 
++bool CursorVisitor::VisitCXXMGTypeExprNode(CXXMGTypeExprNode *Node) {
++  if (!Node)
++    return false;
++
++  if (Node->isOperand()) {
++    if (TypeSourceInfo *TSI = Node->getOperandTypeSourceInfo())
++      return Visit(TSI->getTypeLoc());
++    return false;
++  }
++
++  if (VisitCXXMGTypeExprNode(Node->getLHS()))
++    return true;
++  return VisitCXXMGTypeExprNode(Node->getRHS());
++}
++
++bool CursorVisitor::VisitCXXMGTypeExprTypeLoc(CXXMGTypeExprTypeLoc TL) {
++  return VisitCXXMGTypeExprNode(TL.getTypePtr()->getTypeExprNode());
++}
++
+ bool CursorVisitor::VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc TL) {
+   return Visit(MakeCursorTypeRef(TL.getDecl(), TL.getNameLoc(), TU));
+ }
+@@ -2124,6 +2170,8 @@ public:
+   void VisitSwitchStmt(const SwitchStmt *S);
+   void VisitWhileStmt(const WhileStmt *W);
+   void VisitTypeTraitExpr(const TypeTraitExpr *E);
++  void VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *E);
++  void VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *E);
+   void VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *E);
+   void VisitExpressionTraitExpr(const ExpressionTraitExpr *E);
+   void VisitUnresolvedMemberExpr(const UnresolvedMemberExpr *U);
+@@ -2253,6 +2301,7 @@ private:
+   void AddStmt(const Stmt *S);
+   void AddDecl(const Decl *D, bool isFirst = true);
+   void AddTypeLoc(TypeSourceInfo *TI);
++  void AddCXXMGTypeExprNode(const CXXMGTypeExprNode *Node);
+   void EnqueueChildren(const Stmt *S);
+   void EnqueueChildren(const OpenACCClause *S);
+   void EnqueueChildren(const OMPClause *S);
+@@ -2292,6 +2341,18 @@ void EnqueueVisitor::AddTypeLoc(TypeSourceInfo *TI) {
+   if (TI)
+     WL.push_back(TypeLocVisit(TI->getTypeLoc(), Parent));
+ }
++void EnqueueVisitor::AddCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
++  if (!Node)
++    return;
++
++  if (Node->isOperand()) {
++    AddTypeLoc(Node->getOperandTypeSourceInfo());
++    return;
++  }
++
++  AddCXXMGTypeExprNode(Node->getRHS());
++  AddCXXMGTypeExprNode(Node->getLHS());
++}
+ void EnqueueVisitor::EnqueueChildren(const Stmt *S) {
+   unsigned size = WL.size();
+   for (const Stmt *SubStmt : S->children()) {
+@@ -3256,6 +3317,15 @@ void EnqueueVisitor::VisitTypeTraitExpr(const TypeTraitExpr *E) {
+     AddTypeLoc(E->getArg(I - 1));
+ }
+ 
++void EnqueueVisitor::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *E) {
++  AddTypeLoc(E->getRequirementTypeSourceInfo());
++  AddTypeLoc(E->getCandidateTypeSourceInfo());
++}
++
++void EnqueueVisitor::VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *E) {
++  AddCXXMGTypeExprNode(E->getTypeExprNode());
++}
++
+ void EnqueueVisitor::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *E) {
+   AddTypeLoc(E->getQueriedTypeSourceInfo());
+ }
+@@ -8833,6 +8903,8 @@ static CXLanguageKind getDeclLanguage(const Decl *D) {
+   case Decl::CXXDestructor:
+   case Decl::CXXMethod:
+   case Decl::CXXRecord:
++  case Decl::TraitRequirement:
++  case Decl::CXXMGConditionalMember:
+   case Decl::ClassTemplate:
+   case Decl::ClassTemplatePartialSpecialization:
+   case Decl::ClassTemplateSpecialization:
+diff --git a/clang/tools/libclang/CXCursor.cpp b/clang/tools/libclang/CXCursor.cpp
+index 4fa0b8b76640..7b2f2d6c0e35 100644
+--- a/clang/tools/libclang/CXCursor.cpp
++++ b/clang/tools/libclang/CXCursor.cpp
+@@ -20,10 +20,12 @@
+ #include "clang/AST/Attr.h"
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclObjC.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
++#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/Frontend/ASTUnit.h"
+ #include "llvm/Support/ErrorHandling.h"
+diff --git a/clang/tools/libclang/CXType.cpp b/clang/tools/libclang/CXType.cpp
+index 0063939dec42..cdc6f4d39adb 100644
+--- a/clang/tools/libclang/CXType.cpp
++++ b/clang/tools/libclang/CXType.cpp
+@@ -123,6 +123,8 @@ static CXTypeKind GetTypeKind(QualType T) {
+     TKCASE(BTFTagAttributed);
+     TKCASE(Atomic);
+     TKCASE(PredefinedSugar);
++    case Type::CXXMGTypeExpr:
++      return CXType_Unexposed;
+     default:
+       return CXType_Unexposed;
+   }
+diff --git a/clang/tools/libclang/CursorVisitor.h b/clang/tools/libclang/CursorVisitor.h
+index d5ab69975698..6f1668c61249 100644
+--- a/clang/tools/libclang/CursorVisitor.h
++++ b/clang/tools/libclang/CursorVisitor.h
+@@ -19,6 +19,9 @@
+ namespace clang {
+ class PreprocessingRecord;
+ class ASTUnit;
++class CXXMGConditionalMemberDecl;
++class CXXMGTypeExprNode;
++class TraitRequirementDecl;
+ 
+ namespace concepts {
+ class Requirement;
+@@ -250,6 +253,8 @@ public:
+   bool VisitFriendDecl(FriendDecl *D);
+   bool VisitDecompositionDecl(DecompositionDecl *D);
+   bool VisitConceptDecl(ConceptDecl *D);
++  bool VisitTraitRequirementDecl(TraitRequirementDecl *D);
++  bool VisitCXXMGConditionalMemberDecl(CXXMGConditionalMemberDecl *D);
+   bool VisitTypeConstraint(const TypeConstraint &TC);
+   bool VisitConceptRequirement(const concepts::Requirement &R);
+ 
+@@ -264,6 +269,7 @@ public:
+   bool VisitTemplateArgumentLoc(const TemplateArgumentLoc &TAL);
+ 
+   // Type visitors
++  bool VisitCXXMGTypeExprNode(CXXMGTypeExprNode *Node);
+ #define ABSTRACT_TYPELOC(CLASS, PARENT)
+ #define TYPELOC(CLASS, PARENT) bool Visit##CLASS##TypeLoc(CLASS##TypeLoc TyLoc);
+ #include "clang/AST/TypeLocNodes.def"
+-- 
+2.54.0
+
