@@ -34,6 +34,8 @@ def usage(root_dir: Path) -> None:
     print("  reset                Reset LLVM checkout to LLVM_REF / origin ref")
     print("  apply                Apply all top-level patches from patches/")
     print("  refresh [start-ref]  Regenerate all top-level patches from start-ref..HEAD")
+    print("  export [base-ref]   Write one net patch for the applied LLVM changes into work/")
+    print("  collect [base-ref]  Alias for export")
     print("  save                 Save current LLVM working-tree changes as a new patch")
     print("  build                Build current LLVM tree only")
     print("  test [target] [path ...]  Build test dependencies and run LLVM lit tests")
@@ -48,6 +50,8 @@ def usage(root_dir: Path) -> None:
     print("  python build.py save")
     print("  python build.py refresh")
     print("  python build.py refresh origin/main")
+    print("  python build.py export")
+    print("  python build.py export origin/main")
     print("  python build.py build")
     print("  python build.py test")
     print("  python build.py test clang")
@@ -60,6 +64,7 @@ def usage(root_dir: Path) -> None:
     print("  apply   = apply every top-level patch in lexical order")
     print("  save    = commit current LLVM changes and append one new patch")
     print("  refresh = rewrite the whole flat patch stack from LLVM git history")
+    print("  export  = write one collapsed net diff of the applied LLVM changes")
     print()
     print("Environment variables:")
     print("  LLVM_REF=main")
@@ -133,6 +138,17 @@ def run_refresh_patches(scripts_dir: Path, llvm_dir: Path, start_ref: str | None
 def run_save_patches(scripts_dir: Path, llvm_dir: Path) -> None:
     require_llvm_repo(llvm_dir)
     run([sys.executable, str(scripts_dir / "save-patches.py")], cwd=llvm_dir)
+
+
+def run_export_patch(scripts_dir: Path, work_dir: Path, llvm_dir: Path, llvm_ref: str,
+                     base_ref: str | None = None) -> None:
+    require_llvm_repo(llvm_dir)
+    args = [sys.executable, str(scripts_dir / "export-patch.py")]
+    if base_ref:
+        args.append(base_ref)
+    env = os.environ.copy()
+    env.update({"WORK_DIR": str(work_dir), "LLVM_DIR": str(llvm_dir), "LLVM_REF": llvm_ref})
+    run(args, env=env)
 
 
 def run_build(scripts_dir: Path, llvm_dir: Path, build_dir: Path, build_type: str,
@@ -223,6 +239,14 @@ def main(argv: list[str]) -> int:
             print("  python build.py refresh [start-ref]")
             return 1
         run_refresh_patches(scripts_dir, llvm_dir, rest[0] if rest else None)
+    elif command in {"export", "collect"}:
+        if len(rest) > 1:
+            print(f"ERROR: `{command}` accepts at most one optional base ref.")
+            print("Usage:")
+            print("  python build.py export [base-ref]")
+            print("  python build.py collect [base-ref]")
+            return 1
+        run_export_patch(scripts_dir, work_dir, llvm_dir, llvm_ref, rest[0] if rest else None)
     elif command == "save":
         if rest:
             print("ERROR: `save` no longer accepts a feature name.")
