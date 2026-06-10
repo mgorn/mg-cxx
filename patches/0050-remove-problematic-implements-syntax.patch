@@ -1,0 +1,548 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 23:48:11 -0400
+Subject: [PATCH] Remove problematic implements syntax
+
+Removes the problematic <> shorthand for the 'implements' keyword.
+
+diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
+index 11bebd4173f4..983c167037cf 100644
+--- a/clang/include/clang/AST/ExprCXXMG.h
++++ b/clang/include/clang/AST/ExprCXXMG.h
+@@ -14,17 +14,15 @@ class CXXMGImplementsExpr final : public Expr {
+   SourceLocation OpLoc;
+   SourceLocation OpEndLoc;
+   SourceRange Range;
+-  bool UsesAngleSyntax = false;
+ 
+ public:
+   CXXMGImplementsExpr(QualType BoolTy, TypeSourceInfo *CandidateTSI,
+                       TypeSourceInfo *RequirementTSI, SourceLocation OpLoc,
+                       SourceLocation OpEndLoc, SourceRange Range,
+-                      bool UsesAngleSyntax, ExprDependence Dependence)
++                      ExprDependence Dependence)
+       : Expr(CXXMGImplementsExprClass, BoolTy, VK_PRValue, OK_Ordinary),
+         CandidateTSI(CandidateTSI), RequirementTSI(RequirementTSI),
+-        OpLoc(OpLoc), OpEndLoc(OpEndLoc), Range(Range),
+-        UsesAngleSyntax(UsesAngleSyntax) {
++        OpLoc(OpLoc), OpEndLoc(OpEndLoc), Range(Range) {
+     setDependence(Dependence);
+   }
+ 
+@@ -34,7 +32,7 @@ public:
+   static CXXMGImplementsExpr *
+   Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
+          TypeSourceInfo *RequirementTSI, SourceLocation OpLoc,
+-         SourceLocation OpEndLoc, SourceRange Range, bool UsesAngleSyntax);
++         SourceLocation OpEndLoc, SourceRange Range);
+   static CXXMGImplementsExpr *CreateEmpty(ASTContext &Ctx);
+ 
+   TypeSourceInfo *getCandidateTypeSourceInfo() const { return CandidateTSI; }
+@@ -48,10 +46,8 @@ public:
+ 
+   SourceLocation getOperatorLoc() const { return OpLoc; }
+   SourceLocation getOperatorEndLoc() const { return OpEndLoc; }
+-  bool usesAngleSyntax() const { return UsesAngleSyntax; }
+   void setOperatorLoc(SourceLocation Loc) { OpLoc = Loc; }
+   void setOperatorEndLoc(SourceLocation Loc) { OpEndLoc = Loc; }
+-  void setUsesAngleSyntax(bool Value) { UsesAngleSyntax = Value; }
+ 
+   SourceLocation getBeginLoc() const LLVM_READONLY { return Range.getBegin(); }
+   SourceLocation getEndLoc() const LLVM_READONLY { return Range.getEnd(); }
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index c50db4823488..d832427f01d2 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -5932,12 +5932,12 @@ public:
+ 
+   ExprResult ActOnCXXMGImplementsExpression(
+       Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
+-      SourceLocation OpEndLoc, bool UsesAngleSyntax,
+-      TypeSourceInfo *RequirementTSI, SourceRange Range);
++      SourceLocation OpEndLoc, TypeSourceInfo *RequirementTSI,
++      SourceRange Range);
+   ExprResult BuildCXXMGImplementsExpr(
+       TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
+-      SourceLocation OpEndLoc, bool UsesAngleSyntax,
+-      TypeSourceInfo *RequirementTSI, SourceRange Range);
++      SourceLocation OpEndLoc, TypeSourceInfo *RequirementTSI,
++      SourceRange Range);
+ 
+   /// Enter a new C++ default initializer scope. After calling this, the
+   /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
+diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
+index 30cef70871bb..ade4eb8bd3e0 100644
+--- a/clang/lib/AST/Expr.cpp
++++ b/clang/lib/AST/Expr.cpp
+@@ -106,10 +106,9 @@ CXXMGImplementsExpr *
+ CXXMGImplementsExpr::Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
+                             TypeSourceInfo *RequirementTSI,
+                             SourceLocation OpLoc, SourceLocation OpEndLoc,
+-                            SourceRange Range, bool UsesAngleSyntax) {
++                            SourceRange Range) {
+   return new (Ctx) CXXMGImplementsExpr(
+       Ctx.BoolTy, CandidateTSI, RequirementTSI, OpLoc, OpEndLoc, Range,
+-      UsesAngleSyntax,
+       computeCXXMGImplementsExprDependence(CandidateTSI, RequirementTSI));
+ }
+ 
+diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
+index c4d8822bdcba..ad17bfbee944 100644
+--- a/clang/lib/AST/StmtPrinter.cpp
++++ b/clang/lib/AST/StmtPrinter.cpp
+@@ -2657,7 +2657,7 @@ void StmtPrinter::VisitTypeTraitExpr(TypeTraitExpr *E) {
+ void StmtPrinter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+   if (TypeSourceInfo *TSI = E->getCandidateTypeSourceInfo())
+     TSI->getType().print(OS, Policy);
+-  OS << (E->usesAngleSyntax() ? " <> " : " implements ");
++  OS << " implements ";
+   if (TypeSourceInfo *TSI = E->getRequirementTypeSourceInfo())
+     TSI->getType().print(OS, Policy);
+ }
+diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
+index 328b0f9cca8e..af25ff40c5cf 100644
+--- a/clang/lib/AST/StmtProfile.cpp
++++ b/clang/lib/AST/StmtProfile.cpp
+@@ -2303,7 +2303,6 @@ void StmtProfiler::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *S) {
+     VisitType(TSI->getType());
+   if (TypeSourceInfo *TSI = S->getRequirementTypeSourceInfo())
+     VisitType(TSI->getType());
+-  ID.AddBoolean(S->usesAngleSyntax());
+ }
+ 
+ void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
+diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
+index c930ac23f9eb..fa9fe06534d8 100644
+--- a/clang/lib/AST/TextNodeDumper.cpp
++++ b/clang/lib/AST/TextNodeDumper.cpp
+@@ -1838,7 +1838,7 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
+ 
+ void TextNodeDumper::VisitCXXMGImplementsExpr(
+     const CXXMGImplementsExpr *Node) {
+-  OS << (Node->usesAngleSyntax() ? " angle" : " keyword");
++  OS << " keyword";
+   if (Node->isValueDependent())
+     OS << " unresolved";
+ }
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index b44a389ac753..f695fe709a35 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -7,75 +7,45 @@
+ 
+ using namespace clang;
+ 
+-static bool isCXXMGAngleImplements(Parser &P) {
+-  return P.getCurToken().is(tok::less) && P.NextToken().is(tok::greater);
+-}
+-
+ static bool isCXXMGImplementsFollowOperator(Parser &P) {
+-  return P.NextToken().is(tok::kw_implements) ||
+-         (P.NextToken().is(tok::less) &&
+-          P.GetLookAheadToken(2).is(tok::greater));
+-}
+-
+-static bool isCXXMGImplementsRequirementStart(tok::TokenKind K) {
+-  return K == tok::identifier || K == tok::coloncolon ||
+-         K == tok::annot_typename || K == tok::kw_typename ||
+-         K == tok::kw_decltype || K == tok::kw_struct ||
+-         K == tok::kw_class || K == tok::kw_trait;
++  return P.NextToken().is(tok::kw_implements);
+ }
+ 
+-static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
+-  unsigned I = 0;
+-  if (P.GetLookAheadToken(I).is(tok::coloncolon))
+-    ++I;
+-  if (!P.GetLookAheadToken(I).is(tok::identifier))
+-    return false;
+-  ++I;
+-
+-  if (P.GetLookAheadToken(I).is(tok::less)) {
+-    if (P.GetLookAheadToken(I + 1).is(tok::greater))
+-      return isCXXMGImplementsRequirementStart(
+-          P.GetLookAheadToken(I + 2).getKind());
+-
+-    unsigned Depth = 0;
+-    do {
+-      if (P.GetLookAheadToken(I).is(tok::less))
+-        ++Depth;
+-      else if (P.GetLookAheadToken(I).is(tok::greater)) {
+-        if (Depth == 0)
+-          return false;
+-        --Depth;
+-      } else if (P.GetLookAheadToken(I).is(tok::eof)) {
++static bool hasTopLevelCXXMGImplementsKeyword(Parser &P) {
++  bool AllowParens = P.GetLookAheadToken(0).is(tok::l_paren);
++  unsigned AngleDepth = 0;
++  unsigned ParenDepth = 0;
++  for (unsigned I = 0; I != 128; ++I) {
++    tok::TokenKind K = P.GetLookAheadToken(I).getKind();
++    if (AngleDepth == 0) {
++      if (K == tok::kw_implements)
++        return true;
++      if (K == tok::eof || K == tok::semi || K == tok::comma ||
++          K == tok::l_brace || K == tok::l_square)
+         return false;
++      if (K == tok::l_paren) {
++        if (!AllowParens)
++          return false;
++        ++ParenDepth;
++        continue;
+       }
+-      ++I;
+-    } while (Depth != 0);
++      if (K == tok::r_paren) {
++        if (ParenDepth == 0)
++          return false;
++        --ParenDepth;
++        if (AllowParens && ParenDepth == 0)
++          return false;
++        continue;
++      }
++    }
++    if (K == tok::less) {
++      ++AngleDepth;
++    } else if (K == tok::greater) {
++      if (AngleDepth == 0)
++        return false;
++      --AngleDepth;
++    }
+   }
+-
+-  while (P.GetLookAheadToken(I).is(tok::coloncolon) &&
+-         P.GetLookAheadToken(I + 1).is(tok::identifier))
+-    I += 2;
+-  if (P.GetLookAheadToken(I).is(tok::kw_implements))
+-    return true;
+-
+-  if (!P.GetLookAheadToken(I).is(tok::less) ||
+-      !P.GetLookAheadToken(I + 1).is(tok::greater))
+-    return false;
+-
+-  return isCXXMGImplementsRequirementStart(
+-      P.GetLookAheadToken(I + 2).getKind());
+-}
+-
+-static bool mayStartCXXMGImplementsExpression(Parser &P) {
+-  if (!P.getLangOpts().CPlusPlusMG)
+-    return false;
+-  tok::TokenKind K = P.getCurToken().getKind();
+-  if (K == tok::annot_typename || K == tok::kw_typename ||
+-      K == tok::kw_decltype || K == tok::kw_struct || K == tok::kw_class ||
+-      K == tok::kw_trait || K == tok::l_paren)
+-    return true;
+-  if (K == tok::identifier || K == tok::coloncolon)
+-    return mayStartQualifiedCXXMGImplementsExpression(P);
+   return false;
+ }
+ 
+@@ -122,7 +92,9 @@ bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
+ }
+ 
+ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+-  if (!getLangOpts().CPlusPlusMG || !mayStartCXXMGImplementsExpression(*this))
++  if (!getLangOpts().CPlusPlusMG ||
++      !Tok.isOneOf(tok::identifier, tok::coloncolon, tok::l_paren) ||
++      !hasTopLevelCXXMGImplementsKeyword(*this))
+     return ExprEmpty();
+ 
+   if (Tok.is(tok::l_paren)) {
+@@ -149,18 +121,12 @@ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+ 
+   SourceLocation OpLoc;
+   SourceLocation OpEndLoc;
+-  bool UsesAngleSyntax = false;
+-  if (Tok.is(tok::kw_implements)) {
+-    OpLoc = ConsumeToken();
+-    OpEndLoc = OpLoc;
+-  } else if (isCXXMGAngleImplements(*this)) {
+-    OpLoc = ConsumeToken();
+-    OpEndLoc = ConsumeToken();
+-    UsesAngleSyntax = true;
+-  } else {
++  if (Tok.isNot(tok::kw_implements)) {
+     TPA.Revert();
+     return ExprEmpty();
+   }
++  OpLoc = ConsumeToken();
++  OpEndLoc = OpLoc;
+ 
+   if (Tok.isOneOf(tok::semi, tok::comma, tok::r_paren, tok::eof)) {
+     TPA.Commit();
+@@ -181,7 +147,6 @@ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+   EnterExpressionEvaluationContext Unevaluated(
+       Actions, Sema::ExpressionEvaluationContext::Unevaluated);
+   return Actions.ActOnCXXMGImplementsExpression(
+-      getCurScope(), CandidateTSI, OpLoc, OpEndLoc, UsesAngleSyntax,
+-      RequirementTSI,
++      getCurScope(), CandidateTSI, OpLoc, OpEndLoc, RequirementTSI,
+       SourceRange(CandidateRange.getBegin(), RequirementRange.getEnd()));
+ }
+diff --git a/clang/lib/Parse/Parser.cpp b/clang/lib/Parse/Parser.cpp
+index 5e1fd4df1a3f..37f37ced1d0e 100644
+--- a/clang/lib/Parse/Parser.cpp
++++ b/clang/lib/Parse/Parser.cpp
+@@ -1851,8 +1851,11 @@ bool Parser::TryKeywordIdentFallback(bool DisableKeyword) {
+   Diag(Tok, diag::ext_keyword_as_ident)
+     << PP.getSpelling(Tok)
+     << DisableKeyword;
+-  if (DisableKeyword)
+-    Tok.getIdentifierInfo()->revertTokenIDToIdentifier();
++  if (DisableKeyword) {
++    IdentifierInfo *II = Tok.getIdentifierInfo();
++    if (II->getTokenID() != tok::identifier)
++      II->revertTokenIDToIdentifier();
++  }
+   Tok.setKind(tok::identifier);
+   return true;
+ }
+diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+index d02e55e9e452..4c4f60b380e3 100644
+--- a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
++++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+@@ -261,26 +261,25 @@ static bool isDependentImplementsOperand(TypeSourceInfo *TSI) {
+ 
+ ExprResult Sema::ActOnCXXMGImplementsExpression(
+     Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
+-    SourceLocation OpEndLoc, bool UsesAngleSyntax,
+-    TypeSourceInfo *RequirementTSI, SourceRange Range) {
++    SourceLocation OpEndLoc, TypeSourceInfo *RequirementTSI,
++    SourceRange Range) {
+   (void)S;
+   if (!getLangOpts().CPlusPlusMG) {
+     Diag(OpLoc, diag::err_cxxmg_implements_requires_cxxmg);
+     return ExprError();
+   }
+   return BuildCXXMGImplementsExpr(CandidateTSI, OpLoc, OpEndLoc,
+-                                  UsesAngleSyntax, RequirementTSI, Range);
++                                  RequirementTSI, Range);
+ }
+ 
+ ExprResult Sema::BuildCXXMGImplementsExpr(
+     TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
+-    SourceLocation OpEndLoc, bool UsesAngleSyntax,
+-    TypeSourceInfo *RequirementTSI, SourceRange Range) {
++    SourceLocation OpEndLoc, TypeSourceInfo *RequirementTSI,
++    SourceRange Range) {
+   if (isDependentImplementsOperand(CandidateTSI) ||
+       isDependentImplementsOperand(RequirementTSI))
+     return CXXMGImplementsExpr::Create(Context, CandidateTSI, RequirementTSI,
+-                                       OpLoc, OpEndLoc, Range,
+-                                       UsesAngleSyntax);
++                                       OpLoc, OpEndLoc, Range);
+ 
+   CXXRecordDecl *Candidate =
+       resolveImplementsOperand(*this, CandidateTSI, Range.getBegin(),
+diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
+index 5b8d1d2eadaf..8b37281e52e9 100644
+--- a/clang/lib/Sema/TreeTransform.h
++++ b/clang/lib/Sema/TreeTransform.h
+@@ -15438,7 +15438,7 @@ TreeTransform<Derived>::TransformCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+ 
+   return getSema().BuildCXXMGImplementsExpr(
+       CandidateTSI, E->getOperatorLoc(), E->getOperatorEndLoc(),
+-      E->usesAngleSyntax(), RequirementTSI, E->getSourceRange());
++      RequirementTSI, E->getSourceRange());
+ }
+ 
+ template<typename Derived>
+diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
+index 6a68a2d498f6..232ca4024df3 100644
+--- a/clang/lib/Serialization/ASTReaderStmt.cpp
++++ b/clang/lib/Serialization/ASTReaderStmt.cpp
+@@ -2225,7 +2225,6 @@ void ASTStmtReader::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+   E->setRequirementTypeSourceInfo(readTypeSourceInfo());
+   E->setOperatorLoc(readSourceLocation());
+   E->setOperatorEndLoc(readSourceLocation());
+-  E->setUsesAngleSyntax(Record.readInt());
+   SourceLocation Begin = readSourceLocation();
+   SourceLocation End = readSourceLocation();
+   E->setSourceRange(SourceRange(Begin, End));
+diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
+index 2ac58f4894b6..a5b397eb249e 100644
+--- a/clang/lib/Serialization/ASTWriterStmt.cpp
++++ b/clang/lib/Serialization/ASTWriterStmt.cpp
+@@ -2236,7 +2236,6 @@ void ASTStmtWriter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+   Record.AddTypeSourceInfo(E->getRequirementTypeSourceInfo());
+   Record.AddSourceLocation(E->getOperatorLoc());
+   Record.AddSourceLocation(E->getOperatorEndLoc());
+-  Record.push_back(E->usesAngleSyntax());
+   Record.AddSourceLocation(E->getBeginLoc());
+   Record.AddSourceLocation(E->getEndLoc());
+   Code = serialization::EXPR_CXXMG_IMPLEMENTS;
+diff --git a/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp b/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp
+new file mode 100644
+index 000000000000..b8714f3d6328
+--- /dev/null
++++ b/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp
+@@ -0,0 +1,32 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++namespace std {
++template <class T> struct __make_unsigned;
++// expected-warning@-1 {{keyword '__make_unsigned' will be made available as an identifier for the remainder of the translation unit}}
++
++template <class T> struct __make_unsigned {
++  using type = T;
++};
++}
++
++trait generator {
++  void generate() const;
++};
++
++template <class T> struct dependent_type {
++  using type = T;
++};
++
++template <class T> void dependent_type_construction() {
++  (void)typename dependent_type<T>::type{};
++  (void)typename dependent_type<T>::type();
++}
++
++template <class T> struct numeric_traits_like {
++  static const bool __is_signed = (T)(-1) < 0;
++  // expected-warning@-1 {{keyword '__is_signed' will be made available as an identifier for the remainder of the translation unit}}
++  static const int __digits = 32 - __is_signed;
++  static const T __min = __is_signed ? -1 : (T)0;
++};
++
++template <class T> const bool numeric_traits_like<T>::__is_signed;
+diff --git a/clang/test/CXXMG/traits/trait-implements-basic.cpp b/clang/test/CXXMG/traits/trait-implements-basic.cpp
+index 9dd50912770d..eca77b959c9e 100644
+--- a/clang/test/CXXMG/traits/trait-implements-basic.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-basic.cpp
+@@ -12,7 +12,5 @@ struct S {
+ struct Empty {};
+ 
+ static_assert(S implements HasValue);
+-static_assert(S <> HasValue);
+ 
+ static_assert(!(Empty implements HasValue));
+-static_assert(!(Empty <> HasValue));
+diff --git a/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
+index f89901e2cd37..40bd653586ae 100644
+--- a/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
+@@ -16,12 +16,5 @@ constexpr bool has_v_keyword() {
+   return Test<B> implements ValTrait;
+ }
+ 
+-template<bool B>
+-constexpr bool has_v_angle() {
+-  return Test<B> <> ValTrait;
+-}
+-
+ static_assert(has_v_keyword<true>());
+ static_assert(has_v_keyword<false>());
+-static_assert(has_v_angle<true>());
+-static_assert(has_v_angle<false>());
+diff --git a/clang/test/CXXMG/traits/trait-implements-dependent.cpp b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
+index 36d0ccd662a4..9e2a3040e3cc 100644
+--- a/clang/test/CXXMG/traits/trait-implements-dependent.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
+@@ -18,15 +18,5 @@ constexpr bool has_generate_keyword() {
+   return result;
+ }
+ 
+-template <typename T>
+-constexpr bool has_generate_shorthand() {
+-  using type_t = T;
+-  constexpr bool result = type_t <> HasGenerate;
+-  return result;
+-}
+-
+ static_assert(has_generate_keyword<Graphviz>());
+ static_assert(!has_generate_keyword<Empty>());
+-
+-static_assert(has_generate_shorthand<Graphviz>());
+-static_assert(!has_generate_shorthand<Empty>());
+diff --git a/clang/test/CXXMG/traits/trait-implements-errors.cpp b/clang/test/CXXMG/traits/trait-implements-errors.cpp
+index 1509be27e398..be8d7d9e70df 100644
+--- a/clang/test/CXXMG/traits/trait-implements-errors.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-errors.cpp
+@@ -10,6 +10,3 @@ struct S {
+ 
+ constexpr bool missing_rhs_keyword = S implements;
+ // expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
+-
+-constexpr bool missing_rhs_shorthand = S <>;
+-// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
+diff --git a/clang/test/CXXMG/traits/trait-implements-false.cpp b/clang/test/CXXMG/traits/trait-implements-false.cpp
+index f4e3ddca03a4..28e29d814cab 100644
+--- a/clang/test/CXXMG/traits/trait-implements-false.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-false.cpp
+@@ -10,4 +10,3 @@ struct OnlyGenerate {
+ };
+ 
+ static_assert((OnlyGenerate implements HasBuild) == false);
+-static_assert((OnlyGenerate <> HasBuild) == false);
+diff --git a/clang/test/CXXMG/traits/trait-implements-qualified.cpp b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
+index ba54733d1ef2..197b1ccf5dc1 100644
+--- a/clang/test/CXXMG/traits/trait-implements-qualified.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
+@@ -23,7 +23,7 @@ namespace backend {
+ template <typename Backend>
+ constexpr bool has_generator() {
+   using backend_t = Backend;
+-  return backend_t <> backend::generator;
++  return backend_t implements backend::generator;
+ }
+ 
+ template <typename Backend>
+@@ -51,7 +51,7 @@ namespace mgmake::backend {
+ template <typename Backend>
+ constexpr bool global_qualified_check() {
+   using backend_t = Backend;
+-  return backend_t <> ::mgmake::backend::generator;
++  return backend_t implements ::mgmake::backend::generator;
+ }
+ 
+ static_assert(global_qualified_check<mgmake::backend::graphviz>());
+diff --git a/clang/test/CXXMG/traits/trait-implements-special-members.cpp b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
+index d13a841aa6c0..c77fdb688b43 100644
+--- a/clang/test/CXXMG/traits/trait-implements-special-members.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
+@@ -15,7 +15,6 @@ struct Weird {
+ };
+ 
+ static_assert(Weird implements HasRun);
+-static_assert(Weird <> HasRun);
+ 
+ trait Generator {
+   void generate();
+@@ -37,7 +36,7 @@ struct Ninja {
+ template <typename Backend>
+ constexpr bool has_generator() {
+   using backend_t = Backend;
+-  constexpr bool result = backend_t <> Generator;
++  constexpr bool result = backend_t implements Generator;
+   return result;
+ }
+ 
+diff --git a/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
+index b66a717b64ce..d48ee016b7f6 100644
+--- a/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
+@@ -14,9 +14,6 @@ trait ValTrait {
+ static_assert(Test<true> implements ValTrait);
+ static_assert(Test<false> implements ValTrait);
+ 
+-static_assert(Test<true> <> ValTrait);
+-static_assert(Test<false> <> ValTrait);
+-
+ template<class T>
+ struct Box {
+   T value;
+@@ -33,7 +30,3 @@ trait BoolValueTrait {
+ static_assert(Box<int> implements IntValueTrait);
+ static_assert(!(Box<int> implements BoolValueTrait));
+ static_assert(Box<bool> implements BoolValueTrait);
+-
+-static_assert(Box<int> <> IntValueTrait);
+-static_assert(!(Box<int> <> BoolValueTrait));
+-static_assert(Box<bool> <> BoolValueTrait);
+-- 
+2.54.0
+
