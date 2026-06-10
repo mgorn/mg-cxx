@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 20:34:12 -0400
+Subject: [PATCH] More missing switch cases
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Updates internal index logic (IndexSymbol.cpp) to correctly classify Trait [K
+types.
+
+Extends libclang's mapping of declaration kinds (CIndex.cpp, CIndexCXX.cpp)[14D[K
+CIndexCXX.cpp)
+to support newly introduced declarations like TraitRequiremen[15D[K
+TraitRequirement and cxxmg members.
+
+Adds recognition for specific new expression types in the cursor system (CX[3D[K
+(CXCursor.cpp).
+
+diff --git a/clang/lib/Index/IndexSymbol.cpp b/clang/lib/Index/IndexSymbol.cpp
+index 9b7fee421bdf..84834302cc98 100644
+--- a/clang/lib/Index/IndexSymbol.cpp
++++ b/clang/lib/Index/IndexSymbol.cpp
+@@ -134,6 +134,10 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
+       Info.Kind = SymbolKind::Class;
+       Info.Lang = SymbolLanguage::CXX;
+       break;
++    case TagTypeKind::Trait:
++      Info.Kind = SymbolKind::Struct;
++      Info.Lang = SymbolLanguage::CXX;
++      break;
+     case TagTypeKind::Interface:
+       Info.Kind = SymbolKind::Protocol;
+       Info.Lang = SymbolLanguage::CXX;
+diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
+index b93f8b5cecb6..0a849154c5d5 100644
+--- a/clang/tools/libclang/CIndex.cpp
++++ b/clang/tools/libclang/CIndex.cpp
+@@ -7238,6 +7238,8 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
+   case Decl::TemplateTypeParm:
+   case Decl::EnumConstant:
+   case Decl::Field:
++  case Decl::TraitRequirement:
++  case Decl::CXXMGConditionalMember:
+   case Decl::Binding:
+   case Decl::MSProperty:
+   case Decl::MSGuid:
+diff --git a/clang/tools/libclang/CIndexCXX.cpp b/clang/tools/libclang/CIndexCXX.cpp
+index 605f3ef9a4a6..8d09283e778e 100644
+--- a/clang/tools/libclang/CIndexCXX.cpp
++++ b/clang/tools/libclang/CIndexCXX.cpp
+@@ -118,6 +118,7 @@ enum CXCursorKind clang_getTemplateCursorKind(CXCursor C) {
+       switch (PartialSpec->getTagKind()) {
+       case TagTypeKind::Interface:
+       case TagTypeKind::Struct:
++      case TagTypeKind::Trait:
+         return CXCursor_StructDecl;
+       case TagTypeKind::Class:
+         return CXCursor_ClassDecl;
+diff --git a/clang/tools/libclang/CXCursor.cpp b/clang/tools/libclang/CXCursor.cpp
+index b2feed578fc0..4fa0b8b76640 100644
+--- a/clang/tools/libclang/CXCursor.cpp
++++ b/clang/tools/libclang/CXCursor.cpp
+@@ -303,6 +303,8 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
+   case Stmt::AtomicExprClass:
+   case Stmt::BinaryConditionalOperatorClass:
+   case Stmt::TypeTraitExprClass:
++  case Stmt::CXXMGTypeCheckExprClass:
++  case Stmt::CXXMGImplementsExprClass:
+   case Stmt::CoawaitExprClass:
+   case Stmt::DependentCoawaitExprClass:
+   case Stmt::CoyieldExprClass:
+-- 
+2.54.0
+

@@ -27,7 +27,8 @@ def show_usage(script_name: str) -> None:
     print("  CXX=<path-or-name>                Override C++ compiler")
     print("  ASM=<path-or-name>                Override generic ASM compiler")
     print("  ASM_MASM=<path-or-name>           Override MSVC MASM compiler, usually ml64.exe")
-    print("  CLANG_MG_GENERATOR=Ninja          Override CMake generator")
+    print("  LLVM_ENABLE_PROJECTS=clang        Semicolon-separated LLVM projects to configure")
+    print("  CLANG_MG_GENERATOR=Ninja          Override CMake generator; unset prefers Ninja if available")
     print("  CLANG_MG_DEEP_COMPILER_SEARCH=1   Also search Program Files recursively")
     print("  CLANG_MG_DISABLE_ASSEMBLY_FILES=1 Disable LLVM assembly sources if MASM is unavailable")
 
@@ -351,18 +352,13 @@ def main(argv: list[str]) -> int:
         print("Please install CMake and make sure it is available in PATH.")
         return 1
 
-    if has_cmd("ninja"):
-        generator = "Ninja"
-    elif has_cmd("ninja-build"):
-        generator = "Ninja"
-    else:
-        print("ERROR: Ninja was not found.")
-        print("Please install ninja or ninja-build.")
-        return 1
-
+    generator: str | None = None
     generator_override = os.environ.get("CLANG_MG_GENERATOR", "")
     if generator_override.strip():
-        generator = generator_override
+        generator = generator_override.strip()
+    elif has_cmd("ninja") or has_cmd("ninja-build"):
+        generator = "Ninja"
+
 
     toolchain = find_cmake_toolchain()
     if toolchain is None:
@@ -388,8 +384,11 @@ def main(argv: list[str]) -> int:
     print(f"Target triple: {build_target_triple}")
     print(f"Build dir:     {build_dir}")
     print(f"Build type:    {build_type}")
+    llvm_enable_projects = os.environ.get("LLVM_ENABLE_PROJECTS", "clang").strip() or "clang"
+
     print(f"Jobs:          {jobs}")
-    print(f"Generator:     {generator}")
+    print(f"Generator:     {generator or 'CMake default'}")
+    print(f"Projects:      {llvm_enable_projects}")
     print(f"Toolchain:     {toolchain['Name']}")
     print(f"C compiler:    {toolchain['C']}")
     print(f"CXX compiler:  {toolchain['CXX']}")
@@ -404,13 +403,14 @@ def main(argv: list[str]) -> int:
     cmake_args = [
         "-S", str(llvm_source_dir),
         "-B", str(build_dir),
-        "-G", generator,
-        "-DLLVM_ENABLE_PROJECTS=clang",
+        f"-DLLVM_ENABLE_PROJECTS={llvm_enable_projects}",
         f"-DCMAKE_BUILD_TYPE={build_type}",
         "-DLLVM_ENABLE_ASSERTIONS=ON",
         f"-DCMAKE_C_COMPILER={toolchain['C']}",
         f"-DCMAKE_CXX_COMPILER={toolchain['CXX']}",
     ]
+    if generator:
+        cmake_args.extend(["-G", generator])
     if toolchain.get("ASM"):
         cmake_args.append(f"-DCMAKE_ASM_COMPILER={toolchain['ASM']}")
     if toolchain.get("ASM_MASM"):
@@ -424,7 +424,7 @@ def main(argv: list[str]) -> int:
 
     print()
     print("Building clang...")
-    run(["cmake", "--build", str(build_dir), "--target", "clang", "--", "-j", str(jobs)])
+    run(["cmake", "--build", str(build_dir), "--target", "clang", "--config", build_type, "--parallel", str(jobs)])
 
     print()
     print("Build complete.")

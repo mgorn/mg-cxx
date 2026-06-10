@@ -36,6 +36,7 @@ def usage(root_dir: Path) -> None:
     print("  refresh [start-ref]  Regenerate all top-level patches from start-ref..HEAD")
     print("  save                 Save current LLVM working-tree changes as a new patch")
     print("  build                Build current LLVM tree only")
+    print("  test [target] [path ...]  Build test dependencies and run LLVM lit tests")
     print("  fresh                Reset LLVM, apply all patches, then build")
     print("  rebuild              Same as fresh")
     print("  help                 Show this help menu")
@@ -48,6 +49,10 @@ def usage(root_dir: Path) -> None:
     print("  python build.py refresh")
     print("  python build.py refresh origin/main")
     print("  python build.py build")
+    print("  python build.py test")
+    print("  python build.py test clang")
+    print("  python build.py test clang CXXMG/traits")
+    print("  python build.py test clang cxxmg")
     print("  python build.py fresh")
     print()
     print("Patch workflow:")
@@ -64,6 +69,7 @@ def usage(root_dir: Path) -> None:
     print("  BUILD_TARGET_TRIPLE=x86_64-pc-linux-gnu")
     print(f"  BUILD_DIR={root_dir}/work/build-$BUILD_TARGET_TRIPLE")
     print("  BUILD_TYPE=Release")
+    print("  LLVM_ENABLE_PROJECTS=clang")
     print("  JOBS=16")
     print("  INTERACTIVE=1")
     print("  OLLAMA_MODEL=gemma3:4b")
@@ -147,6 +153,24 @@ def run_build(scripts_dir: Path, llvm_dir: Path, build_dir: Path, build_type: st
     run(args, env=env)
 
 
+def run_tests(scripts_dir: Path, llvm_dir: Path, build_dir: Path, build_type: str,
+              jobs: str, test_args: list[str], work_dir: Path, target_triple: str) -> None:
+    require_llvm_repo(llvm_dir)
+    args = [
+        sys.executable,
+        str(scripts_dir / "test-llvm.py"),
+        str(llvm_dir),
+        str(build_dir),
+        build_type,
+        jobs,
+        *test_args,
+    ]
+    env = os.environ.copy()
+    env["WORK_DIR"] = str(work_dir)
+    env["BUILD_TARGET_TRIPLE"] = target_triple
+    run(args, env=env)
+
+
 def run_install_path(scripts_dir: Path, llvm_dir: Path, build_dir: Path) -> None:
     run([sys.executable, str(scripts_dir / "install-clang-mg.py"), str(llvm_dir), str(build_dir)])
 
@@ -209,6 +233,8 @@ def main(argv: list[str]) -> int:
         run_save_patches(scripts_dir, llvm_dir)
     elif command == "build":
         run_build(scripts_dir, llvm_dir, build_dir, build_type, jobs, build_target_triple, interactive)
+    elif command == "test":
+        run_tests(scripts_dir, llvm_dir, build_dir, build_type, jobs, rest, work_dir, build_target_triple)
     elif command == "bootstrap":
         run_update(scripts_dir, llvm_url, llvm_ref, work_dir, llvm_dir)
         run_apply_patches(root_dir, scripts_dir, llvm_dir)
