@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 22:07:34 -0400
+Subject: [PATCH] Fix failing tests
+
+Adds a helper function to determine valid starting token kinds for an
+`implements` requirement.
+
+Updates the parser in `ParseCXXMGTraitExpr.cpp` to use this helper,
+allowing it to correctly parse qualified and non-qualified `implements`
+expressions that have specific types or namespaces.
+
+Also updates a test case to reflect the specific C++MG syntax for
+incomplete type checks involving `implements`.
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index 92a89ed93020..b44a389ac753 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -17,6 +17,13 @@ static bool isCXXMGImplementsFollowOperator(Parser &P) {
+           P.GetLookAheadToken(2).is(tok::greater));
+ }
+ 
++static bool isCXXMGImplementsRequirementStart(tok::TokenKind K) {
++  return K == tok::identifier || K == tok::coloncolon ||
++         K == tok::annot_typename || K == tok::kw_typename ||
++         K == tok::kw_decltype || K == tok::kw_struct ||
++         K == tok::kw_class || K == tok::kw_trait;
++}
++
+ static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
+   unsigned I = 0;
+   if (P.GetLookAheadToken(I).is(tok::coloncolon))
+@@ -26,6 +33,10 @@ static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
+   ++I;
+ 
+   if (P.GetLookAheadToken(I).is(tok::less)) {
++    if (P.GetLookAheadToken(I + 1).is(tok::greater))
++      return isCXXMGImplementsRequirementStart(
++          P.GetLookAheadToken(I + 2).getKind());
++
+     unsigned Depth = 0;
+     do {
+       if (P.GetLookAheadToken(I).is(tok::less))
+@@ -51,11 +62,8 @@ static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
+       !P.GetLookAheadToken(I + 1).is(tok::greater))
+     return false;
+ 
+-  tok::TokenKind After = P.GetLookAheadToken(I + 2).getKind();
+-  return After == tok::identifier || After == tok::coloncolon ||
+-         After == tok::annot_typename || After == tok::kw_typename ||
+-         After == tok::kw_decltype || After == tok::kw_struct ||
+-         After == tok::kw_class || After == tok::kw_trait;
++  return isCXXMGImplementsRequirementStart(
++      P.GetLookAheadToken(I + 2).getKind());
+ }
+ 
+ static bool mayStartCXXMGImplementsExpression(Parser &P) {
+diff --git a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
+index 4f072692e054..3e3090beafc7 100644
+--- a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
+@@ -8,4 +8,4 @@ trait ValTrait {
+ };
+ 
+ static_assert(Incomplete implements ValTrait);
+-// expected-error@-1 {{type expression operand 'Incomplete' is incomplete}}
++// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
+-- 
+2.54.0
+
