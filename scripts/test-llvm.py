@@ -200,16 +200,16 @@ def preferred_tool_bin_dirs(build_dir: Path) -> list[Path]:
     if explicit:
         add(Path(explicit))
 
+    # LLVM build trees place freshly-built clang and test tools here. Prefer
+    # this over any installed clang-mg tools so tests exercise the build that
+    # `build.py build` just produced.
+    add(build_dir / "bin")
+
     triple = inferred_target_triple(build_dir)
     if triple:
-        # clang-mg's preferred installed/tool directory, e.g.
+        # Fallback for explicitly installed clang-mg tools, e.g.
         #   work/x86_64-pc-linux-gnu/bin
         add(inferred_work_dir(build_dir) / triple / "bin")
-
-    # LLVM build trees normally place lit and freshly-built test tools here.
-    # Keep this after work/<triple>/bin so the clang-mg tool directory wins,
-    # but before the inherited PATH so focused lit runs work before install.
-    add(build_dir / "bin")
     return dirs
 
 
@@ -246,9 +246,8 @@ def configure_lit_clang_environment(env: dict[str, str], build_dir: Path) -> Non
     # lit the real executable that was selected.
     preferred_names = ("clang-mg++", "clang-mg", "clang")
 
-    # First search only the clang-mg/LLVM tool directories. This keeps test runs
-    # anchored to work/<triple>/bin whenever the installed fork tools are there,
-    # with the build tree's bin directory as the next configured-tree fallback.
+    # First search only the clang-mg/LLVM tool directories. The build tree's bin
+    # directory is first so focused test runs use freshly-built tools.
     for name in preferred_names:
         candidate = find_executable_with_path(name, build_dir, search_path, include_path=False)
         if candidate is not None:
@@ -526,11 +525,13 @@ config.substitutions.append(("%PATH%", config.environment["PATH"]))
 config.substitutions.append(("%target_triple", config.target_triple))
 
 _clang = {escape_lit_string(clang)}
-config.substitutions.append(("%clang", _clang))
+# Add longer clang substitutions before %clang so the prefix does not rewrite
+# tokens such as %clang_cc1 into <clang>_cc1.
 config.substitutions.append(("%clang_cc1", _clang + " -cc1"))
-config.substitutions.append(("%clangxx", _clang))
-config.substitutions.append(("%clang_cpp", _clang + " -E"))
 config.substitutions.append(("%clang_analyze_cc1", _clang + " -cc1 -analyze"))
+config.substitutions.append(("%clang_cpp", _clang + " -E"))
+config.substitutions.append(("%clangxx", _clang))
+config.substitutions.append(("%clang", _clang))
 
 tool_dirs = {tool_dirs!r}
 llvm_config.add_tool_substitutions(["FileCheck", "not", "count", "split-file"], tool_dirs)

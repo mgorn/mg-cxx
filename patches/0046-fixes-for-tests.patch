@@ -1,0 +1,334 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Tue, 9 Jun 2026 21:36:02 -0400
+Subject: [PATCH] Fixes for tests
+
+
+diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
+index 6a8f593c5096..f500addfec81 100644
+--- a/clang/include/clang/Options/Options.td
++++ b/clang/include/clang/Options/Options.td
+@@ -3375,6 +3375,11 @@ defm experimental_pointer_field_protection_tagged
+ def fcxx_abi_EQ : Joined<["-"], "fc++-abi=">,
+                   Group<f_clang_Group>, Visibility<[ClangOption, CC1Option]>,
+                   HelpText<"C++ ABI to use. This will override the target C++ ABI.">;
++defm cxxmg : BoolFOption<"cxxmg", LangOpts<"CPlusPlusMG">, DefaultTrue,
++  PosFlag<SetTrue, [], [ClangOption, CC1Option],
++          "Enable C++MG language extensions">,
++  NegFlag<SetFalse, [], [ClangOption, CC1Option],
++          "Disable C++MG language extensions">>;
+ 
+ def flat__namespace : Flag<["-"], "flat_namespace">;
+ def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index 00293e2f0c78..f4b2baa8415c 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -200,7 +200,8 @@ class VisibleDeclConsumer;
+ 
+ enum class ParsedCXXMGTypeExprOpcode : unsigned {
+   Add,
+-  Sub
++  Sub,
++  Implements
+ };
+ 
+ struct ParsedCXXMGTypeExpr {
+diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+index 24be122c587a..3f54838b5b34 100644
+--- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+@@ -17,6 +17,31 @@ static bool isCXXMGTypeExprPrimaryFollowOperator(Parser &P) {
+           P.GetLookAheadToken(2).is(tok::greater));
+ }
+ 
++static bool isCXXMGTypePredicateOperator(Parser &P) {
++  return P.getCurToken().is(tok::kw_implements) ||
++         (P.getCurToken().is(tok::less) && P.NextToken().is(tok::greater));
++}
++
++static bool mayStartCXXMGTypePredicateExpression(Parser &P) {
++  for (unsigned I = 0; I != 32; ++I) {
++    const Token &Tok = P.GetLookAheadToken(I);
++    if (Tok.is(tok::kw_implements))
++      return true;
++    if (Tok.is(tok::less) && P.GetLookAheadToken(I + 1).is(tok::greater)) {
++      tok::TokenKind After = P.GetLookAheadToken(I + 2).getKind();
++      return After == tok::identifier || After == tok::coloncolon ||
++             After == tok::annot_typename || After == tok::kw_typename ||
++             After == tok::kw_decltype || After == tok::kw_struct ||
++             After == tok::kw_class || After == tok::kw_trait ||
++             After == tok::l_paren;
++    }
++    if (Tok.isOneOf(tok::semi, tok::comma, tok::r_paren, tok::r_square,
++                    tok::eof))
++      return false;
++  }
++  return false;
++}
++
+ bool Parser::isCXXMGTypeCompositionOperator(tok::TokenKind K) const {
+   return K == tok::plus || K == tok::minus;
+ }
+@@ -188,5 +213,82 @@ ExprResult Parser::TryParseCXXMGTypePredicateExpression() {
+   if (!getLangOpts().CPlusPlusMG)
+     return ExprEmpty();
+ 
+-  return ExprEmpty();
++  if (!mayStartCXXMGTypePredicateExpression(*this))
++    return ExprEmpty();
++
++  if (Tok.is(tok::l_paren)) {
++    TentativeParsingAction TPA(*this);
++    ConsumeParen();
++    ExprResult Inner = TryParseCXXMGTypePredicateExpression();
++    if (!Inner.isUsable() || Tok.isNot(tok::r_paren)) {
++      TPA.Revert();
++      return ExprEmpty();
++    }
++    ConsumeParen();
++    TPA.Commit();
++    return Inner;
++  }
++
++  TentativeParsingAction TPA(*this);
++  ParsedCXXMGTypeExpr LHS;
++  if (!ParseCXXMGTypeExprPrimary(LHS, /*AllowTypeNameFallback=*/false)) {
++    TPA.Revert();
++    return ExprEmpty();
++  }
++  if (!ParseCXXMGTypeExprRHS(LHS, prec::Unknown,
++                             /*AllowTypeNameFallback=*/false)) {
++    TPA.Revert();
++    return ExprEmpty();
++  }
++
++  if (!isCXXMGTypePredicateOperator(*this)) {
++    TPA.Revert();
++    return ExprEmpty();
++  }
++
++  SourceLocation OpLoc;
++  SourceLocation OpEndLoc;
++  bool UsesAngleSyntax = false;
++  if (Tok.is(tok::kw_implements)) {
++    OpLoc = ConsumeToken();
++    OpEndLoc = OpLoc;
++  } else {
++    OpLoc = ConsumeToken();
++    OpEndLoc = ConsumeToken();
++    UsesAngleSyntax = true;
++  }
++
++  if (Tok.isOneOf(tok::semi, tok::comma, tok::r_paren, tok::eof)) {
++    TPA.Commit();
++    Diag(Tok.getLocation(), diag::err_cxxmg_expected_type_after_implements);
++    return ExprError();
++  }
++
++  ParsedCXXMGTypeExpr RHS;
++  if (!ParseCXXMGTypeExprPrimary(RHS, /*AllowTypeNameFallback=*/true)) {
++    TPA.Commit();
++    Diag(Tok.getLocation(), diag::err_cxxmg_expected_type_after_implements);
++    return ExprError();
++  }
++  if (!ParseCXXMGTypeExprRHS(RHS, prec::Unknown,
++                             /*AllowTypeNameFallback=*/true)) {
++    TPA.Commit();
++    Diag(Tok.getLocation(), diag::err_cxxmg_expected_type_after_implements);
++    return ExprError();
++  }
++
++  auto Node = std::make_unique<ParsedCXXMGTypeExpr>();
++  Node->K = ParsedCXXMGTypeExpr::Binary;
++  Node->Op = ParsedCXXMGTypeExprOpcode::Implements;
++  Node->OpLoc = OpLoc;
++  Node->OpEndLoc = OpEndLoc;
++  Node->UsesAngleImplements = UsesAngleSyntax;
++  Node->BeginLoc = LHS.BeginLoc;
++  Node->EndLoc = RHS.EndLoc;
++  Node->SawTypeExprOperator = true;
++  Node->LHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(LHS));
++  Node->RHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(RHS));
++
++  TPA.Commit();
++  return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), *Node);
+ }
+diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
+index 60d60f8d3ccf..500b8bacdf4d 100644
+--- a/clang/lib/Parse/ParseExpr.cpp
++++ b/clang/lib/Parse/ParseExpr.cpp
+@@ -88,8 +88,10 @@ ExprResult Parser::ParseAssignmentExpression(
+ 
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGTypePredicateExpression();
+-    if (TE.isUsable() || TE.isInvalid())
++    if (TE.isInvalid())
+       return TE;
++    if (TE.isUsable())
++      return ParseRHSOfBinaryExpression(TE, prec::Assignment);
+   }
+ 
+   if (getLangOpts().CPlusPlusMG) {
+@@ -116,8 +118,10 @@ ExprResult Parser::ParseConditionalExpression() {
+ 
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGTypePredicateExpression();
+-    if (TE.isUsable() || TE.isInvalid())
++    if (TE.isInvalid())
+       return TE;
++    if (TE.isUsable())
++      return ParseRHSOfBinaryExpression(TE, prec::Conditional);
+   }
+ 
+   if (getLangOpts().CPlusPlusMG) {
+@@ -154,8 +158,12 @@ ExprResult Parser::ParseConstantExpressionInExprEvalContext(
+          "already ConstantEvaluated");
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGTypePredicateExpression();
+-    if (TE.isUsable() || TE.isInvalid())
++    if (TE.isInvalid())
+       return Actions.ActOnConstantExpression(TE);
++    if (TE.isUsable()) {
++      ExprResult Res(ParseRHSOfBinaryExpression(TE, prec::Conditional));
++      return Actions.ActOnConstantExpression(Res);
++    }
+   }
+ 
+   if (getLangOpts().CPlusPlusMG) {
+@@ -798,6 +806,14 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
+   auto SavedType = PreferredType;
+   NotCastExpr = false;
+ 
++  if (getLangOpts().CPlusPlusMG) {
++    ExprResult TE = TryParseCXXMGTypePredicateExpression();
++    if (TE.isInvalid())
++      return TE;
++    if (TE.isUsable())
++      return TE;
++  }
++
+   if (getLangOpts().CPlusPlusMG) {
+     ExprResult TE = TryParseCXXMGImplementsExpression();
+     if (TE.isInvalid())
+diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
+index 1c21f5ab52e0..d5492a934d10 100644
+--- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
++++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
+@@ -71,6 +71,8 @@ translateParsedCXXMGOpcode(ParsedCXXMGTypeExprOpcode Op) {
+     return CXXMGTypeExprOpcode::Add;
+   case ParsedCXXMGTypeExprOpcode::Sub:
+     return CXXMGTypeExprOpcode::Sub;
++  case ParsedCXXMGTypeExprOpcode::Implements:
++    return CXXMGTypeExprOpcode::Implements;
+   }
+   llvm_unreachable("not a C++MG type-expression operator");
+ }
+diff --git a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
+index 3e3090beafc7..4f072692e054 100644
+--- a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
++++ b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
+@@ -8,4 +8,4 @@ trait ValTrait {
+ };
+ 
+ static_assert(Incomplete implements ValTrait);
+-// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
++// expected-error@-1 {{type expression operand 'Incomplete' is incomplete}}
+diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
+index d3529fcbf9c1..9e10601572da 100644
+--- a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
++++ b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
+@@ -7,5 +7,5 @@ struct Extra {
+ template <class T>
+ using AddExtra = T + Extra;
+ 
+-// CHECK: TypeAliasTemplateDecl
+-// CHECK: CXXMGTypeExprType
++// CHECK: ClassTemplateDecl
++// CHECK: cxxmg_type_expr_pattern
+diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
+index 87062b0228ee..7e05d6392159 100644
+--- a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
++++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
+@@ -6,6 +6,7 @@ trait ValueTrait {
+ 
+ template <class T>
+ constexpr bool hasValue = T implements ValueTrait;
++// expected-error@-1 {{type expression operand 'int' is not a struct, class, or trait}}
+ 
+ static_assert(hasValue<int>);
+-// expected-error@-1 {{type expression operand 'int' is not a struct, class, or trait}}
++// expected-note@-1 {{in instantiation of variable template specialization 'hasValue<int>' requested here}}
+diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
+index 3bd6e44588da..f9e8f91dfaf4 100644
+--- a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
++++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
+@@ -1,7 +1,8 @@
+ // RUN: %clang_cc1 -std=c++20 -emit-pch -DHEADER -o %t.pch %s
+-// RUN: %clang_cc1 -std=c++20 -include-pch %t.pch -verify %s
++// RUN: %clang_cc1 -std=c++20 -include-pch %t.pch -DUSING_PCH -verify %s
++// expected-no-diagnostics
+ 
+-#ifdef HEADER
++#if defined(HEADER) && !defined(USING_PCH)
+ 
+ struct Extra {
+   bool other;
+diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
+index 4a3545d013ab..6f9502bdda05 100644
+--- a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
++++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
+@@ -1,7 +1,8 @@
+ // RUN: %clang_cc1 -std=c++20 -emit-pch -DHEADER -o %t.pch %s
+-// RUN: %clang_cc1 -std=c++20 -include-pch %t.pch -verify %s
++// RUN: %clang_cc1 -std=c++20 -include-pch %t.pch -DUSING_PCH -verify %s
++// expected-no-diagnostics
+ 
+-#ifdef HEADER
++#if defined(HEADER) && !defined(USING_PCH)
+ 
+ trait ValueTrait {
+   int value;
+diff --git a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
+index d6a1b55e3de7..2a7034965770 100644
+--- a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
++++ b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
+@@ -28,7 +28,7 @@ static_assert(check_with_alias<with_value>());
+ static_assert(!check_with_alias<without_value>());
+ 
+ template <typename T>
+-int check_if_constexpr() {
++constexpr int check_if_constexpr() {
+   using backend_t = T;
+   constexpr bool is_gen = backend_t implements has_value;
+ 
+diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
+index 44760138b0fc..23a3fff6872a 100644
+--- a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
++++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
+@@ -9,10 +9,10 @@ struct S {
+ };
+ 
+ constexpr bool missing_rhs_keyword = S implements;
+-// expected-error@-1 {{expected type expression after C++MG 'implements' operator}}
++// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
+ 
+ constexpr bool missing_rhs_shorthand = S <>;
+-// expected-error@-1 {{expected type expression after C++MG 'implements' operator}}
++// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
+ 
+ using Bad = S implements HasValue;
+ // expected-error@-1 {{C++MG 'implements' predicate produces 'bool' and cannot be used as a type expression}}
+diff --git a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
+index a6834ccac2f0..a4df2ae8a965 100644
+--- a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
++++ b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
+@@ -1,4 +1,4 @@
+-// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %s
++// RUN: %clang_cc1 -std=c++20 -Wno-c++23-extensions -fsyntax-only -verify %s
+ // expected-no-diagnostics
+ 
+ trait generator {
+-- 
+2.54.0
+
