@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 11 Jun 2026 18:12:02 -0400
+Subject: [PATCH] Fix parse bug
+
+Fixed the focused parser regression under work/llvm-project/.
+Changed:
+ParseDeclCXX.cpp (line 901): removed tok::less from the CXXMG implements alias-declaration error branch.
+ParseCXXMGTraitExpr.cpp (line 23): tightened the speculative implements scanner so ordinary boolean/template expressions like is_same_v<T, ...> || ... are not over-scanned, including correct handling for >>.
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index f695fe709a35..1aa595761424 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -21,7 +21,8 @@ static bool hasTopLevelCXXMGImplementsKeyword(Parser &P) {
+       if (K == tok::kw_implements)
+         return true;
+       if (K == tok::eof || K == tok::semi || K == tok::comma ||
+-          K == tok::l_brace || K == tok::l_square)
++          K == tok::l_brace || K == tok::l_square ||
++          K == tok::pipepipe || K == tok::ampamp || K == tok::question)
+         return false;
+       if (K == tok::l_paren) {
+         if (!AllowParens)
+@@ -40,6 +41,10 @@ static bool hasTopLevelCXXMGImplementsKeyword(Parser &P) {
+     }
+     if (K == tok::less) {
+       ++AngleDepth;
++    } else if (K == tok::greatergreater) {
++      if (AngleDepth <= 1)
++        return false;
++      AngleDepth -= 2;
+     } else if (K == tok::greater) {
+       if (AngleDepth == 0)
+         return false;
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index 1a33f2e7d695..d76592b04cca 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -899,7 +899,7 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
+                     &Attrs);
+ 
+   if (getLangOpts().CPlusPlusMG && TypeAlias.isUsable() &&
+-      Tok.isOneOf(tok::kw_implements, tok::less)) {
++      Tok.is(tok::kw_implements)) {
+     Diag(Tok.getLocation(), diag::err_cxxmg_implements_not_type_expression);
+     DeclEnd = Tok.getLocation();
+     SkipUntil(tok::semi);
+-- 
+2.54.0
+
