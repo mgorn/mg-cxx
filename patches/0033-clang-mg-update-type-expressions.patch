@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 01:25:15 -0400
-Subject: [PATCH 06/12] clang-mg: update type-expressions
+Subject: [PATCH 33/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
@@ -27,10 +27,10 @@ index ee1cf38cb29c..876cb5dce8a1 100644
    RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index d234f57f9795..0f983a84a5ae 100644
+index f732d5b6e1af..68ed2113e67e 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -1640,7 +1640,7 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
+@@ -1617,7 +1617,7 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
    if (D->getUnderlyingType()->getAs<DependentNameType>())
      SemaRef.inferGslPointerAttribute(Typedef);
  
@@ -86,5 +86,5 @@ index 000000000000..6816448f3576
 +  f(c);
 +}
 -- 
-2.54.0
+2.52.0.windows.1
 

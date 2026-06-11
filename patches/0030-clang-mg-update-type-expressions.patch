@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 00:05:15 -0400
-Subject: [PATCH 03/12] clang-mg: update type-expressions
+Subject: [PATCH 30/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index a02d85affda8..588b66f58a2c 100644
+index ea2ebc8e08e1..bda4ab6c09b7 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -1148,6 +1148,10 @@ DEF_TRAVERSE_TYPE(PackIndexingType, {
@@ -69,7 +69,7 @@ index 714651f1b2e8..6b4714b915f8 100644
  
  struct UnaryTransformTypeLocInfo {
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 2aa83362d107..b8fc635b8add 100644
+index f5848d154f49..5b94e39ec851 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -18,6 +18,7 @@
@@ -80,7 +80,7 @@ index 2aa83362d107..b8fc635b8add 100644
  #include "clang/AST/Decl.h"
  #include "clang/AST/DeclAccessPair.h"
  #include "clang/AST/DeclBase.h"
-@@ -1667,6 +1668,59 @@ ASTNodeImporter::VisitPackIndexingType(clang::PackIndexingType const *T) {
+@@ -1661,6 +1662,59 @@ ASTNodeImporter::VisitPackIndexingType(clang::PackIndexingType const *T) {
    return Importer.getToContext().getPackIndexingType(*Pattern, *Index);
  }
  
@@ -223,7 +223,7 @@ index b628f353e1ce..ee1cf38cb29c 100644
  }
  
 diff --git a/clang/lib/Sema/SemaTemplate.cpp b/clang/lib/Sema/SemaTemplate.cpp
-index 7228cc6ff402..b8bc3c545468 100644
+index 8c94a1ad3920..0a8b3067d11a 100644
 --- a/clang/lib/Sema/SemaTemplate.cpp
 +++ b/clang/lib/Sema/SemaTemplate.cpp
 @@ -12,6 +12,7 @@
@@ -234,7 +234,7 @@ index 7228cc6ff402..b8bc3c545468 100644
  #include "clang/AST/Decl.h"
  #include "clang/AST/DeclFriend.h"
  #include "clang/AST/DeclTemplate.h"
-@@ -6254,6 +6255,7 @@ namespace {
+@@ -6251,6 +6252,7 @@ namespace {
  
      bool VisitTagDecl(const TagDecl *Tag);
      bool VisitNestedNameSpecifier(NestedNameSpecifier NNS);
@@ -242,7 +242,7 @@ index 7228cc6ff402..b8bc3c545468 100644
    };
  } // end anonymous namespace
  
-@@ -6383,6 +6385,23 @@ bool UnnamedLocalNoLinkageFinder::VisitPackIndexingType(
+@@ -6380,6 +6382,23 @@ bool UnnamedLocalNoLinkageFinder::VisitPackIndexingType(
    return false;
  }
  
@@ -313,5 +313,5 @@ index 7b18d24036e4..c68c01da0a30 100644
    using namespace llvm;
  
 -- 
-2.54.0
+2.52.0.windows.1
 

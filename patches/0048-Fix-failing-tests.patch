@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 22:07:34 -0400
-Subject: [PATCH] Fix failing tests
+Subject: [PATCH 48/53] Fix failing tests
 
 Adds a helper function to determine valid starting token kinds for an
 `implements` requirement.
@@ -67,5 +67,5 @@ index 4f072692e054..3e3090beafc7 100644
 -// expected-error@-1 {{type expression operand 'Incomplete' is incomplete}}
 +// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
 -- 
-2.54.0
+2.52.0.windows.1
 

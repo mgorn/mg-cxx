@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 18 May 2026 00:23:47 -0400
-Subject: [PATCH 05/11] clang-mg: update conditional-members
+Subject: [PATCH 13/53] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index b75a90f61f7f..529f6a82a506 100644
+index 0de69dbceead..fca2cdb811ae 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
-@@ -3479,6 +3479,9 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
+@@ -3477,6 +3477,9 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
    case tok::annot_pragma_openacc:
      return ParseOpenACCDirectiveDecl(AS, AccessAttrs, TagType, TagDecl);
  
@@ -19,5 +19,5 @@ index b75a90f61f7f..529f6a82a506 100644
      if (tok::isPragmaAnnotation(Tok.getKind())) {
        Diag(Tok.getLocation(), diag::err_pragma_misplaced_in_decl)
 -- 
-2.54.0
+2.52.0.windows.1
 

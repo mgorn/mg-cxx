@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 12:46:03 -0400
-Subject: [PATCH 5/7] clang-mg: update traits
+Subject: [PATCH 25/53] clang-mg: update traits
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
@@ -17,5 +17,5 @@ index 52eff5ac6c93..42d80ab8bef3 100644
  #include "clang/AST/DeclCXX.h"
  #include "clang/AST/DeclTemplate.h"
 -- 
-2.54.0
+2.52.0.windows.1
 

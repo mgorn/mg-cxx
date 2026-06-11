@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 19:31:27 -0400
-Subject: [PATCH] Fix enum warnings
+Subject: [PATCH 43/53] Fix enum warnings
 
 
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
@@ -27,7 +27,7 @@ index 886c34175216..852acb15553b 100644
  public:
    enum NodeKind : unsigned {
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index 191fe285daa0..7f25214ccbde 100644
+index 3bd795f9e7b9..2e9efba0b0b5 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
 @@ -4344,6 +4344,7 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
@@ -46,7 +46,7 @@ index 191fe285daa0..7f25214ccbde 100644
      return Keyword;
  
    // These are equivalent.
-@@ -14461,6 +14463,13 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
+@@ -14459,6 +14461,13 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
      const auto *CX = cast<ComplexType>(X), *CY = cast<ComplexType>(Y);
      return Ctx.getComplexType(getCommonArrayElementType(Ctx, CX, QX, CY, QY));
    }
@@ -301,7 +301,7 @@ index 40d530a1f392..865dd9f6305a 100644
    case Expr::CXXNoexceptExprClass:
    case Expr::CXXNullPtrLiteralExprClass:
 diff --git a/clang/lib/Sema/SemaTemplateDeduction.cpp b/clang/lib/Sema/SemaTemplateDeduction.cpp
-index 3d81653e4e01..1c5ce0afbf2b 100644
+index 26c397afdd6e..ff3c49944439 100644
 --- a/clang/lib/Sema/SemaTemplateDeduction.cpp
 +++ b/clang/lib/Sema/SemaTemplateDeduction.cpp
 @@ -1862,6 +1862,9 @@ static TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
@@ -314,7 +314,7 @@ index 3d81653e4e01..1c5ce0afbf2b 100644
      case Type::Auto:
        // C++23 [temp.deduct.funcaddr]/3:
        //   A placeholder type in the return type of a function template is a
-@@ -6767,6 +6770,9 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
+@@ -6786,6 +6789,9 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
  
    T = Ctx.getCanonicalType(T);
    switch (T->getTypeClass()) {
@@ -337,7 +337,7 @@ index 5b1aad3fa847..b6ad89b58ce2 100644
    case TST_class:
    case TST_auto:
 diff --git a/clang/lib/Sema/SemaType.cpp b/clang/lib/Sema/SemaType.cpp
-index 6283fe4f41f3..fdf11dd4058e 100644
+index ea4a6fb208dc..e1287326cc21 100644
 --- a/clang/lib/Sema/SemaType.cpp
 +++ b/clang/lib/Sema/SemaType.cpp
 @@ -1217,6 +1217,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
@@ -348,7 +348,7 @@ index 6283fe4f41f3..fdf11dd4058e 100644
    case DeclSpec::TST_interface: {
      TagDecl *D = dyn_cast_or_null<TagDecl>(DS.getRepAsDecl());
      if (!D) {
-@@ -3328,6 +3329,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
+@@ -3337,6 +3338,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
            Error = Cxx ? 3 : 4; /* Union member */
            break;
          case TagTypeKind::Class:
@@ -417,5 +417,5 @@ index c4788dd6917f..cf4bd7b2459a 100644
        Out << "@U";
        break;
 -- 
-2.54.0
+2.52.0.windows.1
 

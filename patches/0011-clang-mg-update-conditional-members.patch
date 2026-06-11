@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 17 May 2026 23:27:51 -0400
-Subject: [PATCH 03/11] clang-mg: update conditional-members
+Subject: [PATCH 11/53] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
@@ -31,10 +31,10 @@ index 5e7af97feeb6..05cab687965b 100644
    /// which explicitly initializes the members or base classes of a
    /// class (C++ [class.base.init]). For example, the three initializers
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 81f06435438d..b75a90f61f7f 100644
+index 198b5416965e..0de69dbceead 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
-@@ -3497,42 +3497,48 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+@@ -3495,42 +3495,48 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
                                DeclSpec::TST TagType, Decl *Tag) {
    assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
  
@@ -104,5 +104,5 @@ index 81f06435438d..b75a90f61f7f 100644
  }
  
 -- 
-2.54.0
+2.52.0.windows.1
 

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 01:10:55 -0400
-Subject: [PATCH 09/12] clang-mg: update type-expressions
+Subject: [PATCH 36/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
@@ -97,7 +97,7 @@ index ea1c89e8bcb7..11bebd4173f4 100644
  
  #endif
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index e5c717bc697d..bdb032937c3a 100644
+index f52f1723bf6a..809f1ce14d7c 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -694,6 +694,7 @@ namespace clang {
@@ -108,7 +108,7 @@ index e5c717bc697d..bdb032937c3a 100644
      ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
      ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
      ExpectedStmt VisitRequiresExpr(RequiresExpr* E);
-@@ -1721,8 +1722,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+@@ -1715,8 +1716,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
    return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
  }
  
@@ -117,7 +117,7 @@ index e5c717bc697d..bdb032937c3a 100644
  ExpectedStmt
  ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    Expected<CXXMGTypeExprNode *> NodeOrErr =
-@@ -1731,9 +1730,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+@@ -1725,9 +1724,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    if (!NodeOrErr)
      return NodeOrErr.takeError();
  
@@ -245,10 +245,10 @@ index 14d3af0696a2..328b0f9cca8e 100644
  
  void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index b7ed6bf49c6a..c930ac23f9eb 100644
+index e69a2c70d418..c093409ebb56 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -1844,8 +1844,10 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
+@@ -1841,8 +1841,10 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
  }
  
  void TextNodeDumper::VisitCXXMGTypeCheckExpr(const CXXMGTypeCheckExpr *Node) {
@@ -453,5 +453,5 @@ index 000000000000..5480e6fcc4ba
 +static_assert(has_generator_static_local<ninja_backend>());
 +static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.52.0.windows.1
 

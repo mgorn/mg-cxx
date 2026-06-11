@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 25 May 2026 22:19:57 -0400
-Subject: [PATCH 2/5] clang-mg: update language-option
+Subject: [PATCH 05/53] clang-mg: update language-option
 
 
 diff --git a/clang/include/clang/Basic/LangOptions.def b/clang/include/clang/Basic/LangOptions.def
@@ -18,5 +18,5 @@ index 30b73389d373..d5f737c601c2 100644
  LANGOPT(ObjC              , 1, 0, NotCompatible, "Objective-C")
  LANGOPT(ObjCDefaultSynthProperties , 1, 0, Benign,
 -- 
-2.54.0
+2.52.0.windows.1
 

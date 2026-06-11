@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 25 May 2026 20:01:14 -0400
-Subject: [PATCH 08/12] clang-mg: update type-expressions
+Subject: [PATCH 35/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
@@ -48,10 +48,10 @@ index 036886d51ae7..b0736d85c6d7 100644
    /// (C++11 [class.ctor]p5).
    bool hasTrivialDefaultConstructor() const {
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index e99237d429f4..faa036f97954 100644
+index a0ab08615d54..7d282afda821 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14305,6 +14305,10 @@ def err_cxxmg_type_expr_invalid_operand :
+@@ -14311,6 +14311,10 @@ def err_cxxmg_type_expr_invalid_operand :
    Error<"type expression operand %0 is not a struct, class, or trait">;
  def err_cxxmg_type_expr_incomplete_operand :
    Error<"type expression operand %0 is incomplete">;
@@ -63,7 +63,7 @@ index e99237d429f4..faa036f97954 100644
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 0659a34729f2..27c22055a0c9 100644
+index e8e498cdf9ae..a23e9d3608d7 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5526,10 +5526,23 @@ public:
@@ -91,10 +91,10 @@ index 0659a34729f2..27c22055a0c9 100644
    /// BuildCXXConstructExpr - Creates a complete call to a constructor,
    /// including handling of its default argument expressions.
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 169a9c161ae4..b7ed6bf49c6a 100644
+index f957db9d6b54..e69a2c70d418 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2742,6 +2742,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
+@@ -2739,6 +2739,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
  
  void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
    VisitRecordDecl(D);
@@ -106,7 +106,7 @@ index 169a9c161ae4..b7ed6bf49c6a 100644
      OS << " instantiated_from";
      dumpPointer(Instance);
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index bb0f2a981887..d7e9e23b4338 100644
+index 12480e41a7ba..8872ceda305d 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -934,15 +934,22 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -450,22 +450,28 @@ index 876cb5dce8a1..9f5c0e899b9f 100644
    if (!TE)
      return ExprError();
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 9cf9c96c44be..0cd6181b8910 100644
+index 96561efc5050..90aa0f32606a 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-@@ -3930,6 +3930,11 @@ bool Sema::InstantiateClassTemplateSpecialization(
-       ClassTemplateSpec, /*Innermost=*/std::nullopt,
-       /*NumLevels=*/Pattern.get()->getTemplateDepth());
+@@ -4157,9 +4157,15 @@ bool Sema::InstantiateClassTemplateSpecialization(
+   if (!Pattern.isUsable())
+     return Pattern.isInvalid();
  
+-  bool Err = InstantiateClassImpl(
++  auto TemplateArgs = getTemplateInstantiationArgs(ClassTemplateSpec);
++
 +  if (Pattern.get()->isCXXMGTypeExpressionGenerated())
 +    return InstantiateCXXMGTypeExpressionClassTemplateSpecialization(
-+      PointOfInstantiation, ClassTemplateSpec, Pattern.get(),
+       PointOfInstantiation, ClassTemplateSpec, Pattern.get(),
+-      getTemplateInstantiationArgs(ClassTemplateSpec), TSK, Complain);
 +      TemplateArgs, TSK, Complain);
 +
-   bool Err = InstantiateClassImpl(PointOfInstantiation, ClassTemplateSpec,
-                                   Pattern.get(), TemplateArgs, TSK, Complain);
++  bool Err = InstantiateClassImpl(PointOfInstantiation, ClassTemplateSpec,
++                                  Pattern.get(), TemplateArgs, TSK, Complain);
  
-@@ -3945,6 +3950,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
+   // If we haven't already warn on avaibility, consider the avaibility
+   // attributes of the partial specialization.
+@@ -4173,6 +4179,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
    return Err;
  }
  
@@ -484,10 +490,10 @@ index 9cf9c96c44be..0cd6181b8910 100644
  Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
                                CXXRecordDecl *Instantiation,
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index b49841edc3f5..c2f26795e5bf 100644
+index c7dd9087a555..2b4ccdb6bb54 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
-@@ -2034,6 +2034,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
+@@ -2027,6 +2027,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
        Data.VBases = ReadGlobalOffset();
  
      Data.FirstFriend = readDeclID().getRawValue();
@@ -731,5 +737,5 @@ index 000000000000..7ecec34a1ead
 +static_assert(__is_same(decltype(C<float>{}.value), float));
 +static_assert(__is_same(decltype(C<int>{}.extra), int));
 -- 
-2.54.0
+2.52.0.windows.1
 

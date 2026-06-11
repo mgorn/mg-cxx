@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 00:38:05 -0400
-Subject: [PATCH 04/12] clang-mg: update type-expressions
+Subject: [PATCH 31/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index e2301e501419..b349ddf48f59 100644
+index ebdbb8af6f23..fc50fd51770b 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -889,38 +889,63 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -153,5 +153,5 @@ index 000000000000..99f1d97bc0af
 +
 +using R = X<int>;
 -- 
-2.54.0
+2.52.0.windows.1
 

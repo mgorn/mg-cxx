@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 20:51:32 -0400
-Subject: [PATCH] Add missing visitor funcs
+Subject: [PATCH 45/53] Add missing visitor funcs
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -30,7 +30,7 @@ index c8177e027a3a..862fa75f6af0 100644
      return CXCursor_FunctionDecl;
    case Decl::ObjCCategory:
 diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
-index 0a849154c5d5..71154c67ac7b 100644
+index e29bf4b13621..d80d53b34f06 100644
 --- a/clang/tools/libclang/CIndex.cpp
 +++ b/clang/tools/libclang/CIndex.cpp
 @@ -24,9 +24,12 @@
@@ -46,7 +46,7 @@ index 0a849154c5d5..71154c67ac7b 100644
  #include "clang/AST/Mangle.h"
  #include "clang/AST/OpenACCClause.h"
  #include "clang/AST/OpenMPClause.h"
-@@ -1332,6 +1335,30 @@ bool CursorVisitor::VisitConceptDecl(ConceptDecl *D) {
+@@ -1331,6 +1334,30 @@ bool CursorVisitor::VisitConceptDecl(ConceptDecl *D) {
    return false;
  }
  
@@ -77,7 +77,7 @@ index 0a849154c5d5..71154c67ac7b 100644
  bool CursorVisitor::VisitTypeConstraint(const TypeConstraint &TC) {
    if (TC.getNestedNameSpecifierLoc()) {
      if (VisitNestedNameSpecifierLoc(TC.getNestedNameSpecifierLoc()))
-@@ -1865,6 +1892,25 @@ bool CursorVisitor::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
+@@ -1864,6 +1891,25 @@ bool CursorVisitor::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
    return Visit(MakeCXCursor(TL.getIndexExpr(), StmtParent, TU));
  }
  
@@ -103,7 +103,7 @@ index 0a849154c5d5..71154c67ac7b 100644
  bool CursorVisitor::VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc TL) {
    return Visit(MakeCursorTypeRef(TL.getDecl(), TL.getNameLoc(), TU));
  }
-@@ -2124,6 +2170,8 @@ public:
+@@ -2123,6 +2169,8 @@ public:
    void VisitSwitchStmt(const SwitchStmt *S);
    void VisitWhileStmt(const WhileStmt *W);
    void VisitTypeTraitExpr(const TypeTraitExpr *E);
@@ -112,7 +112,7 @@ index 0a849154c5d5..71154c67ac7b 100644
    void VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *E);
    void VisitExpressionTraitExpr(const ExpressionTraitExpr *E);
    void VisitUnresolvedMemberExpr(const UnresolvedMemberExpr *U);
-@@ -2253,6 +2301,7 @@ private:
+@@ -2252,6 +2300,7 @@ private:
    void AddStmt(const Stmt *S);
    void AddDecl(const Decl *D, bool isFirst = true);
    void AddTypeLoc(TypeSourceInfo *TI);
@@ -120,7 +120,7 @@ index 0a849154c5d5..71154c67ac7b 100644
    void EnqueueChildren(const Stmt *S);
    void EnqueueChildren(const OpenACCClause *S);
    void EnqueueChildren(const OMPClause *S);
-@@ -2292,6 +2341,18 @@ void EnqueueVisitor::AddTypeLoc(TypeSourceInfo *TI) {
+@@ -2291,6 +2340,18 @@ void EnqueueVisitor::AddTypeLoc(TypeSourceInfo *TI) {
    if (TI)
      WL.push_back(TypeLocVisit(TI->getTypeLoc(), Parent));
  }
@@ -139,7 +139,7 @@ index 0a849154c5d5..71154c67ac7b 100644
  void EnqueueVisitor::EnqueueChildren(const Stmt *S) {
    unsigned size = WL.size();
    for (const Stmt *SubStmt : S->children()) {
-@@ -3256,6 +3317,15 @@ void EnqueueVisitor::VisitTypeTraitExpr(const TypeTraitExpr *E) {
+@@ -3255,6 +3316,15 @@ void EnqueueVisitor::VisitTypeTraitExpr(const TypeTraitExpr *E) {
      AddTypeLoc(E->getArg(I - 1));
  }
  
@@ -155,7 +155,7 @@ index 0a849154c5d5..71154c67ac7b 100644
  void EnqueueVisitor::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *E) {
    AddTypeLoc(E->getQueriedTypeSourceInfo());
  }
-@@ -8833,6 +8903,8 @@ static CXLanguageKind getDeclLanguage(const Decl *D) {
+@@ -8832,6 +8902,8 @@ static CXLanguageKind getDeclLanguage(const Decl *D) {
    case Decl::CXXDestructor:
    case Decl::CXXMethod:
    case Decl::CXXRecord:
@@ -226,5 +226,5 @@ index d5ab69975698..6f1668c61249 100644
  #define TYPELOC(CLASS, PARENT) bool Visit##CLASS##TypeLoc(CLASS##TypeLoc TyLoc);
  #include "clang/AST/TypeLocNodes.def"
 -- 
-2.54.0
+2.52.0.windows.1
 

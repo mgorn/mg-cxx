@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 17 May 2026 22:18:10 -0400
-Subject: [PATCH 3/3] clang-mg: update change-bin-name
+Subject: [PATCH 03/53] clang-mg: update change-bin-name
 
 
 diff --git a/clang/tools/driver/CMakeLists.txt b/clang/tools/driver/CMakeLists.txt
@@ -18,5 +18,5 @@ index cfb89569191f..1e9f2ff0ef34 100644
  endif()
  
 -- 
-2.54.0
+2.52.0.windows.1
 

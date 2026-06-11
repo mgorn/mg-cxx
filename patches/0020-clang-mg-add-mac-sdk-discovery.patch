@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 00:08:28 -0400
-Subject: [PATCH] clang-mg: add mac-sdk-discovery
+Subject: [PATCH 20/53] clang-mg: add mac-sdk-discovery
 
 
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
-index f18c60ca6959..194f4159dd44 100644
+index 59744d1cb3e8..f57d319302c3 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.cpp
 +++ b/clang/lib/Driver/ToolChains/Darwin.cpp
-@@ -2578,23 +2578,32 @@ void Darwin::AddDeploymentTarget(DerivedArgList &Args) const {
+@@ -2579,23 +2579,32 @@ void Darwin::AddDeploymentTarget(DerivedArgList &Args) const {
    bool TryXcselect = false;
    (void)TryXcselect;
  
@@ -52,5 +52,5 @@ index f18c60ca6959..194f4159dd44 100644
    }
  
 -- 
-2.54.0
+2.52.0.windows.1
 

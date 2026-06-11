@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 21:31:20 -0400
-Subject: [PATCH 01/12] clang-mg: add type-expressions
+Subject: [PATCH 28/53] clang-mg: add type-expressions
 
 
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 36d6f520b576..51365741cc12 100644
+index 6886223875bc..3d3dd3de9849 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
-@@ -2877,6 +2877,10 @@ DEF_TRAVERSE_STMT(CXXMGImplementsExpr, {
+@@ -2875,6 +2875,10 @@ DEF_TRAVERSE_STMT(CXXMGImplementsExpr, {
      TRY_TO(TraverseTypeLoc(TSI->getTypeLoc()));
  })
  
@@ -63,10 +63,10 @@ index a69394abd2ad..d77f413c1a36 100644
    "the number of preprocessor source tokens (%0) exceeds this token limit (%1)">,
    InGroup<MaxTokens>, DefaultIgnore;
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index 6101226f2c85..e99237d429f4 100644
+index f9732631f3db..a0ab08615d54 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14296,6 +14296,32 @@ def warn_comparison_in_enum_initializer : Warning<
+@@ -14302,6 +14302,32 @@ def warn_comparison_in_enum_initializer : Warning<
  def note_enum_compare_typo_suggest : Note<
    "use '%0' to perform a bitwise shift">;
  
@@ -135,7 +135,7 @@ index a678fde7f7f0..2e0400a7d285 100644
    /// static_assert-declaration.
    ///
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index aed2289a9828..ea7ee3c9baf9 100644
+index 8269f78c1a4b..627f75ebc2aa 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -197,6 +197,21 @@ class UnresolvedSetImpl;
@@ -256,10 +256,10 @@ index f8597dc441df..994dcb6957ab 100644
    VisitExpr(S);
    ID.AddInteger(S->getTrait());
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index aba4eca6ccb3..66a50d231895 100644
+index 0105a6d8be4a..fd503f866569 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -1843,6 +1843,13 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
+@@ -1840,6 +1840,13 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
      OS << " unresolved";
  }
  
@@ -529,7 +529,7 @@ index 000000000000..d36514d82a1b
 +  return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), TE);
 +}
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index c5fddf941e0f..e2301e501419 100644
+index af3023c140f8..ebdbb8af6f23 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -889,11 +889,38 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -1338,5 +1338,5 @@ index 000000000000..1cfc4a62c959
 +static_assert(__is_same(decltype(D{}.test), bool));
 +auto missing = D{}.value; // expected-error {{no member named 'value'}}
 -- 
-2.54.0
+2.52.0.windows.1
 

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Wed, 10 Jun 2026 20:40:08 -0400
-Subject: [PATCH] Code clean-up
+Subject: [PATCH 52/53] Code clean-up
 
 Goes through the net changes so far and cleans up a lot of bad code. Moved CXXMG declaration Sema ownership into SemaDeclCXXMG.cpp and removed duplicate bodies from SemaDeclCXX.cpp. Fixed conditional-member parser/AST lifetimes by replacing stored ArrayRef decl lists with owned decl storage plus arm index/count ranges. Added the non-CXXMG class-scope if parser guard. Split CXXMG expression factories into new ExprCXXMG.cpp. Added CXXMGImplementsExpr ASTImporter support. Implemented TreeTransform rebuild support for CXXMGTypeCheckExpr.
 
@@ -852,5 +852,5 @@ index 85b8dfc2ce13..2227093b51ab 100644
    }
    Code = serialization::DECL_CXXMG_CONDITIONAL_MEMBER;
 -- 
-2.54.0
+2.52.0.windows.1
 

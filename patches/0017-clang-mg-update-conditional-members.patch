@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:50:58 -0400
-Subject: [PATCH 09/11] clang-mg: update conditional-members
+Subject: [PATCH 17/53] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 98da9ca0c0a6..14790ac90176 100644
+index f1c494552f91..772ba10bde50 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3528,6 +3528,9 @@ Decl *Sema::ActOnCXXMGConditionalMember(
@@ -83,7 +83,7 @@ index 98da9ca0c0a6..14790ac90176 100644
  
    if (Invalid) {
      UD->setInvalidDecl();
-@@ -14074,6 +14092,11 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
+@@ -14071,6 +14089,11 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
      NewND = NewTD;
    }
  
@@ -96,5 +96,5 @@ index 98da9ca0c0a6..14790ac90176 100644
    ActOnDocumentableDecl(NewND);
    return NewND;
 -- 
-2.54.0
+2.52.0.windows.1
 

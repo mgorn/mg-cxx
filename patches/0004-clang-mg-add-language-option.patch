@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 17 May 2026 20:02:35 -0400
-Subject: [PATCH 1/5] clang-mg: add language-option
+Subject: [PATCH 04/53] clang-mg: add language-option
 
 
 diff --git a/clang/include/clang/Basic/LangOptions.def b/clang/include/clang/Basic/LangOptions.def
@@ -17,5 +17,5 @@ index 4a3e3b7c0482..30b73389d373 100644
  LANGOPT(ObjCDefaultSynthProperties , 1, 0, Benign,
          "Objective-C auto-synthesized properties")
 -- 
-2.54.0
+2.52.0.windows.1
 

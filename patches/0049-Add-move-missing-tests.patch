@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 23:02:46 -0400
-Subject: [PATCH] Add/move missing tests
+Subject: [PATCH 49/53] Add/move missing tests
 
 This adds (or moves) the missing conditional-member and urlinclude tests, and changes what's required to make them pass.
 
@@ -76,7 +76,7 @@ index 7b4450f48b5e..a097e4dfe7e5 100644
 +                 Ctx);
 +}
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 0be654f0965f..fc44c2c74f07 100644
+index c2a789471adf..432cacef0e09 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3508,6 +3508,10 @@ Decl *Sema::ActOnCXXMGConditionalMember(
@@ -91,7 +91,7 @@ index 0be654f0965f..fc44c2c74f07 100644
  
    for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index c2f26795e5bf..76acced1da16 100644
+index 2b4ccdb6bb54..3e5689a9567f 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -21,6 +21,7 @@
@@ -110,7 +110,7 @@ index c2f26795e5bf..76acced1da16 100644
    RedeclarableResult VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
    void VisitClassTemplateDecl(ClassTemplateDecl *D);
    void VisitBuiltinTemplateDecl(BuiltinTemplateDecl *D);
-@@ -2463,6 +2465,26 @@ void ASTDeclReader::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
+@@ -2456,6 +2458,26 @@ void ASTDeclReader::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
    D->FunctionTypeInfo = Record.readTypeSourceInfo();
  }
  
@@ -137,7 +137,7 @@ index c2f26795e5bf..76acced1da16 100644
  void ASTDeclReader::ReadSpecializations(ModuleFile &M, Decl *D,
                                          llvm::BitstreamCursor &DeclsCursor,
                                          bool IsPartial) {
-@@ -4148,6 +4170,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
+@@ -4143,6 +4165,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
    case DECL_TRAIT_REQUIREMENT:
      D = TraitRequirementDecl::CreateDeserialized(Context, ID);
      break;
@@ -148,7 +148,7 @@ index c2f26795e5bf..76acced1da16 100644
      D = StaticAssertDecl::CreateDeserialized(Context, ID);
      break;
 diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
-index a7dfff31f5ad..933a6e4905b3 100644
+index 2c1bfcc8ae0f..85b8dfc2ce13 100644
 --- a/clang/lib/Serialization/ASTWriterDecl.cpp
 +++ b/clang/lib/Serialization/ASTWriterDecl.cpp
 @@ -13,6 +13,7 @@
@@ -167,7 +167,7 @@ index a7dfff31f5ad..933a6e4905b3 100644
      void VisitRedeclarableTemplateDecl(RedeclarableTemplateDecl *D);
      void VisitClassTemplateDecl(ClassTemplateDecl *D);
      void VisitVarTemplateDecl(VarTemplateDecl *D);
-@@ -1900,6 +1902,22 @@ void ASTDeclWriter::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
+@@ -1890,6 +1892,22 @@ void ASTDeclWriter::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
    Code = serialization::DECL_TRAIT_REQUIREMENT;
  }
  
@@ -1303,5 +1303,5 @@ index fc213b1ee0a3..000000000000
 -  }
 -};
 -- 
-2.54.0
+2.52.0.windows.1
 

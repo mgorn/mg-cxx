@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 19:20:14 -0400
-Subject: [PATCH 10/11] clang-mg: update conditional-members
+Subject: [PATCH 18/53] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
@@ -228,5 +228,5 @@ index 000000000000..d306aa92f7ce
 +  (void)value.enabled; // expected-error {{no member named 'enabled'}}
 +}
 -- 
-2.54.0
+2.52.0.windows.1
 

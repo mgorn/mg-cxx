@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 22:17:00 -0400
-Subject: [PATCH 02/12] clang-mg: update type-expressions
+Subject: [PATCH 29/53] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/ASTContext.h b/clang/include/clang/AST/ASTContext.h
@@ -156,7 +156,7 @@ index fd3cce10be30..f397142a57fa 100644
  def ExceptionSpecInfo : PropertyType<"FunctionProtoType::ExceptionSpecInfo"> {
    let BufferElementTypes = [ QualType ];
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 51365741cc12..a02d85affda8 100644
+index 3d3dd3de9849..ea2ebc8e08e1 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -225,6 +225,7 @@ public:
@@ -319,7 +319,7 @@ index a9965a4a89aa..95a16bc29fa4 100644
  def ObjCObjectType : TypeNode<Type>;
  def ObjCInterfaceType : TypeNode<ObjCObjectType>, AlwaysCanonical;
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index ea7ee3c9baf9..0659a34729f2 100644
+index 627f75ebc2aa..e8e498cdf9ae 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -26,6 +26,7 @@
@@ -419,7 +419,7 @@ index 9f1da65e0f94..5eec26d430ab 100644
  
  #undef TYPE_BIT_CODE
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index 4ac41985b50c..191fe285daa0 100644
+index abf0cd5e18c2..3bd795f9e7b9 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
 @@ -21,6 +21,7 @@
@@ -600,10 +600,10 @@ index 994dcb6957ab..14d3af0696a2 100644
  
    class StmtProfilerWithPointers : public StmtProfiler {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 66a50d231895..169a9c161ae4 100644
+index fd503f866569..f957db9d6b54 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2234,6 +2234,12 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
+@@ -2231,6 +2231,12 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
    }
  }
  
@@ -919,10 +919,10 @@ index b87cf3a38595..b628f353e1ce 100644
 +  RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index c3ab6ec6f6e1..d234f57f9795 100644
+index f11c1981b3ac..f732d5b6e1af 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -1640,6 +1640,10 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
+@@ -1617,6 +1617,10 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
    if (D->getUnderlyingType()->getAs<DependentNameType>())
      SemaRef.inferGslPointerAttribute(Typedef);
  
@@ -1350,5 +1350,5 @@ index 000000000000..7b592899e15e
 +
 +#endif
 -- 
-2.54.0
+2.52.0.windows.1
 

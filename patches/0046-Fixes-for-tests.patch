@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 21:36:02 -0400
-Subject: [PATCH] Fixes for tests
+Subject: [PATCH 46/53] Fixes for tests
 
 
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 6a8f593c5096..f500addfec81 100644
+index 5e8637d2525c..7f8ffb239546 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
 @@ -3375,6 +3375,11 @@ defm experimental_pointer_field_protection_tagged
@@ -21,7 +21,7 @@ index 6a8f593c5096..f500addfec81 100644
  def flat__namespace : Flag<["-"], "flat_namespace">;
  def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 00293e2f0c78..f4b2baa8415c 100644
+index 1bb8efa14721..fff42d0c9f29 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -200,7 +200,8 @@ class VisibleDeclConsumer;
@@ -330,5 +330,5 @@ index a6834ccac2f0..a4df2ae8a965 100644
  
  trait generator {
 -- 
-2.54.0
+2.52.0.windows.1
 

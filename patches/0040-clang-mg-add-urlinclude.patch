@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 23:07:50 -0400
-Subject: [PATCH] clang-mg: add urlinclude
+Subject: [PATCH 40/53] clang-mg: add urlinclude
 
 
 diff --git a/clang/include/clang/Basic/DiagnosticLexKinds.td b/clang/include/clang/Basic/DiagnosticLexKinds.td
@@ -134,7 +134,7 @@ index db80eecce490..8dfbf3d91bc6 100644
    /// the buffers associated with remapped files.
    ///
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 62592da3eee1..6a8f593c5096 100644
+index 8f5ed945a40f..5e8637d2525c 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
 @@ -3129,6 +3129,37 @@ defm gnu89_inline : BoolFOption<"gnu89-inline",
@@ -188,7 +188,7 @@ index 4f6c8ea04477..61435f62debd 100644
  
    CASE(14, '_', 'p', __public_macro);
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index a5de770cfa7e..2a769adcfcf6 100644
+index d6cd97d7c055..4344544dd8fc 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
 @@ -6339,6 +6339,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
@@ -209,10 +209,10 @@ index a5de770cfa7e..2a769adcfcf6 100644
    if (D.CCLogDiagnostics && !D.CCGenDiagnostics) {
      CmdArgs.push_back("-diagnostic-log-file");
 diff --git a/clang/lib/Frontend/CompilerInvocation.cpp b/clang/lib/Frontend/CompilerInvocation.cpp
-index 1df45a3572df..4471df755d89 100644
+index 47cdcad377d0..a1965daf99fc 100644
 --- a/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -4860,6 +4860,33 @@ static void GeneratePreprocessorArgs(const PreprocessorOptions &Opts,
+@@ -4861,6 +4861,33 @@ static void GeneratePreprocessorArgs(const PreprocessorOptions &Opts,
    for (const auto &EmbedEntry : Opts.EmbedEntries)
      GenerateArg(Consumer, OPT_embed_dir_EQ, EmbedEntry);
  
@@ -246,7 +246,7 @@ index 1df45a3572df..4471df755d89 100644
    // Don't handle LexEditorPlaceholders. It is implied by the action that is
    // generated elsewhere.
  }
-@@ -4946,6 +4973,36 @@ static bool ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
+@@ -4947,6 +4974,36 @@ static bool ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
      Opts.EmbedEntries.push_back(std::string(Val));
    }
  
@@ -823,5 +823,5 @@ index 47f40117c92e..54cef301b382 100644
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob));
      InclusionAbbrev = Stream.EmitAbbrev(std::move(Abbrev));
 -- 
-2.54.0
+2.52.0.windows.1
 

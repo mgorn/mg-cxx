@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 22:32:58 -0400
-Subject: [PATCH 6/7] clang-mg: update traits
+Subject: [PATCH 26/53] clang-mg: update traits
 
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
@@ -86,7 +86,7 @@ index 000000000000..ea1c89e8bcb7
 +
 +#endif
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 1d9b08dc08f2..36d6f520b576 100644
+index 0f130d5d6eea..6886223875bc 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -26,6 +26,7 @@
@@ -97,7 +97,7 @@ index 1d9b08dc08f2..36d6f520b576 100644
  #include "clang/AST/ExprConcepts.h"
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
-@@ -2869,6 +2870,13 @@ DEF_TRAVERSE_STMT(TypeTraitExpr, {
+@@ -2867,6 +2868,13 @@ DEF_TRAVERSE_STMT(TypeTraitExpr, {
      TRY_TO(TraverseTypeLoc(S->getArg(I)->getTypeLoc()));
  })
  
@@ -159,10 +159,10 @@ index 05cd0e37e0a8..a69394abd2ad 100644
    "missing '}' at end of definition of %q0">;
  def note_missing_end_of_definition_before : Note<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index a6cf2501bdfd..6101226f2c85 100644
+index d5ce891ce9f1..f9732631f3db 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -7838,6 +7838,16 @@ def err_cxxmg_trait_special_member : Error<
+@@ -7840,6 +7840,16 @@ def err_cxxmg_trait_special_member : Error<
  def err_cxxmg_trait_invalid_member : Error<"invalid trait requirement">;
  def err_cxxmg_trait_object_type : Error<
    "trait %0 is a requirement shape, not an object type">;
@@ -219,7 +219,7 @@ index 09f951e97415..a678fde7f7f0 100644
    /// ParseConstructorInitializer - Parse a C++ constructor initializer,
    /// which explicitly initializes the members or base classes of a
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index c8da6ffcb11c..aed2289a9828 100644
+index bb3b2646107c..8269f78c1a4b 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5883,6 +5883,15 @@ public:
@@ -376,7 +376,7 @@ index 22e2cc56bc70..f8597dc441df 100644
    VisitExpr(S);
    ID.AddInteger(S->getTrait());
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 04875767b3c9..aba4eca6ccb3 100644
+index 49a39ea7cd85..0105a6d8be4a 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -13,6 +13,7 @@
@@ -387,7 +387,7 @@ index 04875767b3c9..aba4eca6ccb3 100644
  #include "clang/AST/DeclOpenMP.h"
  #include "clang/AST/DeclTemplate.h"
  #include "clang/AST/LocInfoType.h"
-@@ -1835,6 +1836,13 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
+@@ -1832,6 +1833,13 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
    OS << " " << getTraitSpelling(Node->getTrait());
  }
  
@@ -1389,5 +1389,5 @@ index 000000000000..d13a841aa6c0
 +static_assert(has_generator<Ninja>());
 +static_assert(has_builder<Ninja>());
 -- 
-2.54.0
+2.52.0.windows.1
 
