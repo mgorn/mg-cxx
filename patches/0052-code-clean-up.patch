@@ -1,0 +1,856 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Wed, 10 Jun 2026 20:40:08 -0400
+Subject: [PATCH] Code clean-up
+
+Goes through the net changes so far and cleans up a lot of bad code. Moved CXXMG declaration Sema ownership into SemaDeclCXXMG.cpp and removed duplicate bodies from SemaDeclCXX.cpp. Fixed conditional-member parser/AST lifetimes by replacing stored ArrayRef decl lists with owned decl storage plus arm index/count ranges. Added the non-CXXMG class-scope if parser guard. Split CXXMG expression factories into new ExprCXXMG.cpp. Added CXXMGImplementsExpr ASTImporter support. Implemented TreeTransform rebuild support for CXXMGTypeCheckExpr.
+
+diff --git a/clang/include/clang/AST/DeclCXXMG.h b/clang/include/clang/AST/DeclCXXMG.h
+index 1bd6a5538a0f..6f8b43422f43 100644
+--- a/clang/include/clang/AST/DeclCXXMG.h
++++ b/clang/include/clang/AST/DeclCXXMG.h
+@@ -44,7 +44,8 @@ class Expr;
+ /// materializes its declarations into the real class/struct.
+ struct CXXMGConditionalMemberArm {
+   Expr *Condition = nullptr;
+-  llvm::ArrayRef<Decl *> Decls;
++  unsigned DeclsStart = 0;
++  unsigned DeclsCount = 0;
+ 
+   AccessSpecifier StartAS = AS_none;
+ 
+@@ -54,13 +55,14 @@ struct CXXMGConditionalMemberArm {
+ 
+   CXXMGConditionalMemberArm() = default;
+ 
+-  CXXMGConditionalMemberArm(Expr *Condition,
+-                            llvm::ArrayRef<Decl *> Decls,
++  CXXMGConditionalMemberArm(Expr *Condition, unsigned DeclsStart,
++                            unsigned DeclsCount,
+                             AccessSpecifier StartAS,
+                             SourceRange Range,
+                             bool IsElseArm)
+       : Condition(Condition),
+-        Decls(Decls),
++        DeclsStart(DeclsStart),
++        DeclsCount(DeclsCount),
+         StartAS(StartAS),
+         Range(Range),
+         IsElseArm(IsElseArm) {}
+@@ -120,13 +122,15 @@ public:
+   Create(ASTContext &Ctx,
+          DeclContext *DC,
+          SourceLocation IfLoc,
+-         llvm::ArrayRef<CXXMGConditionalMemberArm> ParsedArms);
++         llvm::ArrayRef<CXXMGConditionalMemberArm> ParsedArms,
++         llvm::ArrayRef<llvm::ArrayRef<Decl *>> ParsedDecls);
+ 
+   static CXXMGConditionalMemberDecl *
+   CreateDeserialized(ASTContext &Ctx, GlobalDeclID ID);
+ 
+   void addDeserializedArm(ASTContext &Ctx,
+-                          const CXXMGConditionalMemberArm &Arm);
++                          const CXXMGConditionalMemberArm &Arm,
++                          llvm::ArrayRef<Decl *> Decls);
+ 
+   llvm::ArrayRef<CXXMGConditionalMemberArm> arms() const {
+     return Arms;
+@@ -140,6 +144,18 @@ public:
+     return Arms[I];
+   }
+ 
++  llvm::ArrayRef<Decl *> getArmDecls(unsigned I) const {
++    const CXXMGConditionalMemberArm &Arm = getArm(I);
++    return llvm::ArrayRef<Decl *>(OwnedDecls.data() + Arm.DeclsStart,
++                                  Arm.DeclsCount);
++  }
++
++  llvm::ArrayRef<Decl *> getArmDecls(
++      const CXXMGConditionalMemberArm &Arm) const {
++    return llvm::ArrayRef<Decl *>(OwnedDecls.data() + Arm.DeclsStart,
++                                  Arm.DeclsCount);
++  }
++
+   SourceLocation getIfLoc() const {
+     return IfLoc;
+   }
+diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
+index bda4ab6c09b7..154451e293c3 100644
+--- a/clang/include/clang/AST/RecursiveASTVisitor.h
++++ b/clang/include/clang/AST/RecursiveASTVisitor.h
+@@ -2529,11 +2529,12 @@ DEF_TRAVERSE_DECL(ImplicitConceptSpecializationDecl, {
+ })
+ 
+ DEF_TRAVERSE_DECL(CXXMGConditionalMemberDecl, {
+-  for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
++  for (unsigned I = 0, N = D->getNumArms(); I != N; ++I) {
++    const CXXMGConditionalMemberArm &Arm = D->getArm(I);
+     if (Arm.Condition)
+       TRY_TO(TraverseStmt(Arm.Condition));
+ 
+-    for (Decl *PatternDecl : Arm.Decls)
++    for (Decl *PatternDecl : D->getArmDecls(I))
+       TRY_TO(TraverseDecl(PatternDecl));
+   }
+ })
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index 821b333df6c6..ee3de3f38052 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -5916,7 +5916,8 @@ public:
+   void AddCXXMGConditionalMemberPatternDecl(Decl *D);
+   Decl *ActOnCXXMGConditionalMember(
+       Scope *S, Decl *TagDecl, SourceLocation IfLoc,
+-      llvm::ArrayRef<CXXMGConditionalMemberArm> Arms);
++      llvm::ArrayRef<CXXMGConditionalMemberArm> Arms,
++      llvm::ArrayRef<llvm::ArrayRef<Decl *>> ArmDecls);
+ 
+   Decl *ActOnCXXMGTraitAssociatedTypeRequirement(
+       Scope *S, Decl *TraitDecl, SourceLocation UsingLoc,
+diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
+index 809f1ce14d7c..6469db29d154 100644
+--- a/clang/lib/AST/ASTImporter.cpp
++++ b/clang/lib/AST/ASTImporter.cpp
+@@ -694,6 +694,7 @@ namespace clang {
+     ExpectedStmt VisitCXXNamedCastExpr(CXXNamedCastExpr *E);
+     ExpectedStmt VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E);
+     ExpectedStmt VisitTypeTraitExpr(TypeTraitExpr *E);
++    ExpectedStmt VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E);
+     ExpectedStmt VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E);
+     ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
+     ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
+@@ -1716,6 +1717,34 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+   return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
+ }
+ 
++ExpectedStmt
++ASTNodeImporter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
++  auto CandidateOrErr = import(E->getCandidateTypeSourceInfo());
++  if (!CandidateOrErr)
++    return CandidateOrErr.takeError();
++
++  auto RequirementOrErr = import(E->getRequirementTypeSourceInfo());
++  if (!RequirementOrErr)
++    return RequirementOrErr.takeError();
++
++  ExpectedSLoc OpLocOrErr = import(E->getOperatorLoc());
++  if (!OpLocOrErr)
++    return OpLocOrErr.takeError();
++
++  ExpectedSLoc OpEndLocOrErr = import(E->getOperatorEndLoc());
++  if (!OpEndLocOrErr)
++    return OpEndLocOrErr.takeError();
++
++  auto RangeOrErr = import(E->getSourceRange());
++  if (!RangeOrErr)
++    return RangeOrErr.takeError();
++
++  return CXXMGImplementsExpr::Create(Importer.getToContext(),
++                                     *CandidateOrErr, *RequirementOrErr,
++                                     *OpLocOrErr, *OpEndLocOrErr,
++                                     *RangeOrErr);
++}
++
+ ExpectedStmt
+ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+   Expected<CXXMGTypeExprNode *> NodeOrErr =
+diff --git a/clang/lib/AST/CMakeLists.txt b/clang/lib/AST/CMakeLists.txt
+index fee588260393..725cc1d05447 100644
+--- a/clang/lib/AST/CMakeLists.txt
++++ b/clang/lib/AST/CMakeLists.txt
+@@ -64,6 +64,7 @@ add_clang_library(clangAST
+   ExprConcepts.cpp
+   ExprConstant.cpp
+   ExprCXX.cpp
++  ExprCXXMG.cpp
+   ExprObjC.cpp
+   ExternalASTMerger.cpp
+   ExternalASTSource.cpp
+diff --git a/clang/lib/AST/DeclCXXMG.cpp b/clang/lib/AST/DeclCXXMG.cpp
+index a097e4dfe7e5..d32ee7833cbe 100644
+--- a/clang/lib/AST/DeclCXXMG.cpp
++++ b/clang/lib/AST/DeclCXXMG.cpp
+@@ -15,29 +15,31 @@ CXXMGConditionalMemberDecl::Create(
+     ASTContext &Ctx,
+     DeclContext *DC,
+     SourceLocation IfLoc,
+-    llvm::ArrayRef<CXXMGConditionalMemberArm> ParsedArms) {
++    llvm::ArrayRef<CXXMGConditionalMemberArm> ParsedArms,
++    llvm::ArrayRef<llvm::ArrayRef<Decl *>> ParsedDecls) {
+   auto *D = new (Ctx, DC) CXXMGConditionalMemberDecl(DC, IfLoc);
++  assert(ParsedArms.size() == ParsedDecls.size() &&
++         "conditional member arm metadata/declaration mismatch");
+ 
+   unsigned TotalDecls = 0;
+-  for (const CXXMGConditionalMemberArm &Arm : ParsedArms)
+-    TotalDecls += Arm.Decls.size();
++  for (llvm::ArrayRef<Decl *> Decls : ParsedDecls)
++    TotalDecls += Decls.size();
+ 
+   D->Arms.reserve(Ctx, ParsedArms.size());
+   D->OwnedDecls.reserve(Ctx, TotalDecls);
+ 
+-  for (const CXXMGConditionalMemberArm &Arm : ParsedArms) {
++  for (unsigned I = 0, N = ParsedArms.size(); I != N; ++I) {
++    const CXXMGConditionalMemberArm &Arm = ParsedArms[I];
++    llvm::ArrayRef<Decl *> Decls = ParsedDecls[I];
+     unsigned FirstDecl = D->OwnedDecls.size();
+ 
+-    D->OwnedDecls.append(Ctx, Arm.Decls.begin(), Arm.Decls.end());
+-
+-    llvm::ArrayRef<Decl *> StableDecls(
+-        D->OwnedDecls.begin() + FirstDecl,
+-        Arm.Decls.size());
++    D->OwnedDecls.append(Ctx, Decls.begin(), Decls.end());
+ 
+     D->Arms.push_back(
+         CXXMGConditionalMemberArm{
+             Arm.Condition,
+-            StableDecls,
++            FirstDecl,
++            static_cast<unsigned>(Decls.size()),
+             Arm.StartAS,
+             Arm.Range,
+             Arm.IsElseArm},
+@@ -54,13 +56,13 @@ CXXMGConditionalMemberDecl::CreateDeserialized(ASTContext &Ctx,
+ }
+ 
+ void CXXMGConditionalMemberDecl::addDeserializedArm(
+-    ASTContext &Ctx, const CXXMGConditionalMemberArm &Arm) {
++    ASTContext &Ctx, const CXXMGConditionalMemberArm &Arm,
++    llvm::ArrayRef<Decl *> Decls) {
+   unsigned FirstDecl = OwnedDecls.size();
+-  OwnedDecls.append(Ctx, Arm.Decls.begin(), Arm.Decls.end());
++  OwnedDecls.append(Ctx, Decls.begin(), Decls.end());
+ 
+-  llvm::ArrayRef<Decl *> StableDecls(OwnedDecls.begin() + FirstDecl,
+-                                     Arm.Decls.size());
+-  Arms.push_back(CXXMGConditionalMemberArm{Arm.Condition, StableDecls,
++  Arms.push_back(CXXMGConditionalMemberArm{Arm.Condition, FirstDecl,
++                                           static_cast<unsigned>(Decls.size()),
+                                            Arm.StartAS, Arm.Range,
+                                            Arm.IsElseArm},
+                  Ctx);
+diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
+index ade4eb8bd3e0..014f2bf69f0b 100644
+--- a/clang/lib/AST/Expr.cpp
++++ b/clang/lib/AST/Expr.cpp
+@@ -22,7 +22,6 @@
+ #include "clang/AST/DependenceFlags.h"
+ #include "clang/AST/EvaluatedExprVisitor.h"
+ #include "clang/AST/ExprCXX.h"
+-#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/IgnoreExpr.h"
+ #include "clang/AST/Mangle.h"
+ #include "clang/AST/RecordLayout.h"
+@@ -43,79 +42,6 @@
+ #include <optional>
+ using namespace clang;
+ 
+-static ExprDependence
+-computeCXXMGTypeCheckExprDependence(CXXMGTypeExprNode *ExprNode) {
+-  ExprDependence D = ExprDependence::None;
+-
+-  if (!ExprNode)
+-    return D;
+-
+-  if (ExprNode->containsUnexpandedParameterPack())
+-    D |= ExprDependence::UnexpandedPack;
+-
+-  if (ExprNode->isDependent() || ExprNode->isInstantiationDependent())
+-    D |= ExprDependence::ValueInstantiation;
+-
+-  return D;
+-}
+-
+-CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::Create(ASTContext &Ctx,
+-                                               CXXMGTypeExprNode *ExprNode) {
+-  return new (Ctx)
+-      CXXMGTypeCheckExpr(Ctx.BoolTy, ExprNode,
+-                         computeCXXMGTypeCheckExprDependence(ExprNode));
+-}
+-
+-CXXMGTypeCheckExpr *
+-CXXMGTypeCheckExpr::CreateResolved(ASTContext &Ctx,
+-                                   CXXMGTypeExprNode *ExprNode, bool Value) {
+-  return new (Ctx)
+-      CXXMGTypeCheckExpr(Ctx.BoolTy, ExprNode, ExprDependence::None,
+-                         /*HasKnownValue=*/true, Value);
+-}
+-
+-CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
+-  return new (Ctx) CXXMGTypeCheckExpr(EmptyShell());
+-}
+-
+-static ExprDependence
+-computeCXXMGImplementsExprDependence(TypeSourceInfo *CandidateTSI,
+-                                      TypeSourceInfo *RequirementTSI) {
+-  ExprDependence D = ExprDependence::None;
+-
+-  auto AddTypeDependence = [&](TypeSourceInfo *TSI) {
+-    if (!TSI)
+-      return;
+-    QualType T = TSI->getType();
+-    if (T.isNull())
+-      return;
+-    if (T->isDependentType())
+-      D |= ExprDependence::Type | ExprDependence::Value;
+-    if (T->isInstantiationDependentType())
+-      D |= ExprDependence::Instantiation | ExprDependence::Value;
+-    if (T->containsUnexpandedParameterPack())
+-      D |= ExprDependence::UnexpandedPack;
+-  };
+-
+-  AddTypeDependence(CandidateTSI);
+-  AddTypeDependence(RequirementTSI);
+-  return D;
+-}
+-
+-CXXMGImplementsExpr *
+-CXXMGImplementsExpr::Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
+-                            TypeSourceInfo *RequirementTSI,
+-                            SourceLocation OpLoc, SourceLocation OpEndLoc,
+-                            SourceRange Range) {
+-  return new (Ctx) CXXMGImplementsExpr(
+-      Ctx.BoolTy, CandidateTSI, RequirementTSI, OpLoc, OpEndLoc, Range,
+-      computeCXXMGImplementsExprDependence(CandidateTSI, RequirementTSI));
+-}
+-
+-CXXMGImplementsExpr *CXXMGImplementsExpr::CreateEmpty(ASTContext &Ctx) {
+-  return new (Ctx) CXXMGImplementsExpr(EmptyShell());
+-}
+-
+ const Expr *Expr::getBestDynamicClassTypeExpr() const {
+   const Expr *E = this;
+   while (true) {
+diff --git a/clang/lib/AST/ExprCXXMG.cpp b/clang/lib/AST/ExprCXXMG.cpp
+new file mode 100644
+index 000000000000..a6cd9c0debc6
+--- /dev/null
++++ b/clang/lib/AST/ExprCXXMG.cpp
+@@ -0,0 +1,91 @@
++//===--- ExprCXXMG.cpp - C++MG Expression AST Nodes ----------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements the C++MG Expr subclasses.
++//
++//===----------------------------------------------------------------------===//
++
++#include "clang/AST/ExprCXXMG.h"
++#include "clang/AST/ASTContext.h"
++#include "clang/AST/CXXMGTypeExpr.h"
++#include "clang/AST/Type.h"
++
++using namespace clang;
++
++static ExprDependence
++computeCXXMGTypeCheckExprDependence(CXXMGTypeExprNode *ExprNode) {
++  ExprDependence D = ExprDependence::None;
++
++  if (!ExprNode)
++    return D;
++
++  if (ExprNode->containsUnexpandedParameterPack())
++    D |= ExprDependence::UnexpandedPack;
++
++  if (ExprNode->isDependent() || ExprNode->isInstantiationDependent())
++    D |= ExprDependence::ValueInstantiation;
++
++  return D;
++}
++
++CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::Create(ASTContext &Ctx,
++                                               CXXMGTypeExprNode *ExprNode) {
++  return new (Ctx)
++      CXXMGTypeCheckExpr(Ctx.BoolTy, ExprNode,
++                         computeCXXMGTypeCheckExprDependence(ExprNode));
++}
++
++CXXMGTypeCheckExpr *
++CXXMGTypeCheckExpr::CreateResolved(ASTContext &Ctx,
++                                   CXXMGTypeExprNode *ExprNode, bool Value) {
++  return new (Ctx)
++      CXXMGTypeCheckExpr(Ctx.BoolTy, ExprNode, ExprDependence::None,
++                         /*HasKnownValue=*/true, Value);
++}
++
++CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
++  return new (Ctx) CXXMGTypeCheckExpr(EmptyShell());
++}
++
++static ExprDependence
++computeCXXMGImplementsExprDependence(TypeSourceInfo *CandidateTSI,
++                                      TypeSourceInfo *RequirementTSI) {
++  ExprDependence D = ExprDependence::None;
++
++  auto AddTypeDependence = [&](TypeSourceInfo *TSI) {
++    if (!TSI)
++      return;
++    QualType T = TSI->getType();
++    if (T.isNull())
++      return;
++    if (T->isDependentType())
++      D |= ExprDependence::Type | ExprDependence::Value;
++    if (T->isInstantiationDependentType())
++      D |= ExprDependence::Instantiation | ExprDependence::Value;
++    if (T->containsUnexpandedParameterPack())
++      D |= ExprDependence::UnexpandedPack;
++  };
++
++  AddTypeDependence(CandidateTSI);
++  AddTypeDependence(RequirementTSI);
++  return D;
++}
++
++CXXMGImplementsExpr *
++CXXMGImplementsExpr::Create(ASTContext &Ctx, TypeSourceInfo *CandidateTSI,
++                            TypeSourceInfo *RequirementTSI,
++                            SourceLocation OpLoc, SourceLocation OpEndLoc,
++                            SourceRange Range) {
++  return new (Ctx) CXXMGImplementsExpr(
++      Ctx.BoolTy, CandidateTSI, RequirementTSI, OpLoc, OpEndLoc, Range,
++      computeCXXMGImplementsExprDependence(CandidateTSI, RequirementTSI));
++}
++
++CXXMGImplementsExpr *CXXMGImplementsExpr::CreateEmpty(ASTContext &Ctx) {
++  return new (Ctx) CXXMGImplementsExpr(EmptyShell());
++}
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index 18d5b3af2da4..1a33f2e7d695 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -3547,7 +3547,9 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
+     return ParseOpenACCDirectiveDecl(AS, AccessAttrs, TagType, TagDecl);
+ 
+   case tok::kw_if:
+-    return ParseCXXMGConditionalMember(AS, AccessAttrs, TagType, TagDecl);
++    if (getLangOpts().CPlusPlusMG)
++      return ParseCXXMGConditionalMember(AS, AccessAttrs, TagType, TagDecl);
++    [[fallthrough]];
+ 
+   default:
+     if (tok::isPragmaAnnotation(Tok.getKind())) {
+diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
+index 42d80ab8bef3..b0f8ce66b17e 100644
+--- a/clang/lib/Parse/ParseDeclCXXMG.cpp
++++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
+@@ -26,6 +26,7 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+   assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
+ 
+   SmallVector<CXXMGConditionalMemberArm, 4> Arms;
++  SmallVector<SmallVector<Decl *, 8>, 4> ArmDeclStorage;
+   SourceLocation FirstIfLoc = Tok.getLocation();
+ 
+   while (true) {
+@@ -65,31 +66,36 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+     }
+ 
+     AccessSpecifier ArmAS = AS;
+-    SmallVector<Decl *, 8> PatternDecls;
++    ArmDeclStorage.emplace_back();
+     SourceRange ArmRange =
+         ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag,
+-                                        PatternDecls);
++                                        ArmDeclStorage.back());
+     Arms.push_back(
+-        CXXMGConditionalMemberArm(Condition, PatternDecls, ArmAS, ArmRange,
+-                                  IsElseArm));
++        CXXMGConditionalMemberArm(Condition, 0, 0, ArmAS, ArmRange, IsElseArm));
+ 
+     if (!TryConsumeToken(tok::kw_else))
+       break;
+ 
+     if (Tok.isNot(tok::kw_if)) {
+       AccessSpecifier ElseAS = AS;
+-      SmallVector<Decl *, 8> ElsePatternDecls;
++      ArmDeclStorage.emplace_back();
+       SourceRange ElseRange =
+           ParseCXXMGConditionalMemberBody(AS, AccessAttrs, TagType, Tag,
+-                                          ElsePatternDecls);
++                                          ArmDeclStorage.back());
+       Arms.push_back(CXXMGConditionalMemberArm(
+-          nullptr, ElsePatternDecls, ElseAS, ElseRange, /*IsElseArm=*/true));
++          nullptr, 0, 0, ElseAS, ElseRange, /*IsElseArm=*/true));
+       break;
+     }
+   }
+ 
++  SmallVector<llvm::ArrayRef<Decl *>, 4> ArmDecls;
++  ArmDecls.reserve(ArmDeclStorage.size());
++  for (const SmallVector<Decl *, 8> &Decls : ArmDeclStorage)
++    ArmDecls.push_back(Decls);
++
+   Decl *D =
+-      Actions.ActOnCXXMGConditionalMember(getCurScope(), Tag, FirstIfLoc, Arms);
++      Actions.ActOnCXXMGConditionalMember(getCurScope(), Tag, FirstIfLoc, Arms,
++                                          ArmDecls);
+   if (!D)
+     return nullptr;
+ 
+diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
+index 432cacef0e09..5637c7927c13 100644
+--- a/clang/lib/Sema/SemaDeclCXX.cpp
++++ b/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -3464,150 +3464,6 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
+   return false;
+ }
+ 
+-void Sema::BeginCXXMGConditionalMemberArm(CXXRecordDecl *TargetRecord,
+-                                          AccessSpecifier AS) {
+-  assert(TargetRecord && "conditional member arm needs a target record");
+-
+-  CXXMGConditionalMemberArmState State;
+-  State.TargetRecord = TargetRecord;
+-  State.StartAS = AS;
+-  CXXMGConditionalMemberArmStack.push_back(std::move(State));
+-}
+-
+-void Sema::EndCXXMGConditionalMemberArm(
+-    llvm::SmallVectorImpl<Decl *> &OutPatternDecls) {
+-  assert(!CXXMGConditionalMemberArmStack.empty() &&
+-         "ending conditional member arm without active state");
+-
+-  CXXMGConditionalMemberArmState &State =
+-      CXXMGConditionalMemberArmStack.back();
+-  OutPatternDecls.append(State.PatternDecls.begin(), State.PatternDecls.end());
+-  CXXMGConditionalMemberArmStack.pop_back();
+-}
+-
+-bool Sema::isCollectingCXXMGConditionalMemberForCurrentContext() const {
+-  return !CXXMGConditionalMemberArmStack.empty() &&
+-         CXXMGConditionalMemberArmStack.back().TargetRecord == CurContext;
+-}
+-
+-void Sema::AddCXXMGConditionalMemberPatternDecl(Decl *D) {
+-  assert(D && "cannot collect a null conditional member pattern declaration");
+-  assert(isCollectingCXXMGConditionalMemberForCurrentContext() &&
+-         "collecting a conditional member pattern from the wrong context");
+-  CXXMGConditionalMemberArmStack.back().PatternDecls.push_back(D);
+-}
+-
+-Decl *Sema::ActOnCXXMGConditionalMember(
+-    Scope *S, Decl *TagDecl, SourceLocation IfLoc,
+-    llvm::ArrayRef<CXXMGConditionalMemberArm> Arms) {
+-  CXXRecordDecl *Record = dyn_cast_or_null<CXXRecordDecl>(TagDecl);
+-  if (!Record)
+-    if (auto *Template = dyn_cast_or_null<ClassTemplateDecl>(TagDecl))
+-      Record = Template->getTemplatedDecl();
+-  if (!Record)
+-    return nullptr;
+-
+-  auto *D = CXXMGConditionalMemberDecl::Create(Context, Record, IfLoc, Arms);
+-  AccessSpecifier AS = Arms.empty() ? AS_none : Arms.front().StartAS;
+-  if (AS == AS_none)
+-    AS = Record->isClass() ? AS_private : AS_public;
+-  D->setAccess(AS);
+-  Record->addDecl(D);
+-
+-  for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
+-    bool Selected = Arm.isElseArm();
+-    if (Arm.hasCondition()) {
+-      if (Arm.Condition->isValueDependent())
+-        break;
+-
+-      bool ConditionValue = false;
+-      if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, Context))
+-        continue;
+-
+-      Selected = ConditionValue;
+-    }
+-
+-    if (!Selected)
+-      continue;
+-
+-    for (Decl *Pattern : Arm.Decls) {
+-      Record->addDecl(Pattern);
+-      if (auto *BUD = dyn_cast<BaseUsingDecl>(Pattern))
+-        for (UsingShadowDecl *Shadow : BUD->shadows())
+-          Record->addDecl(Shadow);
+-      if (auto *FD = dyn_cast<FieldDecl>(Pattern))
+-        FieldCollector->Add(FD);
+-    }
+-    break;
+-  }
+-
+-  return D;
+-}
+-
+-Decl *Sema::ActOnCXXMGTraitAssociatedTypeRequirement(
+-    Scope *S, Decl *TraitDecl, SourceLocation UsingLoc, SourceLocation NameLoc,
+-    IdentifierInfo *Name) {
+-  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
+-  if (!Record || !Record->isTrait())
+-    return nullptr;
+-  auto *D = TraitRequirementDecl::Create(
+-      Context, Record, UsingLoc, NameLoc, Name,
+-      TraitRequirementDecl::AssociatedTypeAny, nullptr);
+-  Record->addDecl(D);
+-  return D;
+-}
+-
+-Decl *Sema::ActOnCXXMGTraitStaticFunctionRequirement(
+-    Scope *S, Decl *TraitDecl, SourceLocation StaticLoc, SourceLocation NameLoc,
+-    IdentifierInfo *Name, TypeSourceInfo *FunctionTypeInfo) {
+-  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
+-  if (!Record || !Record->isTrait())
+-    return nullptr;
+-  auto *D = TraitRequirementDecl::Create(
+-      Context, Record, StaticLoc, NameLoc, Name,
+-      TraitRequirementDecl::StaticFunctionAnyReturn, FunctionTypeInfo);
+-  Record->addDecl(D);
+-  return D;
+-}
+-
+-void Sema::ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl,
+-                                            DeclGroupPtrTy DG) {
+-  auto *Record = dyn_cast_or_null<CXXRecordDecl>(TraitDecl);
+-  if (!Record || !Record->isTrait() || !DG)
+-    return;
+-
+-  for (Decl *D : DG.get()) {
+-    if (!D)
+-      continue;
+-    if (auto *FD = dyn_cast<FieldDecl>(D)) {
+-      if (!FD->getIdentifier() || FD->isBitField())
+-        Diag(FD->getLocation(), diag::err_cxxmg_trait_invalid_member);
+-      if (FD->hasInClassInitializer())
+-        Diag(FD->getLocation(), diag::err_cxxmg_trait_initializer);
+-      continue;
+-    }
+-    if (auto *VD = dyn_cast<VarDecl>(D)) {
+-      if (!VD->isStaticDataMember())
+-        Diag(VD->getLocation(), diag::err_cxxmg_trait_invalid_member);
+-      if (VD->hasInit())
+-        Diag(VD->getLocation(), diag::err_cxxmg_trait_initializer);
+-      continue;
+-    }
+-    if (isa<TypeAliasDecl>(D) || isa<TraitRequirementDecl>(D))
+-      continue;
+-    if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
+-      if (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD) ||
+-          isa<CXXConversionDecl>(MD) ||
+-          MD->getDeclName().getNameKind() == DeclarationName::CXXOperatorName)
+-        Diag(MD->getLocation(), diag::err_cxxmg_trait_special_member);
+-      if (MD->doesThisDeclarationHaveABody())
+-        Diag(MD->getLocation(), diag::err_cxxmg_trait_function_body);
+-      continue;
+-    }
+-    Diag(D->getLocation(), diag::err_cxxmg_trait_invalid_member);
+-  }
+-}
+-
+ NamedDecl *
+ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
+                                MultiTemplateParamsArg TemplateParameterLists,
+diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
+index 8061da693393..18d75d43ceea 100644
+--- a/clang/lib/Sema/SemaDeclCXXMG.cpp
++++ b/clang/lib/Sema/SemaDeclCXXMG.cpp
+@@ -21,6 +21,89 @@
+ 
+ using namespace clang;
+ 
++void Sema::BeginCXXMGConditionalMemberArm(CXXRecordDecl *TargetRecord,
++                                          AccessSpecifier AS) {
++  assert(TargetRecord && "conditional member arm needs a target record");
++
++  CXXMGConditionalMemberArmState State;
++  State.TargetRecord = TargetRecord;
++  State.StartAS = AS;
++  CXXMGConditionalMemberArmStack.push_back(std::move(State));
++}
++
++void Sema::EndCXXMGConditionalMemberArm(
++    llvm::SmallVectorImpl<Decl *> &OutPatternDecls) {
++  assert(!CXXMGConditionalMemberArmStack.empty() &&
++         "ending conditional member arm without active state");
++
++  CXXMGConditionalMemberArmState &State =
++      CXXMGConditionalMemberArmStack.back();
++  OutPatternDecls.append(State.PatternDecls.begin(), State.PatternDecls.end());
++  CXXMGConditionalMemberArmStack.pop_back();
++}
++
++bool Sema::isCollectingCXXMGConditionalMemberForCurrentContext() const {
++  return !CXXMGConditionalMemberArmStack.empty() &&
++         CXXMGConditionalMemberArmStack.back().TargetRecord == CurContext;
++}
++
++void Sema::AddCXXMGConditionalMemberPatternDecl(Decl *D) {
++  assert(D && "cannot collect a null conditional member pattern declaration");
++  assert(isCollectingCXXMGConditionalMemberForCurrentContext() &&
++         "collecting a conditional member pattern from the wrong context");
++  CXXMGConditionalMemberArmStack.back().PatternDecls.push_back(D);
++}
++
++Decl *Sema::ActOnCXXMGConditionalMember(
++    Scope *S, Decl *TagDecl, SourceLocation IfLoc,
++    llvm::ArrayRef<CXXMGConditionalMemberArm> Arms,
++    llvm::ArrayRef<llvm::ArrayRef<Decl *>> ArmDecls) {
++  CXXRecordDecl *Record = dyn_cast_or_null<CXXRecordDecl>(TagDecl);
++  if (!Record)
++    if (auto *Template = dyn_cast_or_null<ClassTemplateDecl>(TagDecl))
++      Record = Template->getTemplatedDecl();
++  if (!Record)
++    return nullptr;
++
++  auto *D = CXXMGConditionalMemberDecl::Create(Context, Record, IfLoc, Arms,
++                                               ArmDecls);
++  AccessSpecifier AS = Arms.empty() ? AS_none : Arms.front().StartAS;
++  if (AS == AS_none)
++    AS = Record->isClass() ? AS_private : AS_public;
++  D->setAccess(AS);
++  Record->addDecl(D);
++
++  for (unsigned I = 0, N = D->getNumArms(); I != N; ++I) {
++    const CXXMGConditionalMemberArm &Arm = D->getArm(I);
++    bool Selected = Arm.isElseArm();
++    if (Arm.hasCondition()) {
++      if (Arm.Condition->isValueDependent())
++        break;
++
++      bool ConditionValue = false;
++      if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, Context))
++        continue;
++
++      Selected = ConditionValue;
++    }
++
++    if (!Selected)
++      continue;
++
++    for (Decl *Pattern : D->getArmDecls(I)) {
++      Record->addDecl(Pattern);
++      if (auto *BUD = dyn_cast<BaseUsingDecl>(Pattern))
++        for (UsingShadowDecl *Shadow : BUD->shadows())
++          Record->addDecl(Shadow);
++      if (auto *FD = dyn_cast<FieldDecl>(Pattern))
++        FieldCollector->Add(FD);
++    }
++    break;
++  }
++
++  return D;
++}
++
+ Decl *Sema::ActOnCXXMGTraitAssociatedTypeRequirement(
+     Scope *S, Decl *TraitDecl, SourceLocation UsingLoc, SourceLocation NameLoc,
+     IdentifierInfo *Name) {
+@@ -83,4 +166,4 @@ void Sema::ActOnCXXMGTraitMemberDeclaration(Decl *TraitDecl,
+     }
+     Diag(D->getLocation(), diag::err_cxxmg_trait_invalid_member);
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
+index e0fabad20b43..f97d43f08d91 100644
+--- a/clang/lib/Sema/SemaExpr.cpp
++++ b/clang/lib/Sema/SemaExpr.cpp
+@@ -2917,10 +2917,8 @@ static bool CXXMGRecordHasConditionalMemberExpressionCandidate(
+     if (FirstPossibleArm == CXXMGInvalidConditionalMemberArmIndex)
+       continue;
+ 
+-    ArrayRef<CXXMGConditionalMemberArm> Arms = CMD->arms();
+-    for (const CXXMGConditionalMemberArm &Arm :
+-         Arms.drop_front(FirstPossibleArm)) {
+-      for (const Decl *PatternDecl : Arm.Decls) {
++    for (unsigned I = FirstPossibleArm, N = CMD->getNumArms(); I != N; ++I) {
++      for (const Decl *PatternDecl : CMD->getArmDecls(I)) {
+         if (cxxmgConditionalMemberPatternDeclMatchesName(PatternDecl, Name))
+           return true;
+       }
+diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+index 90aa0f32606a..a4d2b73e5d3e 100644
+--- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
++++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+@@ -3657,7 +3657,8 @@ bool Sema::InstantiateClassImpl(
+     }
+ 
+     if (auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(Member)) {
+-      for (const CXXMGConditionalMemberArm &Arm : CMD->arms()) {
++      for (unsigned I = 0, N = CMD->getNumArms(); I != N; ++I) {
++        const CXXMGConditionalMemberArm &Arm = CMD->getArm(I);
+         bool Selected = Arm.isElseArm();
+         if (Arm.hasCondition()) {
+           EnterExpressionEvaluationContext Eval(
+@@ -3682,7 +3683,7 @@ bool Sema::InstantiateClassImpl(
+         if (!Selected)
+           continue;
+ 
+-        for (Decl *PatternDecl : Arm.Decls) {
++        for (Decl *PatternDecl : CMD->getArmDecls(I)) {
+           Decl *NewArmMember = Instantiator.Visit(PatternDecl);
+           HandleInstantiatedMember(NewArmMember);
+           if (StopInstantiation)
+diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
+index 8b37281e52e9..d56adeb8048e 100644
+--- a/clang/lib/Sema/TreeTransform.h
++++ b/clang/lib/Sema/TreeTransform.h
+@@ -14800,7 +14800,19 @@ TreeTransform<Derived>::TransformCXXBoolLiteralExpr(CXXBoolLiteralExpr *E) {
+ template <typename Derived>
+ ExprResult
+ TreeTransform<Derived>::TransformCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+-  return ExprError();
++  CXXMGTypeExprNode *Node =
++      getDerived().TransformCXXMGTypeExprNode(E->getTypeExprNode());
++  if (!Node)
++    return ExprError();
++
++  if (!getDerived().AlwaysRebuild() && Node == E->getTypeExprNode())
++    return E;
++
++  if (E->hasKnownValue())
++    return CXXMGTypeCheckExpr::CreateResolved(getSema().Context, Node,
++                                              E->getKnownValue());
++
++  return CXXMGTypeCheckExpr::Create(getSema().Context, Node);
+ }
+ 
+ template<typename Derived>
+diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
+index 3e5689a9567f..f19ddcb2ad57 100644
+--- a/clang/lib/Serialization/ASTReaderDecl.cpp
++++ b/clang/lib/Serialization/ASTReaderDecl.cpp
+@@ -2473,8 +2473,8 @@ void ASTDeclReader::VisitCXXMGConditionalMemberDecl(
+       PatternDecls.push_back(Record.readDecl());
+     D->addDeserializedArm(
+         Reader.getContext(),
+-        CXXMGConditionalMemberArm(Condition, PatternDecls, StartAS, Range,
+-                                  IsElseArm));
++        CXXMGConditionalMemberArm(Condition, 0, 0, StartAS, Range, IsElseArm),
++        PatternDecls);
+   }
+ }
+ 
+diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
+index 85b8dfc2ce13..2227093b51ab 100644
+--- a/clang/lib/Serialization/ASTWriterDecl.cpp
++++ b/clang/lib/Serialization/ASTWriterDecl.cpp
+@@ -1896,13 +1896,15 @@ void ASTDeclWriter::VisitCXXMGConditionalMemberDecl(
+     CXXMGConditionalMemberDecl *D) {
+   VisitDecl(D);
+   Record.push_back(D->getNumArms());
+-  for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
++  for (unsigned I = 0, N = D->getNumArms(); I != N; ++I) {
++    const CXXMGConditionalMemberArm &Arm = D->getArm(I);
+     Record.AddStmt(Arm.Condition);
+     Record.AddSourceRange(Arm.Range);
+     Record.push_back(Arm.StartAS);
+     Record.push_back(Arm.IsElseArm);
+-    Record.push_back(Arm.Decls.size());
+-    for (Decl *PatternDecl : Arm.Decls)
++    llvm::ArrayRef<Decl *> Decls = D->getArmDecls(I);
++    Record.push_back(Decls.size());
++    for (Decl *PatternDecl : Decls)
+       Record.AddDeclRef(PatternDecl);
+   }
+   Code = serialization::DECL_CXXMG_CONDITIONAL_MEMBER;
+-- 
+2.54.0
+

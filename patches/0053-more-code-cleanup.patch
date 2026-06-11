@@ -1,0 +1,2196 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Wed, 10 Jun 2026 21:28:15 -0400
+Subject: [PATCH] More code cleanup
+
+
+diff --git a/clang/include/clang/AST/ASTImporter.h b/clang/include/clang/AST/ASTImporter.h
+index 82df6223afb5..39d1429639ed 100644
+--- a/clang/include/clang/AST/ASTImporter.h
++++ b/clang/include/clang/AST/ASTImporter.h
+@@ -18,7 +18,6 @@
+ #include "clang/AST/DeclBase.h"
+ #include "clang/AST/DeclarationName.h"
+ #include "clang/AST/ExprCXX.h"
+-#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/NestedNameSpecifier.h"
+ #include "clang/AST/TemplateName.h"
+ #include "clang/AST/Type.h"
+diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
+index 8f2a569e5511..6dbdba23274a 100644
+--- a/clang/include/clang/AST/CXXMGTypeExpr.h
++++ b/clang/include/clang/AST/CXXMGTypeExpr.h
+@@ -1,8 +1,8 @@
+-//===- CXXMGTypeExpr.h - C++MG type-expression AST nodes --------*- C++ -*-===//
++//===- CXXMGTypeExpr.h - C++MG Type-Expression AST Nodes -------*- C++MG -*-===//
+ //
+-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+-// See https://llvm.org/LICENSE.txt for license information.
+-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
+ //
+ //===----------------------------------------------------------------------===//
+ 
+@@ -30,7 +30,7 @@ enum class CXXMGTypeExprOpcode : unsigned {
+ 
+ const char *getCXXMGTypeExprOpcodeSpelling(CXXMGTypeExprOpcode Op);
+ 
+-bool isSameCXXMGTypeExprNode(const ASTContext &Ctx, const CXXMGTypeExprNode *A,
++bool isSameCXXMGTypeExprNode(const CXXMGTypeExprNode *A,
+                              const CXXMGTypeExprNode *B);
+ 
+ class CXXMGTypeExprNode {
+diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
+index b0736d85c6d7..855e62681887 100644
+--- a/clang/include/clang/AST/DeclCXX.h
++++ b/clang/include/clang/AST/DeclCXX.h
+@@ -51,7 +51,6 @@
+ #include <memory>
+ #include <vector>
+ 
+-#include "clang/AST/DeclCXXMG.h"
+ 
+ namespace clang {
+ 
+@@ -2146,49 +2145,6 @@ public:
+   }
+ };
+ 
+-class TraitRequirementDecl final : public NamedDecl {
+-public:
+-  enum RequirementKind : uint8_t {
+-    AssociatedTypeAny,
+-    StaticFunctionAnyReturn
+-  };
+-
+-private:
+-  RequirementKind ReqKind;
+-  TypeSourceInfo *FunctionTypeInfo;
+-  SourceLocation KeywordLoc;
+-
+-  TraitRequirementDecl(DeclContext *DC, SourceLocation KeywordLoc,
+-                       SourceLocation NameLoc, IdentifierInfo *Name,
+-                       RequirementKind Kind,
+-                       TypeSourceInfo *FunctionTypeInfo)
+-      : NamedDecl(TraitRequirement, DC, NameLoc, Name), ReqKind(Kind),
+-        FunctionTypeInfo(FunctionTypeInfo), KeywordLoc(KeywordLoc) {}
+-
+-public:
+-  friend class ASTDeclReader;
+-
+-  static TraitRequirementDecl *Create(ASTContext &C, DeclContext *DC,
+-                                      SourceLocation KeywordLoc,
+-                                      SourceLocation NameLoc,
+-                                      IdentifierInfo *Name,
+-                                      RequirementKind Kind,
+-                                      TypeSourceInfo *FunctionTypeInfo);
+-  static TraitRequirementDecl *CreateDeserialized(ASTContext &C,
+-                                                  GlobalDeclID ID);
+-
+-  RequirementKind getRequirementKind() const { return ReqKind; }
+-  bool isAssociatedTypeAny() const { return ReqKind == AssociatedTypeAny; }
+-  bool isStaticFunctionAnyReturn() const {
+-    return ReqKind == StaticFunctionAnyReturn;
+-  }
+-  TypeSourceInfo *getFunctionTypeInfo() const { return FunctionTypeInfo; }
+-  SourceLocation getKeywordLoc() const { return KeywordLoc; }
+-
+-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+-  static bool classofKind(Kind K) { return K == TraitRequirement; }
+-};
+-
+ /// Represents a static or instance method of a struct/union/class.
+ ///
+ /// In the terminology of the C++ Standard, these are the (static and
+diff --git a/clang/include/clang/AST/DeclCXXMG.h b/clang/include/clang/AST/DeclCXXMG.h
+index 6f8b43422f43..364f2b5a0d7d 100644
+--- a/clang/include/clang/AST/DeclCXXMG.h
++++ b/clang/include/clang/AST/DeclCXXMG.h
+@@ -1,4 +1,4 @@
+-//===- DeclCXXMG.h - Classes for representing C++MG declarations --*- C++MG -*-=====//
++//===- DeclCXXMG.h - C++MG Declaration AST Nodes ---------------*- C++MG -*-===//
+ //
+ /// \file
+ /// Defines the C++MG Decl subclasses.
+@@ -8,8 +8,8 @@
+ #ifndef LLVM_CLANG_AST_DECLCXXMG_H
+ #define LLVM_CLANG_AST_DECLCXXMG_H
+ 
+-#include "clang/AST/DeclBase.h"
+ #include "clang/AST/ASTVector.h"
++#include "clang/AST/Decl.h"
+ #include "clang/Basic/Specifiers.h"
+ #include "llvm/ADT/ArrayRef.h"
+ 
+@@ -18,6 +18,49 @@ namespace clang {
+ class ASTContext;
+ class Expr;
+ 
++class TraitRequirementDecl final : public NamedDecl {
++public:
++  enum RequirementKind : uint8_t {
++    AssociatedTypeAny,
++    StaticFunctionAnyReturn
++  };
++
++private:
++  RequirementKind ReqKind;
++  TypeSourceInfo *FunctionTypeInfo;
++  SourceLocation KeywordLoc;
++
++  TraitRequirementDecl(DeclContext *DC, SourceLocation KeywordLoc,
++                       SourceLocation NameLoc, IdentifierInfo *Name,
++                       RequirementKind Kind,
++                       TypeSourceInfo *FunctionTypeInfo)
++      : NamedDecl(TraitRequirement, DC, NameLoc, Name), ReqKind(Kind),
++        FunctionTypeInfo(FunctionTypeInfo), KeywordLoc(KeywordLoc) {}
++
++public:
++  friend class ASTDeclReader;
++
++  static TraitRequirementDecl *Create(ASTContext &C, DeclContext *DC,
++                                      SourceLocation KeywordLoc,
++                                      SourceLocation NameLoc,
++                                      IdentifierInfo *Name,
++                                      RequirementKind Kind,
++                                      TypeSourceInfo *FunctionTypeInfo);
++  static TraitRequirementDecl *CreateDeserialized(ASTContext &C,
++                                                  GlobalDeclID ID);
++
++  RequirementKind getRequirementKind() const { return ReqKind; }
++  bool isAssociatedTypeAny() const { return ReqKind == AssociatedTypeAny; }
++  bool isStaticFunctionAnyReturn() const {
++    return ReqKind == StaticFunctionAnyReturn;
++  }
++  TypeSourceInfo *getFunctionTypeInfo() const { return FunctionTypeInfo; }
++  SourceLocation getKeywordLoc() const { return KeywordLoc; }
++
++  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
++  static bool classofKind(Kind K) { return K == TraitRequirement; }
++};
++
+ /// Represents one arm of a class-scope C++MG conditional member chain.
+ ///
+ /// Example:
+diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
+index 983c167037cf..3a1b31c9df61 100644
+--- a/clang/include/clang/AST/ExprCXXMG.h
++++ b/clang/include/clang/AST/ExprCXXMG.h
+@@ -1,4 +1,10 @@
+-//===- ExprCXXMG.h - C++MG expression AST nodes -----------------*- C++ -*-===//
++//===- ExprCXXMG.h - C++MG Expression AST Nodes ----------------*- C++MG -*-===//
++//
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
++//
++//===----------------------------------------------------------------------===//
+ 
+ #ifndef LLVM_CLANG_AST_EXPRCXXMG_H
+ #define LLVM_CLANG_AST_EXPRCXXMG_H
+diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
+index 154451e293c3..51acb160ee58 100644
+--- a/clang/include/clang/AST/RecursiveASTVisitor.h
++++ b/clang/include/clang/AST/RecursiveASTVisitor.h
+@@ -18,6 +18,7 @@
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclBase.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclFriend.h"
+ #include "clang/AST/DeclObjC.h"
+ #include "clang/AST/DeclOpenACC.h"
+diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
+index bb9e3d626bfa..2affc16d29c4 100644
+--- a/clang/include/clang/AST/TextNodeDumper.h
++++ b/clang/include/clang/AST/TextNodeDumper.h
+@@ -21,7 +21,6 @@
+ #include "clang/AST/DeclVisitor.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExprCXX.h"
+-#include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/StmtVisitor.h"
+ #include "clang/AST/TemplateArgumentVisitor.h"
+ #include "clang/AST/Type.h"
+@@ -31,6 +30,10 @@
+ namespace clang {
+ 
+ class APValue;
++class CXXMGImplementsExpr;
++class CXXMGTypeCheckExpr;
++class CXXMGTypeExprType;
++class TraitRequirementDecl;
+ 
+ class TextTreeStructure {
+   raw_ostream &OS;
+diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
+index 1d20df1a8b8c..1d2dd05f56de 100644
+--- a/clang/include/clang/Basic/DiagnosticParseKinds.td
++++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
+@@ -643,6 +643,8 @@ def err_cxxmg_trait_invalid_base_clause : Error<
+   "traits cannot have base classes yet">;
+ def err_cxxmg_trait_access_specifier : Error<
+   "traits do not use access specifiers">;
++def err_cxxmg_trait_static_function_params : Error<
++  "C++MG static trait function requirements with parameters are not supported yet">;
+ def err_cxxmg_expected_type_after_implements :
+   Error<"expected trait requirement after C++MG 'implements' operator">;
+ def err_cxxmg_expected_type_before_implements :
+diff --git a/clang/include/clang/Lex/PreprocessorOptions.h b/clang/include/clang/Lex/PreprocessorOptions.h
+index 8dfbf3d91bc6..60eb4470d683 100644
+--- a/clang/include/clang/Lex/PreprocessorOptions.h
++++ b/clang/include/clang/Lex/PreprocessorOptions.h
+@@ -13,6 +13,7 @@
+ #include "clang/Basic/FileEntry.h"
+ #include "clang/Basic/LLVM.h"
+ #include "clang/Lex/DependencyDirectivesScanner.h"
++#include "llvm/ADT/SmallVector.h"
+ #include "llvm/ADT/StringRef.h"
+ #include "llvm/ADT/StringSet.h"
+ #include <functional>
+@@ -193,7 +194,7 @@ public:
+   bool UrlIncludeAllowHTTP = false;
+   std::string UrlIncludeCacheDir = ".cxxmg-cache";
+   std::string UrlIncludeTool = "auto";
+-  std::vector<std::string> UrlIncludeToolArgs;
++  llvm::SmallVector<std::string, 4> UrlIncludeToolArgs;
+   unsigned UrlIncludeTimeout = 30;
+   UrlIncludeProgressMode UrlIncludeProgress = UrlIncludeProgressMode::Auto;
+ 
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index ee3de3f38052..99d3aa482963 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -26,7 +26,6 @@
+ #include "clang/AST/DeclarationName.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/AST/ExprCXX.h"
+-#include "clang/AST/CXXMGTypeExpr.h"
+ #include "clang/AST/ExprConcepts.h"
+ #include "clang/AST/ExternalASTSource.h"
+ #include "clang/AST/NestedNameSpecifier.h"
+@@ -128,6 +127,8 @@ class ASTWriter;
+ class CXXBasePath;
+ class CXXBasePaths;
+ class CXXFieldCollector;
++struct CXXMGConditionalMemberArm;
++class CXXMGTypeExprNode;
+ class CodeCompleteConsumer;
+ enum class ComparisonCategoryType : unsigned char;
+ class ConstraintSatisfaction;
+diff --git a/clang/include/clang/Sema/Template.h b/clang/include/clang/Sema/Template.h
+index b0170c21feb1..0ca6162912d3 100644
+--- a/clang/include/clang/Sema/Template.h
++++ b/clang/include/clang/Sema/Template.h
+@@ -30,6 +30,7 @@ namespace clang {
+ 
+ class ASTContext;
+ class BindingDecl;
++class CXXMGConditionalMemberDecl;
+ class CXXMethodDecl;
+ class Decl;
+ class DeclaratorDecl;
+@@ -665,6 +666,8 @@ enum class TemplateSubstitutionKind : char {
+     Decl *VisitDecl(Decl *D);
+     Decl *VisitVarDecl(VarDecl *D, bool InstantiatingVarTemplate,
+                        ArrayRef<BindingDecl *> *Bindings = nullptr);
++    bool InstantiateCXXMGConditionalMemberDecl(
++        CXXMGConditionalMemberDecl *D, SmallVectorImpl<Decl *> &Instantiated);
+     Decl *VisitBaseUsingDecls(BaseUsingDecl *D, BaseUsingDecl *Inst,
+                               LookupResult *Lookup);
+ 
+diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
+index 2e9efba0b0b5..3fa2bb06df22 100644
+--- a/clang/lib/AST/ASTContext.cpp
++++ b/clang/lib/AST/ASTContext.cpp
+@@ -14464,7 +14464,7 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
+   case Type::CXXMGTypeExpr: {
+     const auto *TX = cast<CXXMGTypeExprType>(X);
+     const auto *TY = cast<CXXMGTypeExprType>(Y);
+-    assert(isSameCXXMGTypeExprNode(Ctx, TX->getTypeExprNode(),
++    assert(isSameCXXMGTypeExprNode(TX->getTypeExprNode(),
+                                    TY->getTypeExprNode()));
+     return QualType(TX, 0);
+   }
+diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
+index 6469db29d154..54fec737a547 100644
+--- a/clang/lib/AST/ASTImporter.cpp
++++ b/clang/lib/AST/ASTImporter.cpp
+@@ -23,6 +23,7 @@
+ #include "clang/AST/DeclAccessPair.h"
+ #include "clang/AST/DeclBase.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclFriend.h"
+ #include "clang/AST/DeclGroup.h"
+ #include "clang/AST/DeclObjC.h"
+@@ -517,6 +518,7 @@ namespace clang {
+     ExpectedDecl VisitEmptyDecl(EmptyDecl *D);
+     ExpectedDecl VisitAccessSpecDecl(AccessSpecDecl *D);
+     ExpectedDecl VisitStaticAssertDecl(StaticAssertDecl *D);
++    ExpectedDecl VisitTraitRequirementDecl(TraitRequirementDecl *D);
+     ExpectedDecl VisitTranslationUnitDecl(TranslationUnitDecl *D);
+     ExpectedDecl VisitBindingDecl(BindingDecl *D);
+     ExpectedDecl VisitNamespaceDecl(NamespaceDecl *D);
+@@ -1665,7 +1667,7 @@ ASTNodeImporter::VisitPackIndexingType(clang::PackIndexingType const *T) {
+ }
+ 
+ static Expected<CXXMGTypeExprNode *>
+-ImportCXXMGTypeExprNode(ASTImporter &Importer, ASTContext &ToContext,
++importCXXMGTypeExprNode(ASTImporter &Importer, ASTContext &ToContext,
+                         CXXMGTypeExprNode *Node) {
+   if (!Node)
+     return nullptr;
+@@ -1693,12 +1695,12 @@ ImportCXXMGTypeExprNode(ASTImporter &Importer, ASTContext &ToContext,
+     return OpLocOrErr.takeError();
+ 
+   Expected<CXXMGTypeExprNode *> LHSOrErr =
+-      ImportCXXMGTypeExprNode(Importer, ToContext, Node->getLHS());
++      importCXXMGTypeExprNode(Importer, ToContext, Node->getLHS());
+   if (!LHSOrErr)
+     return LHSOrErr.takeError();
+ 
+   Expected<CXXMGTypeExprNode *> RHSOrErr =
+-      ImportCXXMGTypeExprNode(Importer, ToContext, Node->getRHS());
++      importCXXMGTypeExprNode(Importer, ToContext, Node->getRHS());
+   if (!RHSOrErr)
+     return RHSOrErr.takeError();
+ 
+@@ -1710,7 +1712,7 @@ ImportCXXMGTypeExprNode(ASTImporter &Importer, ASTContext &ToContext,
+ ExpectedType
+ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+   Expected<CXXMGTypeExprNode *> NodeOrErr =
+-      ImportCXXMGTypeExprNode(Importer, Importer.getToContext(),
++      importCXXMGTypeExprNode(Importer, Importer.getToContext(),
+                               T->getTypeExprNode());
+   if (!NodeOrErr)
+     return NodeOrErr.takeError();
+@@ -1748,7 +1750,7 @@ ASTNodeImporter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
+ ExpectedStmt
+ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+   Expected<CXXMGTypeExprNode *> NodeOrErr =
+-      ImportCXXMGTypeExprNode(Importer, Importer.getToContext(),
++      importCXXMGTypeExprNode(Importer, Importer.getToContext(),
+                               E->getTypeExprNode());
+   if (!NodeOrErr)
+     return NodeOrErr.takeError();
+@@ -2942,6 +2944,35 @@ ExpectedDecl ASTNodeImporter::VisitAccessSpecDecl(AccessSpecDecl *D) {
+   return ToD;
+ }
+ 
++ExpectedDecl
++ASTNodeImporter::VisitTraitRequirementDecl(TraitRequirementDecl *D) {
++  DeclContext *DC, *LexicalDC;
++  DeclarationName Name;
++  SourceLocation Loc;
++  NamedDecl *ToND;
++  if (Error Err = ImportDeclParts(D, DC, LexicalDC, Name, ToND, Loc))
++    return std::move(Err);
++  if (ToND)
++    return ToND;
++
++  ExpectedSLoc KeywordLocOrErr = import(D->getKeywordLoc());
++  if (!KeywordLocOrErr)
++    return KeywordLocOrErr.takeError();
++
++  auto FunctionTypeInfoOrErr = import(D->getFunctionTypeInfo());
++  if (!FunctionTypeInfoOrErr)
++    return FunctionTypeInfoOrErr.takeError();
++
++  auto *ToD = TraitRequirementDecl::Create(
++      Importer.getToContext(), DC, *KeywordLocOrErr, Loc,
++      Name.getAsIdentifierInfo(), D->getRequirementKind(),
++      *FunctionTypeInfoOrErr);
++  Importer.MapImported(D, ToD);
++  ToD->setLexicalDeclContext(LexicalDC);
++  LexicalDC->addDeclInternal(ToD);
++  return ToD;
++}
++
+ ExpectedDecl ASTNodeImporter::VisitStaticAssertDecl(StaticAssertDecl *D) {
+   auto DCOrErr = Importer.ImportContext(D->getDeclContext());
+   if (!DCOrErr)
+diff --git a/clang/lib/AST/ASTStructuralEquivalence.cpp b/clang/lib/AST/ASTStructuralEquivalence.cpp
+index b6594c10f80e..c66e8acfff8e 100644
+--- a/clang/lib/AST/ASTStructuralEquivalence.cpp
++++ b/clang/lib/AST/ASTStructuralEquivalence.cpp
+@@ -997,7 +997,7 @@ bool ASTStructuralEquivalence::isEquivalent(
+ 
+   case Type::CXXMGTypeExpr:
+     if (!isSameCXXMGTypeExprNode(
+-            Context.FromCtx, cast<CXXMGTypeExprType>(T1)->getTypeExprNode(),
++            cast<CXXMGTypeExprType>(T1)->getTypeExprNode(),
+             cast<CXXMGTypeExprType>(T2)->getTypeExprNode()))
+       return false;
+     break;
+diff --git a/clang/lib/AST/CXXMGTypeExpr.cpp b/clang/lib/AST/CXXMGTypeExpr.cpp
+index 40ae3dd7e72a..6529d650e5e7 100644
+--- a/clang/lib/AST/CXXMGTypeExpr.cpp
++++ b/clang/lib/AST/CXXMGTypeExpr.cpp
+@@ -1,8 +1,8 @@
+ //===- CXXMGTypeExpr.cpp - C++MG type-expression AST nodes ----------------===//
+ //
+-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+-// See https://llvm.org/LICENSE.txt for license information.
+-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
+ //
+ //===----------------------------------------------------------------------===//
+ 
+@@ -24,8 +24,7 @@ const char *clang::getCXXMGTypeExprOpcodeSpelling(CXXMGTypeExprOpcode Op) {
+   llvm_unreachable("unknown C++MG type-expression opcode");
+ }
+ 
+-bool clang::isSameCXXMGTypeExprNode(const ASTContext &Ctx,
+-                                    const CXXMGTypeExprNode *A,
++bool clang::isSameCXXMGTypeExprNode(const CXXMGTypeExprNode *A,
+                                     const CXXMGTypeExprNode *B) {
+   if (A == B)
+     return true;
+@@ -42,8 +41,8 @@ bool clang::isSameCXXMGTypeExprNode(const ASTContext &Ctx,
+   }
+   case CXXMGTypeExprNode::Binary:
+     return A->getOpcode() == B->getOpcode() &&
+-           isSameCXXMGTypeExprNode(Ctx, A->getLHS(), B->getLHS()) &&
+-           isSameCXXMGTypeExprNode(Ctx, A->getRHS(), B->getRHS());
++           isSameCXXMGTypeExprNode(A->getLHS(), B->getLHS()) &&
++           isSameCXXMGTypeExprNode(A->getRHS(), B->getRHS());
+   }
+ 
+   llvm_unreachable("unknown C++MG type-expression node kind");
+@@ -96,7 +95,7 @@ void CXXMGTypeExprNode::Profile(llvm::FoldingSetNodeID &ID) const {
+   ID.AddInteger(getKind());
+   if (isOperand()) {
+     QualType T = OperandTSI ? OperandTSI->getType() : QualType();
+-    ID.AddPointer(T.getAsOpaquePtr());
++    ID.AddPointer(T.isNull() ? nullptr : T.getCanonicalType().getAsOpaquePtr());
+     return;
+   }
+   ID.AddInteger(static_cast<unsigned>(Opcode));
+diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
+index d77f81c7d8ae..fc8a15287f43 100644
+--- a/clang/lib/AST/DeclCXX.cpp
++++ b/clang/lib/AST/DeclCXX.cpp
+@@ -2409,23 +2409,6 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+   return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
+ }
+ 
+-TraitRequirementDecl *TraitRequirementDecl::Create(
+-    ASTContext &C, DeclContext *DC, SourceLocation KeywordLoc,
+-    SourceLocation NameLoc, IdentifierInfo *Name, RequirementKind Kind,
+-    TypeSourceInfo *FunctionTypeInfo) {
+-  auto *D = new (C, DC) TraitRequirementDecl(DC, KeywordLoc, NameLoc, Name,
+-                                             Kind, FunctionTypeInfo);
+-  D->setAccess(AS_public);
+-  return D;
+-}
+-
+-TraitRequirementDecl *
+-TraitRequirementDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+-  return new (C, ID) TraitRequirementDecl(
+-      nullptr, SourceLocation(), SourceLocation(), nullptr, AssociatedTypeAny,
+-      nullptr);
+-}
+-
+ void CXXMethodDecl::anchor() {}
+ 
+ bool CXXMethodDecl::isStatic() const {
+diff --git a/clang/lib/AST/DeclCXXMG.cpp b/clang/lib/AST/DeclCXXMG.cpp
+index d32ee7833cbe..57ab24b03d67 100644
+--- a/clang/lib/AST/DeclCXXMG.cpp
++++ b/clang/lib/AST/DeclCXXMG.cpp
+@@ -10,6 +10,23 @@
+ 
+ using namespace clang;
+ 
++TraitRequirementDecl *TraitRequirementDecl::Create(
++    ASTContext &C, DeclContext *DC, SourceLocation KeywordLoc,
++    SourceLocation NameLoc, IdentifierInfo *Name, RequirementKind Kind,
++    TypeSourceInfo *FunctionTypeInfo) {
++  auto *D = new (C, DC) TraitRequirementDecl(DC, KeywordLoc, NameLoc, Name,
++                                             Kind, FunctionTypeInfo);
++  D->setAccess(AS_public);
++  return D;
++}
++
++TraitRequirementDecl *
++TraitRequirementDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
++  return new (C, ID) TraitRequirementDecl(
++      nullptr, SourceLocation(), SourceLocation(), nullptr, AssociatedTypeAny,
++      nullptr);
++}
++
+ CXXMGConditionalMemberDecl *
+ CXXMGConditionalMemberDecl::Create(
+     ASTContext &Ctx,
+diff --git a/clang/lib/AST/ExprCXXMG.cpp b/clang/lib/AST/ExprCXXMG.cpp
+index a6cd9c0debc6..9e8f90c1d2e1 100644
+--- a/clang/lib/AST/ExprCXXMG.cpp
++++ b/clang/lib/AST/ExprCXXMG.cpp
+@@ -1,8 +1,8 @@
+ //===--- ExprCXXMG.cpp - C++MG Expression AST Nodes ----------------------===//
+ //
+-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+-// See https://llvm.org/LICENSE.txt for license information.
+-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
+ //
+ //===----------------------------------------------------------------------===//
+ //
+diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
+index ec58cc32a5b8..70ee7988c427 100644
+--- a/clang/lib/AST/TextNodeDumper.cpp
++++ b/clang/lib/AST/TextNodeDumper.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "clang/AST/TextNodeDumper.h"
+ #include "clang/AST/APValue.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclFriend.h"
+ #include "clang/AST/ExprCXXMG.h"
+ #include "clang/AST/DeclOpenMP.h"
+diff --git a/clang/lib/Driver/Driver.cpp b/clang/lib/Driver/Driver.cpp
+index 75a70d48627b..dde297ec18f4 100644
+--- a/clang/lib/Driver/Driver.cpp
++++ b/clang/lib/Driver/Driver.cpp
+@@ -1975,7 +1975,8 @@ static const char BugReportMsg[] =
+     "This is clang-mg, a patched, unofficial Clang/LLVM build.\n"
+     "Do NOT report this crash to the LLVM project unless it also reproduces "
+     "with an official upstream LLVM/Clang build.\n"
+-    "Please report clang-mg crashes to " BUG_REPORT_URL
++    "Please report clang-mg crashes to "
++    "https://github.com/mgorn/mg-cxx/issues/"
+     " and attach the following crash reproducer files:";
+ 
+ // When clang crashes, produce diagnostic information including the fully
+diff --git a/clang/lib/Lex/CMakeLists.txt b/clang/lib/Lex/CMakeLists.txt
+index f61737cd6802..abcdc31eb725 100644
+--- a/clang/lib/Lex/CMakeLists.txt
++++ b/clang/lib/Lex/CMakeLists.txt
+@@ -31,6 +31,7 @@ add_clang_library(clangLex
+   ScratchBuffer.cpp
+   TokenConcatenation.cpp
+   TokenLexer.cpp
++  UrlInclude.cpp
+ 
+   LINK_LIBS
+   clangBasic
+diff --git a/clang/lib/Lex/PPDirectives.cpp b/clang/lib/Lex/PPDirectives.cpp
+index af7afada31d2..443798f6f7d7 100644
+--- a/clang/lib/Lex/PPDirectives.cpp
++++ b/clang/lib/Lex/PPDirectives.cpp
+@@ -11,6 +11,7 @@
+ ///
+ //===----------------------------------------------------------------------===//
+ 
++#include "UrlInclude.h"
+ #include "clang/Basic/AttributeCommonInfo.h"
+ #include "clang/Basic/Attributes.h"
+ #include "clang/Basic/CharInfo.h"
+@@ -36,7 +37,6 @@
+ #include "clang/Lex/PreprocessorOptions.h"
+ #include "clang/Lex/Token.h"
+ #include "clang/Lex/VariadicMacroSupport.h"
+-#include "llvm/ADT/ArrayRef.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallVector.h"
+@@ -46,326 +46,18 @@
+ #include "llvm/Support/Error.h"
+ #include "llvm/Support/ErrorHandling.h"
+ #include "llvm/Support/FileSystem.h"
+-#include "llvm/Support/IOSandbox.h"
+-#include "llvm/Support/LockFileManager.h"
+ #include "llvm/Support/Path.h"
+-#include "llvm/Support/Program.h"
+ #include "llvm/Support/SaveAndRestore.h"
+-#include "llvm/Support/SHA256.h"
+ #include <algorithm>
+ #include <cassert>
+-#include <chrono>
+ #include <cstddef>
+ #include <cstring>
+ #include <system_error>
+-#include <optional>
+ #include <string>
+ #include <utility>
+ 
+ using namespace clang;
+ 
+-namespace {
+-
+-struct UrlIncludeResult {
+-  SmallString<256> CachePath;
+-  SmallString<256> SearchPath;
+-  SmallString<128> RelativePath;
+-  std::string Downloader;
+-  bool CacheHit = false;
+-};
+-
+-static std::string getUrlIncludeHash(StringRef URL) {
+-  auto Digest = llvm::SHA256::hash(llvm::arrayRefFromStringRef(URL));
+-  return llvm::toHex(Digest, /*LowerCase=*/true);
+-}
+-
+-static std::string sanitizeUrlIncludeBasename(StringRef URL) {
+-  StringRef WithoutFragment = URL.split('#').first;
+-  StringRef WithoutQuery = WithoutFragment.split('?').first;
+-  StringRef Base = llvm::sys::path::filename(WithoutQuery,
+-                                             llvm::sys::path::Style::posix);
+-  std::string Result;
+-  for (char C : Base.take_front(80)) {
+-    if (llvm::isAlnum(C) || C == '.' || C == '_' || C == '-')
+-      Result.push_back(C);
+-    else
+-      Result.push_back('_');
+-  }
+-  if (Result.empty())
+-    Result = "urlinclude.hpp";
+-  return Result;
+-}
+-
+-static std::string redactUrlIncludeForDiagnostics(StringRef URL) {
+-  std::string Result = URL.str();
+-  size_t SchemeEnd = Result.find("://");
+-  if (SchemeEnd != std::string::npos) {
+-    size_t AuthorityStart = SchemeEnd + 3;
+-    size_t AuthorityEnd = Result.find_first_of("/?#", AuthorityStart);
+-    size_t At = Result.find('@', AuthorityStart);
+-    if (At != std::string::npos &&
+-        (AuthorityEnd == std::string::npos || At < AuthorityEnd))
+-      Result.replace(AuthorityStart, At - AuthorityStart, "<redacted>");
+-  }
+-  return Result;
+-}
+-
+-static bool hasUrlIncludeRawWhitespaceOrControl(StringRef URL) {
+-  return llvm::any_of(URL, [](char C) {
+-    unsigned char UC = static_cast<unsigned char>(C);
+-    return UC <= 0x20 || UC == 0x7f;
+-  });
+-}
+-
+-static bool validateUrlInclude(Preprocessor &PP, StringRef URL,
+-                               SourceLocation Loc) {
+-  if (hasUrlIncludeRawWhitespaceOrControl(URL)) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_invalid_url)
+-        << "raw whitespace or control character";
+-    return false;
+-  }
+-
+-  StringRef Scheme = URL.split(':').first;
+-  if (Scheme.empty() || Scheme == URL) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_expected_url);
+-    return false;
+-  }
+-  if (Scheme != "https" && Scheme != "http") {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_unsupported_scheme);
+-    return false;
+-  }
+-  if (Scheme == "http" && !PP.getPreprocessorOpts().UrlIncludeAllowHTTP) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_http_requires_flag);
+-    return false;
+-  }
+-  StringRef Rest = URL.drop_front(Scheme.size() + 1);
+-  if (!Rest.consume_front("//")) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_expected_url);
+-    return false;
+-  }
+-  StringRef Host = Rest.take_until([](char C) {
+-    return C == '/' || C == '?' || C == '#';
+-  });
+-  if (Host.empty()) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_invalid_url) << "empty host";
+-    return false;
+-  }
+-  return true;
+-}
+-
+-static bool computeUrlIncludeCachePath(Preprocessor &PP, StringRef URL,
+-                                       UrlIncludeResult &Result) {
+-  Result.SearchPath = PP.getPreprocessorOpts().UrlIncludeCacheDir;
+-  if (std::error_code EC =
+-          llvm::sys::fs::make_absolute(Result.SearchPath)) {
+-    PP.Diag(SourceLocation(), diag::err_pp_urlinclude_cache_write_failed)
+-        << Result.SearchPath;
+-    return false;
+-  }
+-
+-  std::string Hash = getUrlIncludeHash(URL);
+-  std::string Base = Hash + "-" + sanitizeUrlIncludeBasename(URL);
+-  Result.RelativePath = Base;
+-  Result.CachePath = Result.SearchPath;
+-  llvm::sys::path::append(Result.CachePath, Base);
+-  return true;
+-}
+-
+-static bool shouldShowUrlIncludeProgress(Preprocessor &PP) {
+-  switch (PP.getPreprocessorOpts().UrlIncludeProgress) {
+-  case UrlIncludeProgressMode::Always:
+-    return true;
+-  case UrlIncludeProgressMode::Never:
+-  case UrlIncludeProgressMode::Auto:
+-    return false;
+-  }
+-  llvm_unreachable("invalid #urlinclude progress mode");
+-}
+-
+-static bool findUrlIncludeDownloader(Preprocessor &PP, std::string &Program,
+-                                     std::string &Kind) {
+-  StringRef Tool = PP.getPreprocessorOpts().UrlIncludeTool;
+-  auto FindByName = [](StringRef Name) -> std::optional<std::string> {
+-    if (llvm::ErrorOr<std::string> P = llvm::sys::findProgramByName(Name))
+-      return *P;
+-    return std::nullopt;
+-  };
+-
+-  if (Tool != "auto") {
+-    Kind = Tool.str();
+-    if (llvm::sys::path::has_parent_path(Tool)) {
+-      Program = Tool.str();
+-      return true;
+-    }
+-    if (auto Found = FindByName(Tool)) {
+-      Program = *Found;
+-      return true;
+-    }
+-    return false;
+-  }
+-
+-  if (auto Curl = FindByName("curl")) {
+-    Program = *Curl;
+-    Kind = "curl";
+-    return true;
+-  }
+-  if (auto Wget = FindByName("wget")) {
+-    Program = *Wget;
+-    Kind = "wget";
+-    return true;
+-  }
+-  return false;
+-}
+-
+-static bool runUrlIncludeDownloader(Preprocessor &PP, StringRef URL,
+-                                    StringRef OutputPath,
+-                                    std::string &Downloader) {
+-  std::string Program;
+-  if (!findUrlIncludeDownloader(PP, Program, Downloader)) {
+-    PP.Diag(SourceLocation(), diag::err_pp_urlinclude_no_downloader);
+-    return false;
+-  }
+-
+-  bool ShowProgress = shouldShowUrlIncludeProgress(PP);
+-  unsigned Timeout = PP.getPreprocessorOpts().UrlIncludeTimeout;
+-  SmallVector<StringRef, 16> Args;
+-  Args.push_back(Program);
+-
+-  if (Downloader == "curl" || llvm::sys::path::filename(Program) == "curl") {
+-    Args.append({"--disable", "-L", "--fail", "--show-error",
+-                 "--connect-timeout", "10", "--max-time"});
+-    std::string TimeoutStr = std::to_string(Timeout);
+-    Args.push_back(TimeoutStr);
+-    if (ShowProgress)
+-      Args.push_back("--progress-bar");
+-    else
+-      Args.append({"--silent", "--show-error"});
+-    if (PP.getPreprocessorOpts().UrlIncludeAllowHTTP)
+-      Args.append({"--proto", "=http,https", "--proto-redir", "=http,https"});
+-    else
+-      Args.append({"--proto", "=https", "--proto-redir", "=https"});
+-    Args.append({"-o", OutputPath, "--", URL});
+-    int Code = llvm::sys::ExecuteAndWait(Program, Args, std::nullopt, {},
+-                                         Timeout, 0);
+-    if (Code != 0) {
+-      PP.Diag(SourceLocation(), diag::err_pp_urlinclude_download_failed)
+-          << redactUrlIncludeForDiagnostics(URL) << Downloader;
+-      return false;
+-    }
+-    return true;
+-  }
+-
+-  if (Downloader == "wget" || llvm::sys::path::filename(Program) == "wget") {
+-    std::string TimeoutArg = "--timeout=" + std::to_string(Timeout);
+-    Args.append({"-O", OutputPath, TimeoutArg, "--tries=1"});
+-    if (ShowProgress)
+-      Args.push_back("--progress=bar:force:noscroll");
+-    else
+-      Args.push_back("--no-verbose");
+-    Args.append({"--", URL});
+-    int Code = llvm::sys::ExecuteAndWait(Program, Args, std::nullopt, {},
+-                                         Timeout, 0);
+-    if (Code != 0) {
+-      PP.Diag(SourceLocation(), diag::err_pp_urlinclude_download_failed)
+-          << redactUrlIncludeForDiagnostics(URL) << Downloader;
+-      return false;
+-    }
+-    return true;
+-  }
+-
+-  for (const std::string &Arg : PP.getPreprocessorOpts().UrlIncludeToolArgs)
+-    Args.push_back(Arg);
+-  Args.append({"-o", OutputPath, URL});
+-  int Code =
+-      llvm::sys::ExecuteAndWait(Program, Args, std::nullopt, {}, Timeout, 0);
+-  if (Code != 0) {
+-    PP.Diag(SourceLocation(), diag::err_pp_urlinclude_download_failed)
+-        << redactUrlIncludeForDiagnostics(URL) << Downloader;
+-    return false;
+-  }
+-  return true;
+-}
+-
+-static bool ensureUrlIncludeCached(Preprocessor &PP, StringRef URL,
+-                                   SourceLocation Loc,
+-                                   UrlIncludeResult &Result) {
+-  auto BypassSandbox = llvm::sys::sandbox::scopedDisable();
+-
+-  if (!validateUrlInclude(PP, URL, Loc))
+-    return false;
+-  if (!computeUrlIncludeCachePath(PP, URL, Result))
+-    return false;
+-
+-  const PreprocessorOptions &Opts = PP.getPreprocessorOpts();
+-  if (!Opts.UrlIncludeRefresh &&
+-      llvm::sys::fs::exists(Twine(Result.CachePath))) {
+-    Result.CacheHit = true;
+-    return true;
+-  }
+-
+-  if (Opts.UrlIncludeOffline) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_offline_cache_miss)
+-        << redactUrlIncludeForDiagnostics(URL);
+-    return false;
+-  }
+-
+-  if (std::error_code EC = llvm::sys::fs::create_directories(Result.SearchPath)) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed)
+-        << Result.SearchPath;
+-    return false;
+-  }
+-
+-  llvm::LockFileManager Lock(Result.CachePath);
+-  if (auto Locked = Lock.tryLock()) {
+-    if (!*Locked) {
+-      if (Lock.waitForUnlockFor(std::chrono::seconds(
+-              std::max(60u, Opts.UrlIncludeTimeout))) ==
+-          llvm::WaitForUnlockResult::Timeout) {
+-        PP.Diag(Loc, diag::err_pp_urlinclude_lock_timeout) << Result.CachePath;
+-        return false;
+-      }
+-      if (!Opts.UrlIncludeRefresh &&
+-          llvm::sys::fs::exists(Twine(Result.CachePath))) {
+-        Result.CacheHit = true;
+-        return true;
+-      }
+-    }
+-  } else {
+-    consumeError(Locked.takeError());
+-    PP.Diag(Loc, diag::err_pp_urlinclude_lock_timeout) << Result.CachePath;
+-    return false;
+-  }
+-
+-  SmallString<256> TmpModel = Result.SearchPath;
+-  llvm::sys::path::append(TmpModel, "urlinclude-%%%%%%%%.tmp");
+-  SmallString<256> TmpPath;
+-  if (std::error_code EC =
+-          llvm::sys::fs::createUniqueFile(TmpModel, TmpPath)) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed) << TmpModel;
+-    return false;
+-  }
+-  llvm::scope_exit Cleanup(
+-      [&] { llvm::sys::fs::remove(Twine(TmpPath)); });
+-
+-  if (!runUrlIncludeDownloader(PP, URL, TmpPath, Result.Downloader))
+-    return false;
+-  if (!llvm::sys::fs::exists(Twine(TmpPath))) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_cache_file_missing) << TmpPath;
+-    return false;
+-  }
+-
+-  if (std::error_code EC =
+-          llvm::sys::fs::rename(Twine(TmpPath), Twine(Result.CachePath))) {
+-    PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed)
+-        << Result.CachePath;
+-    return false;
+-  }
+-  Cleanup.release();
+-  return true;
+-}
+-
+-} // namespace
+-
+ //===----------------------------------------------------------------------===//
+ // Utility Methods for Preprocessor Directive Handling.
+ //===----------------------------------------------------------------------===//
+diff --git a/clang/lib/Lex/UrlInclude.cpp b/clang/lib/Lex/UrlInclude.cpp
+new file mode 100644
+index 000000000000..0131e3b03eda
+--- /dev/null
++++ b/clang/lib/Lex/UrlInclude.cpp
+@@ -0,0 +1,363 @@
++//===--- UrlInclude.cpp - C++MG URL Include Support ----------------------===//
++//
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements cache, download, locking, and diagnostic support for
++// the C++MG #urlinclude directive.
++//
++//===----------------------------------------------------------------------===//
++
++#include "UrlInclude.h"
++#include "clang/Basic/CharInfo.h"
++#include "clang/Lex/LexDiagnostic.h"
++#include "clang/Lex/Preprocessor.h"
++#include "clang/Lex/PreprocessorOptions.h"
++#include "llvm/ADT/ArrayRef.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Support/Error.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/IOSandbox.h"
++#include "llvm/Support/LockFileManager.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/Process.h"
++#include "llvm/Support/Program.h"
++#include "llvm/Support/SHA256.h"
++#include <algorithm>
++#include <chrono>
++#include <optional>
++#include <string>
++#include <system_error>
++
++using namespace clang;
++
++namespace {
++
++std::string getUrlIncludeHash(StringRef URL) {
++  auto Digest = llvm::SHA256::hash(llvm::arrayRefFromStringRef(URL));
++  return llvm::toHex(Digest, /*LowerCase=*/true);
++}
++
++std::string sanitizeUrlIncludeBasename(StringRef URL) {
++  StringRef WithoutFragment = URL.split('#').first;
++  StringRef WithoutQuery = WithoutFragment.split('?').first;
++  StringRef Base = llvm::sys::path::filename(WithoutQuery,
++                                             llvm::sys::path::Style::posix);
++  std::string Result;
++  for (char C : Base.take_front(80)) {
++    if (llvm::isAlnum(C) || C == '.' || C == '_' || C == '-')
++      Result.push_back(C);
++    else
++      Result.push_back('_');
++  }
++  if (Result.empty())
++    Result = "urlinclude.hpp";
++  return Result;
++}
++
++std::string redactUrlIncludeForDiagnostics(StringRef URL) {
++  StringRef Scheme = URL.take_until([](char C) { return C == ':'; });
++  StringRef Rest = URL.drop_front(Scheme.size());
++  if (!Rest.consume_front("://"))
++    return "<redacted-url>";
++
++  StringRef Authority = Rest.take_until([](char C) {
++    return C == '/' || C == '?' || C == '#';
++  });
++  StringRef PathAndSuffix = Rest.drop_front(Authority.size());
++  StringRef Host = Authority;
++  if (size_t At = Authority.rfind('@'); At != StringRef::npos)
++    Host = Authority.drop_front(At + 1);
++
++  StringRef Path = PathAndSuffix.take_until([](char C) {
++    return C == '?' || C == '#';
++  });
++  StringRef QueryAndFragment = PathAndSuffix.drop_front(Path.size());
++  StringRef Base = llvm::sys::path::filename(Path,
++                                             llvm::sys::path::Style::posix);
++
++  std::string Result;
++  Result += Scheme;
++  Result += "://";
++  Result += Host;
++  if (!Base.empty()) {
++    Result += "/.../";
++    Result += Base;
++  }
++
++  if (QueryAndFragment.contains('?'))
++    Result += "?[redacted]";
++  if (QueryAndFragment.contains('#'))
++    Result += "#[redacted]";
++  return Result;
++}
++
++bool hasUrlIncludeRawWhitespaceOrControl(StringRef URL) {
++  return llvm::any_of(URL, [](char C) {
++    unsigned char UC = static_cast<unsigned char>(C);
++    return UC <= 0x20 || UC == 0x7f;
++  });
++}
++
++bool validateUrlInclude(Preprocessor &PP, StringRef URL, SourceLocation Loc) {
++  if (hasUrlIncludeRawWhitespaceOrControl(URL)) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_invalid_url)
++        << "raw whitespace or control character";
++    return false;
++  }
++
++  StringRef Scheme = URL.split(':').first;
++  if (Scheme.empty() || Scheme == URL) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_expected_url);
++    return false;
++  }
++  if (Scheme != "https" && Scheme != "http") {
++    PP.Diag(Loc, diag::err_pp_urlinclude_unsupported_scheme);
++    return false;
++  }
++  if (Scheme == "http" && !PP.getPreprocessorOpts().UrlIncludeAllowHTTP) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_http_requires_flag);
++    return false;
++  }
++  StringRef Rest = URL.drop_front(Scheme.size() + 1);
++  if (!Rest.consume_front("//")) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_expected_url);
++    return false;
++  }
++  StringRef Host = Rest.take_until([](char C) {
++    return C == '/' || C == '?' || C == '#';
++  });
++  if (Host.empty()) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_invalid_url) << "empty host";
++    return false;
++  }
++  return true;
++}
++
++bool computeUrlIncludeCachePath(Preprocessor &PP, StringRef URL,
++                                SourceLocation Loc,
++                                UrlIncludeResult &Result) {
++  Result.SearchPath = PP.getPreprocessorOpts().UrlIncludeCacheDir;
++  if (std::error_code EC = llvm::sys::fs::make_absolute(Result.SearchPath)) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed)
++        << Result.SearchPath;
++    return false;
++  }
++
++  std::string Hash = getUrlIncludeHash(URL);
++  std::string Base = Hash + "-" + sanitizeUrlIncludeBasename(URL);
++  Result.RelativePath = Base;
++  Result.CachePath = Result.SearchPath;
++  llvm::sys::path::append(Result.CachePath, Base);
++  return true;
++}
++
++bool shouldShowUrlIncludeProgress(Preprocessor &PP) {
++  switch (PP.getPreprocessorOpts().UrlIncludeProgress) {
++  case UrlIncludeProgressMode::Always:
++    return true;
++  case UrlIncludeProgressMode::Never:
++    return false;
++  case UrlIncludeProgressMode::Auto:
++    return llvm::sys::Process::StandardErrIsDisplayed();
++  }
++  llvm_unreachable("invalid #urlinclude progress mode");
++}
++
++bool findUrlIncludeDownloader(Preprocessor &PP, std::string &Program,
++                              std::string &Kind) {
++  StringRef Tool = PP.getPreprocessorOpts().UrlIncludeTool;
++  auto FindByName = [](StringRef Name) -> std::optional<std::string> {
++    if (llvm::ErrorOr<std::string> P = llvm::sys::findProgramByName(Name))
++      return *P;
++    return std::nullopt;
++  };
++
++  if (Tool != "auto") {
++    Kind = Tool.str();
++    if (llvm::sys::path::has_parent_path(Tool)) {
++      Program = Tool.str();
++      return true;
++    }
++    if (auto Found = FindByName(Tool)) {
++      Program = *Found;
++      return true;
++    }
++    return false;
++  }
++
++  if (auto Curl = FindByName("curl")) {
++    Program = *Curl;
++    Kind = "curl";
++    return true;
++  }
++  if (auto Wget = FindByName("wget")) {
++    Program = *Wget;
++    Kind = "wget";
++    return true;
++  }
++  return false;
++}
++
++int executeUrlIncludeDownloader(StringRef Program, ArrayRef<StringRef> Args,
++                                unsigned Timeout) {
++  // Launching the configured downloader is the only operation here that may
++  // need to escape LLVM's process sandbox. URL validation, cache checks,
++  // locking, and file writes remain in the normal sandboxed execution path.
++  auto DisableSandbox = llvm::sys::sandbox::scopedDisable();
++  return llvm::sys::ExecuteAndWait(Program, Args, std::nullopt, {}, Timeout, 0);
++}
++
++bool runUrlIncludeDownloader(Preprocessor &PP, StringRef URL,
++                             SourceLocation Loc, StringRef OutputPath,
++                             std::string &Downloader) {
++  std::string Program;
++  if (!findUrlIncludeDownloader(PP, Program, Downloader)) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_no_downloader);
++    return false;
++  }
++
++  bool ShowProgress = shouldShowUrlIncludeProgress(PP);
++  unsigned Timeout = PP.getPreprocessorOpts().UrlIncludeTimeout;
++  SmallVector<StringRef, 16> Args;
++  Args.push_back(Program);
++
++  if (Downloader == "curl" || llvm::sys::path::filename(Program) == "curl") {
++    Args.append({"--disable", "-L", "--fail", "--show-error",
++                 "--connect-timeout", "10", "--max-time"});
++    std::string TimeoutStr = std::to_string(Timeout);
++    Args.push_back(TimeoutStr);
++    if (ShowProgress)
++      Args.push_back("--progress-bar");
++    else
++      Args.append({"--silent", "--show-error"});
++    if (PP.getPreprocessorOpts().UrlIncludeAllowHTTP)
++      Args.append({"--proto", "=http,https", "--proto-redir", "=http,https"});
++    else
++      Args.append({"--proto", "=https", "--proto-redir", "=https"});
++    Args.append({"-o", OutputPath, "--", URL});
++    int Code = executeUrlIncludeDownloader(Program, Args, Timeout);
++    if (Code != 0) {
++      PP.Diag(Loc, diag::err_pp_urlinclude_download_failed)
++          << redactUrlIncludeForDiagnostics(URL) << Downloader;
++      return false;
++    }
++    return true;
++  }
++
++  if (Downloader == "wget" || llvm::sys::path::filename(Program) == "wget") {
++    std::string TimeoutArg = "--timeout=" + std::to_string(Timeout);
++    Args.append({"-O", OutputPath, TimeoutArg, "--tries=1"});
++    if (ShowProgress)
++      Args.push_back("--progress=bar:force:noscroll");
++    else
++      Args.push_back("--no-verbose");
++    Args.append({"--", URL});
++    int Code = executeUrlIncludeDownloader(Program, Args, Timeout);
++    if (Code != 0) {
++      PP.Diag(Loc, diag::err_pp_urlinclude_download_failed)
++          << redactUrlIncludeForDiagnostics(URL) << Downloader;
++      return false;
++    }
++    return true;
++  }
++
++  for (const std::string &Arg : PP.getPreprocessorOpts().UrlIncludeToolArgs)
++    Args.push_back(Arg);
++  Args.append({"-o", OutputPath, URL});
++  int Code = executeUrlIncludeDownloader(Program, Args, Timeout);
++  if (Code != 0) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_download_failed)
++        << redactUrlIncludeForDiagnostics(URL) << Downloader;
++    return false;
++  }
++  return true;
++}
++
++} // namespace
++
++bool clang::ensureUrlIncludeCached(Preprocessor &PP, StringRef URL,
++                                   SourceLocation Loc,
++                                   UrlIncludeResult &Result) {
++  if (!validateUrlInclude(PP, URL, Loc))
++    return false;
++  if (!computeUrlIncludeCachePath(PP, URL, Loc, Result))
++    return false;
++
++  const PreprocessorOptions &Opts = PP.getPreprocessorOpts();
++  if (!Opts.UrlIncludeRefresh &&
++      llvm::sys::fs::exists(Twine(Result.CachePath))) {
++    Result.CacheHit = true;
++    return true;
++  }
++
++  if (Opts.UrlIncludeOffline) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_offline_cache_miss)
++        << redactUrlIncludeForDiagnostics(URL);
++    return false;
++  }
++
++  if (std::error_code EC = llvm::sys::fs::create_directories(Result.SearchPath)) {
++    PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed)
++        << Result.SearchPath;
++    return false;
++  }
++
++  for (;;) {
++    llvm::LockFileManager Lock(Result.CachePath);
++    auto Locked = Lock.tryLock();
++    if (!Locked) {
++      consumeError(Locked.takeError());
++      PP.Diag(Loc, diag::err_pp_urlinclude_lock_timeout) << Result.CachePath;
++      return false;
++    }
++
++    if (!*Locked) {
++      if (Lock.waitForUnlockFor(std::chrono::seconds(
++              std::max(60u, Opts.UrlIncludeTimeout))) ==
++          llvm::WaitForUnlockResult::Timeout) {
++        PP.Diag(Loc, diag::err_pp_urlinclude_lock_timeout) << Result.CachePath;
++        return false;
++      }
++      continue;
++    }
++
++    if (!Opts.UrlIncludeRefresh &&
++        llvm::sys::fs::exists(Twine(Result.CachePath))) {
++      Result.CacheHit = true;
++      return true;
++    }
++
++    SmallString<256> TmpModel = Result.SearchPath;
++    llvm::sys::path::append(TmpModel, "urlinclude-%%%%%%%%.tmp");
++    SmallString<256> TmpPath;
++    if (std::error_code EC =
++            llvm::sys::fs::createUniqueFile(TmpModel, TmpPath)) {
++      PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed) << TmpModel;
++      return false;
++    }
++    llvm::scope_exit Cleanup([&] { llvm::sys::fs::remove(Twine(TmpPath)); });
++
++    if (!runUrlIncludeDownloader(PP, URL, Loc, TmpPath, Result.Downloader))
++      return false;
++    if (!llvm::sys::fs::exists(Twine(TmpPath))) {
++      PP.Diag(Loc, diag::err_pp_urlinclude_cache_file_missing) << TmpPath;
++      return false;
++    }
++
++    if (std::error_code EC =
++            llvm::sys::fs::rename(Twine(TmpPath), Twine(Result.CachePath))) {
++      PP.Diag(Loc, diag::err_pp_urlinclude_cache_write_failed)
++          << Result.CachePath;
++      return false;
++    }
++    Cleanup.release();
++    return true;
++  }
++}
+diff --git a/clang/lib/Lex/UrlInclude.h b/clang/lib/Lex/UrlInclude.h
+new file mode 100644
+index 000000000000..661ed6ddb3e1
+--- /dev/null
++++ b/clang/lib/Lex/UrlInclude.h
+@@ -0,0 +1,38 @@
++//===--- UrlInclude.h - C++MG URL Include Support ---------------*- C++MG -*-===//
++//
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
++//
++//===----------------------------------------------------------------------===//
++//
++// Private support declarations for resolving C++MG #urlinclude directives.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_LIB_LEX_URLINCLUDE_H
++#define LLVM_CLANG_LIB_LEX_URLINCLUDE_H
++
++#include "clang/Basic/SourceLocation.h"
++#include "llvm/ADT/SmallString.h"
++#include "llvm/ADT/StringRef.h"
++#include <string>
++
++namespace clang {
++
++class Preprocessor;
++
++struct UrlIncludeResult {
++  llvm::SmallString<256> CachePath;
++  llvm::SmallString<256> SearchPath;
++  llvm::SmallString<128> RelativePath;
++  std::string Downloader;
++  bool CacheHit = false;
++};
++
++bool ensureUrlIncludeCached(Preprocessor &PP, llvm::StringRef URL,
++                            SourceLocation Loc, UrlIncludeResult &Result);
++
++} // namespace clang
++
++#endif // LLVM_CLANG_LIB_LEX_URLINCLUDE_H
+diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+index a3c2a26b8051..1357d231590e 100644
+--- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+@@ -151,18 +151,18 @@ bool Parser::ParseCXXMGTypeExprRHS(ParsedCXXMGTypeExpr &LHS,
+                                AllowTypeNameFallback))
+       return false;
+ 
+-    auto Node = std::make_unique<ParsedCXXMGTypeExpr>();
+-    Node->K = ParsedCXXMGTypeExpr::Binary;
+-    Node->Op = Op == tok::plus ? ParsedCXXMGTypeExprOpcode::Add
+-                               : ParsedCXXMGTypeExprOpcode::Sub;
+-    Node->OpLoc = OpLoc;
+-    Node->OpEndLoc = OpLoc;
+-    Node->BeginLoc = LHS.BeginLoc;
+-    Node->EndLoc = RHS.EndLoc;
+-    Node->SawTypeExprOperator = true;
+-    Node->LHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(LHS));
+-    Node->RHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(RHS));
+-    LHS = std::move(*Node);
++    ParsedCXXMGTypeExpr Node;
++    Node.K = ParsedCXXMGTypeExpr::Binary;
++    Node.Op = Op == tok::plus ? ParsedCXXMGTypeExprOpcode::Add
++                              : ParsedCXXMGTypeExprOpcode::Sub;
++    Node.OpLoc = OpLoc;
++    Node.OpEndLoc = OpLoc;
++    Node.BeginLoc = LHS.BeginLoc;
++    Node.EndLoc = RHS.EndLoc;
++    Node.SawTypeExprOperator = true;
++    Node.LHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(LHS));
++    Node.RHS = std::make_unique<ParsedCXXMGTypeExpr>(std::move(RHS));
++    LHS = std::move(Node);
+   }
+ }
+ 
+diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
+index b0f8ce66b17e..5dd399fac68d 100644
+--- a/clang/lib/Parse/ParseDeclCXXMG.cpp
++++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
+@@ -7,6 +7,7 @@
+ #include "clang/Basic/DiagnosticParse.h"
+ #include "clang/Parse/Parser.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/Parse/RAIIObjectsForParser.h"
+ 
+@@ -37,7 +38,7 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+     if (Tok.is(tok::kw_if)) {
+       IfLoc = ConsumeToken();
+ 
+-      // Expect 'constexpr' bc it just makes more sense man
++      // Conditional member declarations require constexpr conditions.
+       if (!TryConsumeToken(tok::kw_constexpr)) {
+         Diag(Tok.getLocation(), diag::err_expected) << tok::kw_constexpr;
+         SkipUntil(tok::semi, tok::r_brace, StopBeforeMatch);
+@@ -172,10 +173,16 @@ Parser::DeclGroupPtrTy Parser::ParseCXXMGTraitMemberDeclaration(
+     ConsumeToken();
+     BalancedDelimiterTracker T(*this, tok::l_paren);
+     T.consumeOpen();
+-    if (Tok.isNot(tok::r_paren))
++    bool InvalidParams = false;
++    if (Tok.isNot(tok::r_paren)) {
++      Diag(Tok.getLocation(), diag::err_cxxmg_trait_static_function_params);
+       SkipUntil(tok::r_paren, StopBeforeMatch);
++      InvalidParams = true;
++    }
+     T.consumeClose();
+     ExpectAndConsume(tok::semi);
++    if (InvalidParams)
++      return nullptr;
+     Decl *D = Actions.ActOnCXXMGTraitStaticFunctionRequirement(
+         getCurScope(), TagDecl, StaticLoc, NameLoc, Name, nullptr);
+     return DeclGroupPtrTy::make(DeclGroupRef(D));
+diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
+index a77b26c75b2d..06f3c27bc3ab 100644
+--- a/clang/lib/Sema/CMakeLists.txt
++++ b/clang/lib/Sema/CMakeLists.txt
+@@ -58,6 +58,7 @@ add_clang_library(clangSema
+   SemaExceptionSpec.cpp
+   SemaExpr.cpp
+   SemaExprCXX.cpp
++  SemaExprCXXMG.cpp
+   SemaExprMember.cpp
+   SemaExprObjC.cpp
+   SemaFixItUtils.cpp
+diff --git a/clang/lib/Sema/SemaCXXMG.h b/clang/lib/Sema/SemaCXXMG.h
+new file mode 100644
+index 000000000000..debb805c2d26
+--- /dev/null
++++ b/clang/lib/Sema/SemaCXXMG.h
+@@ -0,0 +1,32 @@
++//===--- SemaCXXMG.h - Private C++MG Sema Helpers ---------------*- C++MG -*-===//
++//
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares private helpers shared by C++MG Sema implementation files.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_LIB_SEMA_SEMACXXMG_H
++#define LLVM_CLANG_LIB_SEMA_SEMACXXMG_H
++
++#include "clang/Basic/SourceLocation.h"
++
++namespace clang {
++
++class ASTContext;
++class Expr;
++class Sema;
++struct DeclarationNameInfo;
++class TemplateArgumentListInfo;
++
++Expr *recoverFromCXXMGConditionalMemberLookup(
++    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
++    SourceLocation TemplateKWLoc, const TemplateArgumentListInfo *TemplateArgs);
++
++} // namespace clang
++
++#endif // LLVM_CLANG_LIB_SEMA_SEMACXXMG_H
+diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+index 4c4f60b380e3..ca94a550217d 100644
+--- a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
++++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/ExprCXX.h"
+ #include "clang/AST/ExprCXXMG.h"
+ #include "clang/Basic/DiagnosticSema.h"
+diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
+index 17adee95fc62..3446c697d59e 100644
+--- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
++++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
+@@ -10,6 +10,7 @@
+ #include "clang/AST/ASTConsumer.h"
+ #include "clang/AST/CXXMGTypeExpr.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/ExprCXX.h"
+ #include "clang/AST/ExprCXXMG.h"
+@@ -73,7 +74,7 @@ translateParsedCXXMGOpcode(ParsedCXXMGTypeExprOpcode Op) {
+   llvm_unreachable("not a C++MG type-expression operator");
+ }
+ 
+-static bool DiagnoseCXXMGGeneratedRecordNameCollision(
++static bool diagnoseCXXMGGeneratedRecordNameCollision(
+     Sema &S, Scope *Sc, const IdentifierInfo *II, SourceLocation NameLoc) {
+   LookupResult Previous(S, DeclarationName(II), NameLoc,
+                         Sema::LookupOrdinaryName,
+@@ -514,7 +515,7 @@ public:
+       return nullptr;
+     }
+ 
+-    if (DiagnoseCXXMGGeneratedRecordNameCollision(S, Sc, Name, NameLoc))
++    if (diagnoseCXXMGGeneratedRecordNameCollision(S, Sc, Name, NameLoc))
+       return nullptr;
+ 
+     TemplateParameterList *Params = TemplateParams[0];
+@@ -740,7 +741,7 @@ Decl *Sema::ActOnCXXMGTypeExpressionRecordDeclaration(
+     return nullptr;
+   }
+ 
+-  if (DiagnoseCXXMGGeneratedRecordNameCollision(*this, CurScope, II, NameLoc))
++  if (diagnoseCXXMGGeneratedRecordNameCollision(*this, CurScope, II, NameLoc))
+     return nullptr;
+ 
+   CXXMGMemberSet Set =
+diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
+index 18d75d43ceea..03c3bcfa2a7a 100644
+--- a/clang/lib/Sema/SemaDeclCXXMG.cpp
++++ b/clang/lib/Sema/SemaDeclCXXMG.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "clang/AST/DeclGroup.h"
+ #include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/Expr.h"
+ #include "clang/Sema/CXXFieldCollector.h"
+diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
+index f97d43f08d91..bcfaf9c9d807 100644
+--- a/clang/lib/Sema/SemaExpr.cpp
++++ b/clang/lib/Sema/SemaExpr.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "CheckExprLifetime.h"
+ #include "TreeTransform.h"
++#include "SemaCXXMG.h"
+ #include "UsedDeclVisitor.h"
+ #include "clang/AST/ASTConsumer.h"
+ #include "clang/AST/ASTContext.h"
+@@ -2814,154 +2815,6 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
+       TemplateArgs);
+ }
+ 
+-static bool cxxmgIsExpressionUsableConditionalMemberPatternDecl(
+-    const NamedDecl *ND) {
+-  if (!ND || ND->isInvalidDecl())
+-    return false;
+-
+-  // FieldDecl, CXXMethodDecl, VarDecl, EnumConstantDecl, etc. are ValueDecls.
+-  // This deliberately excludes TypeDecl / TypeAliasDecl so expression lookup
+-  // does not recover a type-only conditional member as a value expression.
+-  if (isa<ValueDecl>(ND))
+-    return true;
+-
+-  if (const auto *Shadow = dyn_cast<UsingShadowDecl>(ND))
+-    return cxxmgIsExpressionUsableConditionalMemberPatternDecl(
+-        Shadow->getTargetDecl());
+-
+-  // A dependent using-declaration that names a value may be represented this
+-  // way before target lookup is complete.
+-  if (isa<UnresolvedUsingValueDecl>(ND))
+-    return true;
+-
+-  return false;
+-}
+-
+-static bool cxxmgConditionalMemberPatternDeclMatchesName(
+-    const Decl *D, DeclarationName Name) {
+-  if (!D)
+-    return false;
+-
+-  if (const auto *ND = dyn_cast<NamedDecl>(D)) {
+-    if (ND->getDeclName() == Name &&
+-        cxxmgIsExpressionUsableConditionalMemberPatternDecl(ND))
+-      return true;
+-  }
+-
+-  // Your 0009 patch handles BaseUsingDecl shadows when materializing a
+-  // selected arm. Match the same shape here so conditional using-declarations
+-  // can participate in the recovery when they expose value members.
+-  if (const auto *BUD = dyn_cast<BaseUsingDecl>(D)) {
+-    for (const UsingShadowDecl *Shadow : BUD->shadows()) {
+-      if (Shadow->getDeclName() == Name &&
+-          cxxmgIsExpressionUsableConditionalMemberPatternDecl(Shadow))
+-        return true;
+-    }
+-  }
+-
+-  return false;
+-}
+-
+-static constexpr unsigned CXXMGInvalidConditionalMemberArmIndex = ~0u;
+-
+-static unsigned CXXMGGetFirstPossiblySelectedConditionalMemberArm(
+-    Sema &S, const CXXMGConditionalMemberDecl *CMD) {
+-  unsigned Index = 0;
+-
+-  for (const CXXMGConditionalMemberArm &Arm : CMD->arms()) {
+-    // If we reached an unconditional else arm, and every previous condition was
+-    // non-dependent false, selection is fully known. No lookup recovery should
+-    // happen for this chain; the selected declarations should already have been
+-    // materialized by ActOnCXXMGConditionalMember.
+-    if (!Arm.hasCondition())
+-      return CXXMGInvalidConditionalMemberArmIndex;
+-
+-    // The first value-dependent condition is the point where the selected arm
+-    // becomes unknown. This arm and all later arms are potentially selected.
+-    if (Arm.Condition->isValueDependent())
+-      return Index;
+-
+-    bool ConditionValue = false;
+-    if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, S.Context))
+-      return CXXMGInvalidConditionalMemberArmIndex;
+-
+-    // A known-true arm means selection is known. If ordinary lookup failed, the
+-    // requested name is not part of the active record and should get Clang's
+-    // normal diagnostic.
+-    if (ConditionValue)
+-      return CXXMGInvalidConditionalMemberArmIndex;
+-
+-    ++Index;
+-  }
+-
+-  return CXXMGInvalidConditionalMemberArmIndex;
+-}
+-
+-static bool CXXMGRecordHasConditionalMemberExpressionCandidate(
+-    Sema &S, const CXXRecordDecl *RD, DeclarationName Name) {
+-  if (!RD || !RD->hasDefinition())
+-    return false;
+-
+-  // This recovery is only for template-pattern lookup. Non-dependent records
+-  // should keep the normal immediate diagnostic for inactive arms.
+-  if (!RD->isDependentContext())
+-    return false;
+-
+-  for (const Decl *D : RD->decls()) {
+-    const auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(D);
+-    if (!CMD)
+-      continue;
+-
+-    unsigned FirstPossibleArm =
+-        CXXMGGetFirstPossiblySelectedConditionalMemberArm(S, CMD);
+-    if (FirstPossibleArm == CXXMGInvalidConditionalMemberArmIndex)
+-      continue;
+-
+-    for (unsigned I = FirstPossibleArm, N = CMD->getNumArms(); I != N; ++I) {
+-      for (const Decl *PatternDecl : CMD->getArmDecls(I)) {
+-        if (cxxmgConditionalMemberPatternDeclMatchesName(PatternDecl, Name))
+-          return true;
+-      }
+-    }
+-  }
+-
+-  return false;
+-}
+-
+-static Expr *recoverFromCXXMGConditionalMemberLookup(
+-    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
+-    SourceLocation TemplateKWLoc,
+-    const TemplateArgumentListInfo *TemplateArgs) {
+-  QualType ThisType = S.getCurrentThisType();
+-
+-  // Minimal first patch: only support contexts where an implicit `this` exists.
+-  // This fixes normal non-static member functions and const member functions.
+-  // Static member functions can be handled later with a DependentScopeDeclRefExpr
+-  // style recovery if needed.
+-  if (ThisType.isNull() || !ThisType->isPointerType())
+-    return nullptr;
+-
+-  const CXXRecordDecl *RD = ThisType->getPointeeType()->getAsCXXRecordDecl();
+-  if (!RD)
+-    return nullptr;
+-
+-  if (!CXXMGRecordHasConditionalMemberExpressionCandidate(
+-          S, RD, NameInfo.getName()))
+-    return nullptr;
+-
+-  return CXXDependentScopeMemberExpr::Create(
+-      Context,
+-      /*This=*/nullptr,
+-      ThisType,
+-      /*IsArrow=*/true,
+-      /*Op=*/SourceLocation(),
+-      NestedNameSpecifierLoc(),
+-      TemplateKWLoc,
+-      /*FirstQualifierFoundInScope=*/nullptr,
+-      NameInfo,
+-      TemplateArgs);
+-}
+-
+ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
+                                    SourceLocation TemplateKWLoc,
+                                    UnqualifiedId &Id, bool HasTrailingLParen,
+diff --git a/clang/lib/Sema/SemaExprCXXMG.cpp b/clang/lib/Sema/SemaExprCXXMG.cpp
+new file mode 100644
+index 000000000000..4508b6642ea2
+--- /dev/null
++++ b/clang/lib/Sema/SemaExprCXXMG.cpp
+@@ -0,0 +1,140 @@
++//===--- SemaExprCXXMG.cpp - C++MG Expression Semantics ------------------===//
++//
++// C++MG licensing notice pending. This file intentionally uses the LLVM
++// source-file banner style, but the final license for mg-cxx patch-owned
++// sources has not been selected yet.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements semantic analysis helpers for C++MG expressions.
++//
++//===----------------------------------------------------------------------===//
++
++#include "SemaCXXMG.h"
++#include "clang/AST/DeclCXX.h"
++#include "clang/AST/DeclCXXMG.h"
++#include "clang/AST/ExprCXX.h"
++#include "clang/Sema/Sema.h"
++#include "llvm/Support/Casting.h"
++
++using namespace clang;
++
++static bool cxxmgIsExpressionUsableConditionalMemberPatternDecl(
++    const NamedDecl *ND) {
++  if (!ND || ND->isInvalidDecl())
++    return false;
++
++  if (isa<ValueDecl>(ND))
++    return true;
++
++  if (const auto *Shadow = dyn_cast<UsingShadowDecl>(ND))
++    return cxxmgIsExpressionUsableConditionalMemberPatternDecl(
++        Shadow->getTargetDecl());
++
++  if (isa<UnresolvedUsingValueDecl>(ND))
++    return true;
++
++  return false;
++}
++
++static bool cxxmgConditionalMemberPatternDeclMatchesName(
++    const Decl *D, DeclarationName Name) {
++  if (!D)
++    return false;
++
++  if (const auto *ND = dyn_cast<NamedDecl>(D)) {
++    if (ND->getDeclName() == Name &&
++        cxxmgIsExpressionUsableConditionalMemberPatternDecl(ND))
++      return true;
++  }
++
++  if (const auto *BUD = dyn_cast<BaseUsingDecl>(D)) {
++    for (const UsingShadowDecl *Shadow : BUD->shadows()) {
++      if (Shadow->getDeclName() == Name &&
++          cxxmgIsExpressionUsableConditionalMemberPatternDecl(Shadow))
++        return true;
++    }
++  }
++
++  return false;
++}
++
++static constexpr unsigned CXXMGInvalidConditionalMemberArmIndex = ~0u;
++
++static unsigned getFirstPossiblySelectedCXXMGConditionalMemberArm(
++    Sema &S, const CXXMGConditionalMemberDecl *CMD) {
++  unsigned Index = 0;
++
++  for (const CXXMGConditionalMemberArm &Arm : CMD->arms()) {
++    if (!Arm.hasCondition())
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    if (Arm.Condition->isValueDependent())
++      return Index;
++
++    bool ConditionValue = false;
++    if (!Arm.Condition->EvaluateAsBooleanCondition(ConditionValue, S.Context))
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    if (ConditionValue)
++      return CXXMGInvalidConditionalMemberArmIndex;
++
++    ++Index;
++  }
++
++  return CXXMGInvalidConditionalMemberArmIndex;
++}
++
++static bool recordHasCXXMGConditionalMemberExpressionCandidate(
++    Sema &S, const CXXRecordDecl *RD, DeclarationName Name) {
++  if (!RD || !RD->hasDefinition())
++    return false;
++
++  if (!RD->isDependentContext())
++    return false;
++
++  for (const Decl *D : RD->decls()) {
++    const auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(D);
++    if (!CMD)
++      continue;
++
++    unsigned FirstPossibleArm =
++        getFirstPossiblySelectedCXXMGConditionalMemberArm(S, CMD);
++    if (FirstPossibleArm == CXXMGInvalidConditionalMemberArmIndex)
++      continue;
++
++    for (unsigned I = FirstPossibleArm, N = CMD->getNumArms(); I != N; ++I) {
++      for (const Decl *PatternDecl : CMD->getArmDecls(I)) {
++        if (cxxmgConditionalMemberPatternDeclMatchesName(PatternDecl, Name))
++          return true;
++      }
++    }
++  }
++
++  return false;
++}
++
++Expr *clang::recoverFromCXXMGConditionalMemberLookup(
++    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
++    SourceLocation TemplateKWLoc,
++    const TemplateArgumentListInfo *TemplateArgs) {
++  QualType ThisType = S.getCurrentThisType();
++
++  if (ThisType.isNull() || !ThisType->isPointerType())
++    return nullptr;
++
++  const CXXRecordDecl *RD = ThisType->getPointeeType()->getAsCXXRecordDecl();
++  if (!RD)
++    return nullptr;
++
++  if (!recordHasCXXMGConditionalMemberExpressionCandidate(
++          S, RD, NameInfo.getName()))
++    return nullptr;
++
++  return CXXDependentScopeMemberExpr::Create(
++      Context,
++      /*This=*/nullptr, ThisType,
++      /*IsArrow=*/true,
++      /*Op=*/SourceLocation(), NestedNameSpecifierLoc(), TemplateKWLoc,
++      /*FirstQualifierFoundInScope=*/nullptr, NameInfo, TemplateArgs);
++}
+diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+index a4d2b73e5d3e..cf804a687e9f 100644
+--- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
++++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
+@@ -3657,40 +3657,14 @@ bool Sema::InstantiateClassImpl(
+     }
+ 
+     if (auto *CMD = dyn_cast<CXXMGConditionalMemberDecl>(Member)) {
+-      for (unsigned I = 0, N = CMD->getNumArms(); I != N; ++I) {
+-        const CXXMGConditionalMemberArm &Arm = CMD->getArm(I);
+-        bool Selected = Arm.isElseArm();
+-        if (Arm.hasCondition()) {
+-          EnterExpressionEvaluationContext Eval(
+-              *this, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+-          ExprResult SubstCond = SubstExpr(Arm.Condition, TemplateArgs);
+-          if (SubstCond.isInvalid()) {
+-            Instantiation->setInvalidDecl();
+-            break;
+-          }
+-
+-          Expr *Cond = SubstCond.get();
+-          if (Cond->isValueDependent())
+-            break;
+-
+-          bool ConditionValue = false;
+-          if (!Cond->EvaluateAsBooleanCondition(ConditionValue, Context))
+-            continue;
+-
+-          Selected = ConditionValue;
+-        }
+-
+-        if (!Selected)
+-          continue;
+-
+-        for (Decl *PatternDecl : CMD->getArmDecls(I)) {
+-          Decl *NewArmMember = Instantiator.Visit(PatternDecl);
+-          HandleInstantiatedMember(NewArmMember);
+-          if (StopInstantiation)
+-            break;
+-        }
+-        break;
++      SmallVector<Decl *, 4> NewMembers;
++      if (Instantiator.InstantiateCXXMGConditionalMemberDecl(CMD,
++                                                             NewMembers)) {
++        Instantiation->setInvalidDecl();
++        continue;
+       }
++      for (Decl *NewMember : NewMembers)
++        HandleInstantiatedMember(NewMember);
+       continue;
+     }
+ 
+diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+index 68ed2113e67e..355123aba364 100644
+--- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
++++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+@@ -13,6 +13,7 @@
+ #include "clang/AST/ASTConsumer.h"
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/ASTMutationListener.h"
++#include "clang/AST/DeclCXXMG.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/DependentDiagnostic.h"
+ #include "clang/AST/Expr.h"
+@@ -4773,6 +4774,90 @@ Decl *TemplateDeclInstantiator::VisitTraitRequirementDecl(
+       D->getIdentifier(), D->getRequirementKind(), D->getFunctionTypeInfo());
+ }
+ 
++bool TemplateDeclInstantiator::InstantiateCXXMGConditionalMemberDecl(
++    CXXMGConditionalMemberDecl *D, SmallVectorImpl<Decl *> &Instantiated) {
++  SmallVector<CXXMGConditionalMemberArm, 4> DependentArms;
++  SmallVector<ArrayRef<Decl *>, 4> DependentArmDecls;
++
++  auto PreserveDependentArm = [&](const CXXMGConditionalMemberArm &Arm,
++                                  Expr *Condition, unsigned ArmIndex) {
++    DependentArms.push_back(CXXMGConditionalMemberArm(
++        Condition, 0, 0, Arm.StartAS, Arm.Range, Arm.IsElseArm));
++    DependentArmDecls.push_back(D->getArmDecls(ArmIndex));
++  };
++
++  for (unsigned I = 0, N = D->getNumArms(); I != N; ++I) {
++    const CXXMGConditionalMemberArm &Arm = D->getArm(I);
++    Expr *Condition = Arm.Condition;
++    bool Selected = Arm.isElseArm();
++
++    if (Arm.hasCondition()) {
++      EnterExpressionEvaluationContext Eval(
++          SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
++      ExprResult SubstCond = SemaRef.SubstExpr(Arm.Condition, TemplateArgs);
++      if (SubstCond.isInvalid())
++        return true;
++
++      ExprResult CheckedCond =
++          SemaRef.CheckCXXBooleanCondition(SubstCond.get(),
++                                           /*IsConstexpr=*/true);
++      if (CheckedCond.isInvalid())
++        return true;
++
++      Condition = CheckedCond.get();
++      if (Condition->isValueDependent()) {
++        PreserveDependentArm(Arm, Condition, I);
++        for (unsigned J = I + 1; J != N; ++J) {
++          const CXXMGConditionalMemberArm &LaterArm = D->getArm(J);
++          Expr *LaterCondition = LaterArm.Condition;
++          if (LaterArm.hasCondition()) {
++            ExprResult LaterSubst =
++                SemaRef.SubstExpr(LaterArm.Condition, TemplateArgs);
++            if (LaterSubst.isInvalid())
++              return true;
++            ExprResult LaterChecked =
++                SemaRef.CheckCXXBooleanCondition(LaterSubst.get(),
++                                                 /*IsConstexpr=*/true);
++            if (LaterChecked.isInvalid())
++              return true;
++            LaterCondition = LaterChecked.get();
++          }
++          PreserveDependentArm(LaterArm, LaterCondition, J);
++        }
++
++        auto *NewD = CXXMGConditionalMemberDecl::Create(
++            SemaRef.Context, Owner, D->getIfLoc(), DependentArms,
++            DependentArmDecls);
++        Instantiated.push_back(NewD);
++        return false;
++      }
++
++      bool ConditionValue = false;
++      if (!Condition->EvaluateAsBooleanCondition(ConditionValue,
++                                                 SemaRef.Context)) {
++        SemaRef.Diag(Condition->getExprLoc(),
++                     diag::err_constexpr_if_condition_expression_is_not_constant);
++        return true;
++      }
++
++      Selected = ConditionValue;
++    }
++
++    if (!Selected)
++      continue;
++
++    for (Decl *PatternDecl : D->getArmDecls(I)) {
++      Decl *NewArmMember = Visit(PatternDecl);
++      if (!NewArmMember)
++        return true;
++      Instantiated.push_back(NewArmMember);
++    }
++    return false;
++  }
++
++  return false;
++}
++
+ Decl *TemplateDeclInstantiator::VisitDecl(Decl *D) {
+   llvm_unreachable("Unexpected decl");
+ }
+@@ -4791,14 +4876,12 @@ Decl *Sema::SubstDecl(Decl *D, DeclContext *Owner,
+ }
+ 
+ Decl *TemplateDeclInstantiator::VisitCXXMGConditionalMemberDecl(
+-    CXXMGConditionalMemberDecl* D) {
+-  // TODO: implement actual conditional member instantiation:
+-  // 1. substitute template arguments into each arm condition
+-  // 2. evaluate the first true condition
+-  // 3. instantiate only that arm's inactive pattern declarations
+-  //
+-  // For now, return nullptr so this decl itself does not instantiate
+-  // into an active member.
++    CXXMGConditionalMemberDecl *D) {
++  SmallVector<Decl *, 4> Instantiated;
++  if (InstantiateCXXMGConditionalMemberDecl(D, Instantiated))
++    return nullptr;
++  if (Instantiated.size() == 1)
++    return Instantiated.front();
+   return nullptr;
+ }
+ 
+diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
+index 7d11d1989f53..d7464cf84db7 100644
+--- a/clang/lib/Serialization/ASTReader.cpp
++++ b/clang/lib/Serialization/ASTReader.cpp
+@@ -7850,17 +7850,38 @@ CXXMGTypeExprNode *ASTRecordReader::readCXXMGTypeExprNodeRef() {
+   if (!readInt())
+     return nullptr;
+ 
+-  auto Kind = static_cast<CXXMGTypeExprNode::NodeKind>(readInt());
++  if (getIdx() >= size()) {
++    Reader->Error("malformed C++MG type-expression node in AST file");
++    return nullptr;
++  }
++
++  unsigned RawKind = readInt();
++  if (RawKind > CXXMGTypeExprNode::Binary) {
++    Reader->Error("invalid C++MG type-expression node kind in AST file");
++    return nullptr;
++  }
++
++  auto Kind = static_cast<CXXMGTypeExprNode::NodeKind>(RawKind);
+   SourceLocation Begin = readSourceLocation();
+   SourceLocation End = readSourceLocation();
+   if (Kind == CXXMGTypeExprNode::Operand)
+     return CXXMGTypeExprNode::CreateOperand(
+         getContext(), readTypeSourceInfo(), SourceRange(Begin, End));
+ 
+-  auto Opcode = static_cast<CXXMGTypeExprOpcode>(readInt());
++  unsigned RawOpcode = readInt();
++  if (RawOpcode > static_cast<unsigned>(CXXMGTypeExprOpcode::Sub)) {
++    Reader->Error("invalid C++MG type-expression opcode in AST file");
++    return nullptr;
++  }
++
++  auto Opcode = static_cast<CXXMGTypeExprOpcode>(RawOpcode);
+   SourceLocation OpLoc = readSourceLocation();
+   CXXMGTypeExprNode *LHS = readCXXMGTypeExprNodeRef();
+   CXXMGTypeExprNode *RHS = readCXXMGTypeExprNodeRef();
++  if (!LHS || !RHS) {
++    Reader->Error("missing C++MG type-expression child in AST file");
++    return nullptr;
++  }
+   return CXXMGTypeExprNode::CreateBinary(getContext(), Opcode, LHS, RHS, OpLoc,
+                                          SourceRange(Begin, End));
+ }
+diff --git a/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
+index 4dc9161da038..dd7f1d98c889 100644
+--- a/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
++++ b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
+@@ -16,4 +16,4 @@
+ #urlinclude "https://cxxmg.test/basic.hpp"
+ UrlBasic value;
+ 
+-// MISS: #urlinclude cache miss for https://cxxmg.test/basic.hpp in offline mode
++// MISS: #urlinclude cache miss for https://cxxmg.test/.../basic.hpp in offline mode
+diff --git a/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
+index 5ef447b75ebc..4efce2561d5a 100644
+--- a/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
++++ b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
+@@ -31,4 +31,4 @@
+ // BAD-SCHEME: unsupported {{.*}} scheme in #urlinclude
+ // EMPTY-HOST: invalid URL in #urlinclude: empty host
+ // WHITESPACE: invalid URL in #urlinclude: raw whitespace or control character
+-// FAIL: #urlinclude download failed for https://cxxmg.test/basic.hpp
++// FAIL: #urlinclude download failed for https://cxxmg.test/.../basic.hpp
+diff --git a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
+index 63cc343cf08b..23711729c788 100644
+--- a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
++++ b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
+@@ -1,7 +1,40 @@
+-// RUN: not %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only %s \
++// RUN: not %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only %s -DUSERINFO \
+ // RUN:   -furlinclude-cache-dir=%t.empty \
+-// RUN:   -furlinclude-offline 2>&1 | FileCheck %s
++// RUN:   -furlinclude-offline 2>&1 | FileCheck %s --check-prefix=USERINFO
++// RUN: not %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only %s -DQUERY \
++// RUN:   -furlinclude-cache-dir=%t.empty \
++// RUN:   -furlinclude-offline 2>&1 | FileCheck %s --check-prefix=QUERY
++// RUN: not %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only %s -DFRAGMENT \
++// RUN:   -furlinclude-cache-dir=%t.empty \
++// RUN:   -furlinclude-offline 2>&1 | FileCheck %s --check-prefix=FRAGMENT
++// RUN: not %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only %s -DPATH \
++// RUN:   -furlinclude-cache-dir=%t.empty \
++// RUN:   -furlinclude-offline 2>&1 | FileCheck %s --check-prefix=PATH
+ 
++#ifdef USERINFO
+ #urlinclude "https://user:secret@cxxmg.test/basic.hpp"
++// USERINFO: #urlinclude cache miss for https://cxxmg.test/.../basic.hpp in offline mode
++// USERINFO-NOT: user
++// USERINFO-NOT: secret
++#endif
++
++#ifdef QUERY
++#urlinclude "https://cxxmg.test/basic.hpp?token=secret"
++// QUERY: #urlinclude cache miss for https://cxxmg.test/.../basic.hpp?[redacted] in offline mode
++// QUERY-NOT: token
++// QUERY-NOT: secret
++#endif
++
++#ifdef FRAGMENT
++#urlinclude "https://cxxmg.test/basic.hpp#access_token=secret"
++// FRAGMENT: #urlinclude cache miss for https://cxxmg.test/.../basic.hpp#[redacted] in offline mode
++// FRAGMENT-NOT: access_token
++// FRAGMENT-NOT: secret
++#endif
+ 
+-// CHECK: #urlinclude cache miss for https://<redacted>@cxxmg.test/basic.hpp in offline mode
++#ifdef PATH
++#urlinclude "https://cxxmg.test/private/secret/file.hpp"
++// PATH: #urlinclude cache miss for https://cxxmg.test/.../file.hpp in offline mode
++// PATH-NOT: private
++// PATH-NOT: secret
++#endif
+diff --git a/clang/tools/driver/CMakeLists.txt b/clang/tools/driver/CMakeLists.txt
+index 1e9f2ff0ef34..9195437308a4 100644
+--- a/clang/tools/driver/CMakeLists.txt
++++ b/clang/tools/driver/CMakeLists.txt
+@@ -93,7 +93,7 @@ if(NOT CLANG_LINKS_TO_CREATE)
+   endif()
+ endif()
+ 
+-if (CLANG_ENABLE_HLSL)
++if(CLANG_ENABLE_HLSL)
+   set(HLSL_LINK clang-dxc)
+ endif()
+ 
+diff --git a/clang/tools/driver/driver.cpp b/clang/tools/driver/driver.cpp
+index d4d913a8977a..bccedf22bb2f 100644
+--- a/clang/tools/driver/driver.cpp
++++ b/clang/tools/driver/driver.cpp
+@@ -241,7 +241,8 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV,
+ 
+ int clang_main(int Argc, char **Argv, const llvm::ToolContext &ToolContext) {
+   noteBottomOfStack();
+-  llvm::setBugReportMsg("PLEASE submit a bug report to " BUG_REPORT_URL
++  llvm::setBugReportMsg("PLEASE submit a bug report to "
++                        "https://github.com/mgorn/mg-cxx/issues/"
+                         " and include the crash backtrace and"
+                         " dumped files.\n");
+   SmallVector<const char *, 256> Args(Argv, Argv + Argc);
+diff --git a/llvm/CMakeLists.txt b/llvm/CMakeLists.txt
+index 02d2a4b82c06..4af3645b4f31 100644
+--- a/llvm/CMakeLists.txt
++++ b/llvm/CMakeLists.txt
+@@ -461,9 +461,9 @@ set(LLVM_FORCE_VC_REPOSITORY
+ 
+ option(LLVM_TOOL_LLVM_DRIVER_BUILD "Enables building the llvm multicall tool" OFF)
+ 
+-set(PACKAGE_NAME "clang-mg")
++set(PACKAGE_NAME "LLVM")
+ set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
+-set(PACKAGE_BUGREPORT "https://github.com/mgorn/mg-cxx/issues/")
++set(PACKAGE_BUGREPORT "https://github.com/llvm/llvm-project/issues/")
+ 
+ set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
+   "Default URL where bug reports are to be submitted.")
+diff --git a/llvm/lib/Support/PrettyStackTrace.cpp b/llvm/lib/Support/PrettyStackTrace.cpp
+index 462ef94fffd0..2161345ade27 100644
+--- a/llvm/lib/Support/PrettyStackTrace.cpp
++++ b/llvm/lib/Support/PrettyStackTrace.cpp
+@@ -38,11 +38,8 @@
+ using namespace llvm;
+ 
+ static const char *BugReportMsg =
+-    "This is clang-mg, a patched, unofficial Clang/LLVM build.\n"
+-    "Do NOT report this crash to the LLVM project unless it also reproduces "
+-    "with an official upstream LLVM/Clang build.\n"
+-    "Please report clang-mg crashes to " BUG_REPORT_URL
+-    " and include the crash backtrace and instructions to reproduce the bug.\n";
++    "PLEASE submit a bug report to " BUG_REPORT_URL
++    " and include the crash backtrace.\n";
+ 
+ // If backtrace support is not enabled, compile out support for pretty stack
+ // traces.  This has the secondary effect of not requiring thread local storage
+-- 
+2.54.0
+
