@@ -5,7 +5,7 @@ Subject: [PATCH 46/53] Fixes for tests
 
 
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 5e8637d2525c..7f8ffb239546 100644
+index 947dfced7c34..a55be54a0d3c 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
 @@ -3375,6 +3375,11 @@ defm experimental_pointer_field_protection_tagged
@@ -330,5 +330,5 @@ index a6834ccac2f0..a4df2ae8a965 100644
  
  trait generator {
 -- 
-2.52.0.windows.1
+2.54.0
 

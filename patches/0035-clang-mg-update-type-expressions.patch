@@ -502,10 +502,10 @@ index c7dd9087a555..2b4ccdb6bb54 100644
      using Capture = LambdaCapture;
  
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index c68c01da0a30..47f40117c92e 100644
+index b1ddbe5fbd14..6639ebe2d5a6 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
-@@ -7490,6 +7490,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
+@@ -7491,6 +7491,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
        AddCXXBaseSpecifiers(Data.vbases());
  
      AddDeclRef(D->getFirstFriend());
@@ -737,5 +737,5 @@ index 000000000000..7ecec34a1ead
 +static_assert(__is_same(decltype(C<float>{}.value), float));
 +static_assert(__is_same(decltype(C<int>{}.extra), int));
 -- 
-2.52.0.windows.1
+2.54.0
 

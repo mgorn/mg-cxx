@@ -1079,10 +1079,10 @@ index 691543924495..a5c567e91f21 100644
        S = new (Context) ExpressionTraitExpr(Empty);
        break;
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 257aee8728fe..7b18d24036e4 100644
+index 21dda6f3733e..e8684e31bed9 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
-@@ -6973,6 +6973,25 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
+@@ -6974,6 +6974,25 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
    AddTypeLoc(TInfo->getTypeLoc());
  }
  
@@ -1350,5 +1350,5 @@ index 000000000000..7b592899e15e
 +
 +#endif
 -- 
-2.52.0.windows.1
+2.54.0
 

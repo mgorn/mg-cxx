@@ -297,7 +297,7 @@ index 65874047f157..9c1b7d27a32e 100644
    TypeLocReader TLR(*this);
    for (; !TL.isNull(); TL = TL.getNextTypeLoc())
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 7b18d24036e4..c68c01da0a30 100644
+index e8684e31bed9..b1ddbe5fbd14 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -697,6 +697,11 @@ void TypeLocWriter::VisitPredefinedSugarTypeLoc(
@@ -313,5 +313,5 @@ index 7b18d24036e4..c68c01da0a30 100644
    using namespace llvm;
  
 -- 
-2.52.0.windows.1
+2.54.0
 

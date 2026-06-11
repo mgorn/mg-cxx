@@ -544,5 +544,5 @@ index b66a717b64ce..d48ee016b7f6 100644
 -static_assert(!(Box<int> <> BoolValueTrait));
 -static_assert(Box<bool> <> BoolValueTrait);
 -- 
-2.52.0.windows.1
+2.54.0
 

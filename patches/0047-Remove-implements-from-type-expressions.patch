@@ -1117,5 +1117,5 @@ index a4df2ae8a965..000000000000
 -static_assert(has_generator_static_local<ninja_backend>());
 -static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.52.0.windows.1
+2.54.0
 

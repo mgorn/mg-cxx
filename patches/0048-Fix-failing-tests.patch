@@ -67,5 +67,5 @@ index 4f072692e054..3e3090beafc7 100644
 -// expected-error@-1 {{type expression operand 'Incomplete' is incomplete}}
 +// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
 -- 
-2.52.0.windows.1
+2.54.0
 

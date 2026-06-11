@@ -18,10 +18,10 @@ index 9005b30c838b..01c524b7220f 100644
      return LangStandard::lang_hlsl202x;
    }
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index b25bddf5a94e..8be0bcf7a500 100644
+index b6bab8f58a16..7124385abb78 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
-@@ -7560,10 +7560,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -7562,10 +7562,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
        if (IsSYCL)
          // For SYCL, C++17 is the default.
          LanguageStandard = "-std=c++17";
@@ -34,5 +34,5 @@ index b25bddf5a94e..8be0bcf7a500 100644
  
      CmdArgs.push_back(LanguageStandard.data());
 -- 
-2.52.0.windows.1
+2.54.0
 

@@ -62,5 +62,5 @@ index 261d516b409b..24be122c587a 100644
    return P.NextToken().isOneOf(tok::plus, tok::minus, tok::kw_implements) ||
           (P.NextToken().is(tok::less) &&
 -- 
-2.52.0.windows.1
+2.54.0
 

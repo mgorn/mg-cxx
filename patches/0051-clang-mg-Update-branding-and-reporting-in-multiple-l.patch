@@ -35,7 +35,7 @@ index 5cbf98fc074b..75a70d48627b 100644
  // When clang crashes, produce diagnostic information including the fully
  // preprocessed source file(s).  Request that the developer attach the
 diff --git a/llvm/CMakeLists.txt b/llvm/CMakeLists.txt
-index 075d3f3acfe3..02d2a4b82c06 100644
+index 4509fbaba1d2..231350a7069b 100644
 --- a/llvm/CMakeLists.txt
 +++ b/llvm/CMakeLists.txt
 @@ -461,9 +461,9 @@ set(LLVM_FORCE_VC_REPOSITORY
@@ -67,5 +67,5 @@ index eff99473b205..462ef94fffd0 100644
  
  // If backtrace support is not enabled, compile out support for pretty stack
 -- 
-2.52.0.windows.1
+2.54.0
 

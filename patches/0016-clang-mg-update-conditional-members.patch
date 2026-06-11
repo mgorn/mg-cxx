@@ -537,5 +537,5 @@ index 7563e00c0e8b..699b080e9751 100644
    if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
      if (Parent->isAnonymousStructOrUnion() &&
 -- 
-2.52.0.windows.1
+2.54.0
 

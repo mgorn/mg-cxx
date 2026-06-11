@@ -2158,7 +2158,7 @@ index d4d913a8977a..bccedf22bb2f 100644
                          " dumped files.\n");
    SmallVector<const char *, 256> Args(Argv, Argv + Argc);
 diff --git a/llvm/CMakeLists.txt b/llvm/CMakeLists.txt
-index 02d2a4b82c06..4af3645b4f31 100644
+index 231350a7069b..a6c682caa138 100644
 --- a/llvm/CMakeLists.txt
 +++ b/llvm/CMakeLists.txt
 @@ -461,9 +461,9 @@ set(LLVM_FORCE_VC_REPOSITORY
@@ -2192,5 +2192,5 @@ index 462ef94fffd0..2161345ade27 100644
  // If backtrace support is not enabled, compile out support for pretty stack
  // traces.  This has the secondary effect of not requiring thread local storage
 -- 
-2.52.0.windows.1
+2.54.0
 

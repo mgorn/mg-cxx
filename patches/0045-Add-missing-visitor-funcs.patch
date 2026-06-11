@@ -226,5 +226,5 @@ index d5ab69975698..6f1668c61249 100644
  #define TYPELOC(CLASS, PARENT) bool Visit##CLASS##TypeLoc(CLASS##TypeLoc TyLoc);
  #include "clang/AST/TypeLocNodes.def"
 -- 
-2.52.0.windows.1
+2.54.0
 
