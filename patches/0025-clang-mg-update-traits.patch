@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 12:46:03 -0400
-Subject: [PATCH 25/53] clang-mg: update traits
+Subject: [PATCH 25/56] clang-mg: update traits
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp

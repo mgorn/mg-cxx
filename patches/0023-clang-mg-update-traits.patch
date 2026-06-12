@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:34:28 -0400
-Subject: [PATCH 23/53] clang-mg: update traits
+Subject: [PATCH 23/56] clang-mg: update traits
 
 
 diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp

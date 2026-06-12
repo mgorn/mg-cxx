@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 18:51:39 -0400
-Subject: [PATCH 41/53] Remove "implements" from type expression parsing, keep
+Subject: [PATCH 41/56] Remove "implements" from type expression parsing, keep
  only in traits
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
