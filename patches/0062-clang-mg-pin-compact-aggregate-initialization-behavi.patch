@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 22:19:37 -1000
+Subject: [PATCH] clang-mg: pin compact aggregate-initialization behavior
+
+A compact struct physically reorders its field declaration order, so positional aggregate init is correctly rejected (it would otherwise bind values to the reordered order) and source-order designated init trips -Wreorder-init-list. Add three granular lit tests pinning this behavior; no compiler change. Decoupling semantic declaration order from physical layout order (the real fix) is deferred.
+
+
+diff --git a/clang/test/CXXMG/compact/compact-init-designated-reorder-warning.cpp b/clang/test/CXXMG/compact/compact-init-designated-reorder-warning.cpp
+new file mode 100644
+index 000000000..bf88c4f65
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-init-designated-reorder-warning.cpp
+@@ -0,0 +1,17 @@
++// Because `compact` rewrites the field DECLARATION order (here {a,b} becomes
++// {b,a} after sorting by descending alignment), designated initializers written
++// in SOURCE order are now "out of declaration order", so C++ trips
++// -Wreorder-init-list. This pins the CURRENT behavior; it is a known rough edge
++// of the decl-chain-reorder approach and is expected to change once semantic
++// declaration order is decoupled from physical layout order.
++// See research/08-reorder-safety-and-do-no-harm.md.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact struct P {
++  char a;   // align 1
++  double b; // align 8  -> reordered declaration order becomes {b, a}
++};
++
++// Source-order designators .a then .b are out of the reordered decl order {b,a}.
++P p = {.a = 1, .b = 2.0}; // expected-warning {{will be initialized after field 'b'}} expected-note {{previous initialization for field 'a' is here}}
+diff --git a/clang/test/CXXMG/compact/compact-init-positional-rejected.cpp b/clang/test/CXXMG/compact/compact-init-positional-rejected.cpp
+new file mode 100644
+index 000000000..d2e59046d
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-init-positional-rejected.cpp
+@@ -0,0 +1,21 @@
++// A `compact` struct physically reorders its field declaration order, so
++// positional (non-designated) aggregate initialization is REJECTED: the braced
++// values bind to members in declaration order, which `compact` has changed, so
++// allowing it would silently misinitialize fields. Rejecting it is the correct,
++// safe behavior (it mirrors -frandstruct). Use designated initializers instead.
++//
++// KNOWN LIMITATION: the diagnostic says "randomized" because `compact` currently
++// shares randstruct's IsRandomized machinery and the two cannot be distinguished
++// at this point. A compact-specific message is tracked separately. See
++// research/08-reorder-safety-and-do-no-harm.md.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact struct P {
++  char a;
++  int b;
++  double c;
++};
++
++// Positional init is rejected (would otherwise bind to the reordered order).
++P p = {1, 2, 3.0}; // expected-error {{can only be initialized with a designated initializer}}
+diff --git a/clang/test/CXXMG/compact/compact-init-value-and-zero-ok.cpp b/clang/test/CXXMG/compact/compact-init-value-and-zero-ok.cpp
+new file mode 100644
+index 000000000..bb84bda98
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-init-value-and-zero-ok.cpp
+@@ -0,0 +1,15 @@
++// Even though `compact` reorders fields, value-initialization `{}` and a single
++// zero initializer `{0}` do not depend on field order, so they remain allowed
++// (this matches the carve-out for randomized structs in C99 6.7.8p19).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct P {
++  char a;
++  int b;
++  double c;
++};
++
++P e = {};  // value-initialization: no field-order dependence
++P z = {0}; // single zero initializer is explicitly allowed
+-- 
+2.54.0.windows.1
+

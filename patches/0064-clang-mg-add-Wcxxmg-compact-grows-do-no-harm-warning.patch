@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 22:43:24 -1000
+Subject: [PATCH] clang-mg: add -Wcxxmg-compact-grows do-no-harm warning
+
+When hot/cold field markers make a compact record larger than its padding-minimized layout (i.e. the markers trade size for field placement), warn with the actual vs minimal byte sizes. The diagnostic is DefaultIgnore (opt-in via -Wcxxmg-compact-grows) so it never fires for users who deliberately accept the hotness tradeoff, and no existing tests change. Size estimation is a self-contained heuristic in the parser; CXXMGLayout.cpp is unchanged. Adds compact-grows-warning.cpp.
+
+
+diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
+index 58c40980a..851626f4b 100644
+--- a/clang/include/clang/Basic/DiagnosticParseKinds.td
++++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
+@@ -1889,6 +1889,10 @@ def err_cxxmg_field_both_hot_and_cold : Error<
+ def warn_cxxmg_compact_on_union : Warning<
+   "'compact' has no effect on a union; its members overlay at offset 0">,
+   InGroup<DiagGroup<"cxxmg-compact">>;
++def warn_cxxmg_compact_grows : Warning<
++  "'hot'/'cold' markers make this 'compact' record %0 bytes, larger than the "
++  "%1-byte padding-minimized layout">,
++  InGroup<DiagGroup<"cxxmg-compact-grows">>, DefaultIgnore;
+ }
+ 
+ def warn_max_tokens : Warning<
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index 79129ad4a..cc45db8dd 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -34,6 +34,7 @@
+ #include "clang/Sema/SemaOpenMP.h"
+ #include "llvm/ADT/SmallSet.h"
+ #include "llvm/ADT/StringSwitch.h"
++#include <algorithm>
+ #include <optional>
+ 
+ using namespace clang;
+@@ -4556,16 +4557,60 @@ void Parser::ParseDeclarationSpecifiers(
+           DS.getTypeSpecType() == DeclSpec::TST_class ||
+           DS.getTypeSpecType() == DeclSpec::TST_union) {
+         if (auto *RD = dyn_cast_or_null<RecordDecl>(DS.getRepAsDecl())) {
+-          if (RD->isUnion())
++          if (RD->isUnion()) {
+             Diag(TagLoc, diag::warn_cxxmg_compact_on_union);
+-          else
+-            cxxmg::applyCompactLayout(
+-                Actions.getASTContext(), RD, [this](const FieldDecl *FD) {
++          } else {
++            const ASTContext &Ctx = Actions.getASTContext();
++            bool Applied = cxxmg::applyCompactLayout(
++                Ctx, RD, [this](const FieldDecl *FD) {
+                   auto It = CXXMGFieldHotness.find(FD);
+                   return It == CXXMGFieldHotness.end()
+                              ? cxxmg::CXXMGHotness::None
+                              : It->second;
+                 });
++            // Opt-in advisory (-Wcxxmg-compact-grows): if the applied order is
++            // larger than the pure padding-minimized order, the hot/cold markers
++            // traded size for field placement -- report how much it cost.
++            if (Applied) {
++              auto estimate =
++                  [&Ctx](llvm::ArrayRef<const FieldDecl *> Order)
++                  -> std::optional<uint64_t> {
++                uint64_t Offset = 0, MaxAlign = 1;
++                for (const FieldDecl *FD : Order) {
++                  if (FD->isBitField())
++                    return std::nullopt;
++                  QualType T = FD->getType();
++                  if (T->isDependentType() || T->isIncompleteType())
++                    return std::nullopt;
++                  uint64_t A = Ctx.getTypeAlignInChars(T).getQuantity();
++                  uint64_t S = Ctx.getTypeSizeInChars(T).getQuantity();
++                  Offset = (Offset + A - 1) / A * A; // align up
++                  Offset += S;
++                  if (A > MaxAlign)
++                    MaxAlign = A;
++                }
++                return (Offset + MaxAlign - 1) / MaxAlign * MaxAlign;
++              };
++              llvm::SmallVector<const FieldDecl *, 16> Cur(RD->field_begin(),
++                                                           RD->field_end());
++              if (std::optional<uint64_t> MarkedSz = estimate(Cur)) {
++                llvm::SmallVector<const FieldDecl *, 16> Min(Cur.begin(),
++                                                             Cur.end());
++                std::stable_sort(
++                    Min.begin(), Min.end(),
++                    [&Ctx](const FieldDecl *L, const FieldDecl *R) {
++                      return Ctx.getTypeAlignInChars(L->getType())
++                                 .getQuantity() >
++                             Ctx.getTypeAlignInChars(R->getType())
++                                 .getQuantity();
++                    });
++                if (std::optional<uint64_t> MinSz = estimate(Min))
++                  if (*MarkedSz > *MinSz)
++                    Diag(TagLoc, diag::warn_cxxmg_compact_grows)
++                        << (unsigned)*MarkedSz << (unsigned)*MinSz;
++              }
++            }
++          }
+         }
+       }
+ 
+diff --git a/clang/test/CXXMG/compact/compact-grows-warning.cpp b/clang/test/CXXMG/compact/compact-grows-warning.cpp
+new file mode 100644
+index 000000000..748720d2d
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-grows-warning.cpp
+@@ -0,0 +1,25 @@
++// -Wcxxmg-compact-grows (opt-in, off by default) warns when `hot`/`cold` markers
++// make a compact record larger than its padding-minimized layout would be -- i.e.
++// when the markers trade size for field placement. This directly surfaces the
++// "markers can cost size" tradeoff to the user.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -Wcxxmg-compact-grows -fsyntax-only -verify %s
++
++// Forcing {a,b} hot keeps them first => {a,b,d,i} = 24 bytes, whereas the
++// padding-minimized order {d,i,a,b} is 16 bytes: the markers cost 8 bytes.
++compact struct HotFirst { // expected-warning {{markers make this 'compact' record 24 bytes, larger than the 16-byte padding-minimized layout}}
++  hot char a;
++  hot char b;
++  double d;
++  int i;
++};
++static_assert(sizeof(HotFirst) == 24, "");
++
++// Here the hot field is already the highest-aligned, so the applied order equals
++// the padding-minimized order: no size cost, no warning.
++compact struct NoCost {
++  hot double d;
++  int i;
++  char c;
++};
++static_assert(sizeof(NoCost) == 16, "");
+-- 
+2.54.0.windows.1
+

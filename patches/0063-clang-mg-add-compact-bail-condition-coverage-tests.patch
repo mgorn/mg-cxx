@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 22:26:07 -1000
+Subject: [PATCH] clang-mg: add compact bail-condition coverage tests
+
+Granular -fdump-record-layouts tests asserting that compact leaves a record in SOURCE order when it must bail: bit-fields, polymorphic (vptr), base class, and anonymous struct member (IndirectFieldDecl). Each struct is shaped so source order differs from the reordered order, making the assertion meaningful. No compiler change.
+
+
+diff --git a/clang/test/CXXMG/compact/compact-bail-anonymous-member.cpp b/clang/test/CXXMG/compact/compact-bail-anonymous-member.cpp
+new file mode 100644
+index 000000000..e16635d12
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-bail-anonymous-member.cpp
+@@ -0,0 +1,18 @@
++// A `compact` struct with an anonymous struct member (which projects
++// IndirectFieldDecls) is left in SOURCE order -- reorder bails to avoid moving
++// fields out from under the projection. If it had sorted by alignment, the
++// `char` fields would move to the tail; here `small` must stay first.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct S {
++  char small;
++  struct { int x; double y; };
++  char tail;
++};
++S s; // force layout computation
++
++// `small` (first source field) must precede `tail` (last source field); both
++// names are unique to the outer record's dump. Source order is preserved.
++// CHECK: char small
++// CHECK: char tail
+diff --git a/clang/test/CXXMG/compact/compact-bail-base-class.cpp b/clang/test/CXXMG/compact/compact-bail-base-class.cpp
+new file mode 100644
+index 000000000..e1a40d75c
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-bail-base-class.cpp
+@@ -0,0 +1,19 @@
++// A `compact` struct with a base class is left in SOURCE order -- reorder bails
++// because base subobjects must lay out first and mixing them with field
++// reordering is unsafe. If it had sorted by alignment, `big` would precede
++// `small`.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++struct Base { int x; };
++
++compact struct S : Base {
++  char small;
++  double big;
++};
++S s; // force layout computation
++
++// CHECK: struct S
++// CHECK: struct Base (base)
++// CHECK: char small
++// CHECK-NEXT: double big
+diff --git a/clang/test/CXXMG/compact/compact-bail-bitfield.cpp b/clang/test/CXXMG/compact/compact-bail-bitfield.cpp
+new file mode 100644
+index 000000000..88a720099
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-bail-bitfield.cpp
+@@ -0,0 +1,17 @@
++// A `compact` struct containing a bit-field is left in SOURCE order -- reorder
++// bails on bit-fields (their packing is order-sensitive). If it had sorted by
++// descending alignment, `big` (double) would move ahead of `small` (char).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct S {
++  char small;
++  int flags : 4;
++  double big;
++};
++S s; // force layout computation
++
++// CHECK: struct S
++// CHECK-NEXT: char small
++// CHECK-NEXT: int flags
++// CHECK-NEXT: double big
+diff --git a/clang/test/CXXMG/compact/compact-bail-polymorphic.cpp b/clang/test/CXXMG/compact/compact-bail-polymorphic.cpp
+new file mode 100644
+index 000000000..094648b33
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-bail-polymorphic.cpp
+@@ -0,0 +1,17 @@
++// A polymorphic `compact` struct (has a virtual function, hence a vptr) is left
++// in SOURCE order -- reorder bails so the vptr and subobject layout are not
++// disturbed. If it had sorted by alignment, `big` would precede `small`.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct S {
++  char small;
++  double big;
++  virtual void f();
++};
++S s; // force layout computation
++
++// CHECK: struct S
++// CHECK-NEXT: (S vftable pointer)
++// CHECK-NEXT: char small
++// CHECK-NEXT: double big
+-- 
+2.54.0.windows.1
+
