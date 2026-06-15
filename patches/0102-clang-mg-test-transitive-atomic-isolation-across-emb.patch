@@ -1,0 +1,76 @@
+From 1acd60bc9baff112f8ece7abc551d55f04b601a5 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 07:28:01 -1000
+Subject: [PATCH] clang-mg: test transitive atomic isolation across embedding
+ paths
+
+Covers each recursion branch of the transitive atomic detector: a
+std::atomic nested in a member struct, a raw array of _Atomic, and
+two-level value nesting (struct -> struct -> _Atomic) all isolate the
+containing field to its own cache line (128/align 64); a member struct
+with no atomic anywhere is packed normally (24), confirming no
+over-isolation. No code change beyond patch 0101. Full CXXMG suite green
+(compact 61, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 115).
+
+---
+ .../compact-transitive-atomic-variants.cpp    | 47 +++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-transitive-atomic-variants.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-transitive-atomic-variants.cpp b/clang/test/CXXMG/compact/compact-transitive-atomic-variants.cpp
+new file mode 100644
+index 000000000..b376f0f2f
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-transitive-atomic-variants.cpp
+@@ -0,0 +1,47 @@
++// Transitive atomic detection covers every embedding path: a std::atomic nested
++// in a member struct, a raw array of _Atomic, and multi-level nesting
++// (struct -> struct -> _Atomic) all isolate the containing field. A member
++// struct with NO atomic is left compact (no over-isolation).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++namespace std {
++template <class T> struct atomic { T v; };
++} // namespace std
++
++// std::atomic nested one level inside a member struct.
++struct WrapsStdAtomic { std::atomic<int> a; };
++compact struct A {
++  char x;
++  WrapsStdAtomic w;
++  int y;
++};
++static_assert(sizeof(A) == 128, "nested std::atomic member is isolated");
++
++// A raw array of _Atomic as a field is concurrently written -> isolated.
++compact struct B {
++  char x;
++  _Atomic int arr[2];
++  int y;
++};
++static_assert(sizeof(B) == 128, "array of atomics is isolated");
++
++// Two levels of value nesting: Top -> Mid -> Inner -> _Atomic.
++struct Inner { _Atomic int c; };
++struct Mid { Inner i; int pad; };
++compact struct Top {
++  char x;
++  Mid m;
++  int y;
++};
++static_assert(sizeof(Top) == 128, "multi-level nested atomic is isolated");
++
++// Negative: a member struct with no atomic anywhere must NOT be over-isolated.
++struct Plain { int a; double b; };
++compact struct N {
++  char x;
++  Plain p;
++  int y;
++};
++static_assert(sizeof(N) == 24, "non-atomic member is packed normally, not isolated");
+-- 
+2.54.0.windows.1
+
