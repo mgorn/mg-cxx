@@ -1,0 +1,397 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 19:31:08 -1000
+Subject: [PATCH] clang-mg: add hot/cold field markers to compact layout
+
+Third increment of the C++MG 'compact' feature: optional per-field
+'hot' / 'cold' placement markers refine the compact ordering.
+
+Surface: inside a record, a field may be prefixed with 'hot' or 'cold',
+e.g. 'hot double position;' or 'cold char name[8];'. 'hot' fields are
+placed first (toward the first cache line(s)); 'cold' fields last.
+Padding is still minimized within each of the hot / unmarked / cold
+groups, but across groups hotness takes priority over padding -- marking
+fields hot can make a struct larger, which is the intended tradeoff.
+
+Implementation avoids touching any widely-included AST header (FieldDecl
+has no spare state and Decl.h has the largest blast radius). Instead:
+- Parser::ParseCXXClassMemberDeclaration is now a thin wrapper that
+  consumes a leading hot/cold keyword and records the hint in a new
+  Parser-member map (DenseMap<const FieldDecl*, CXXMGHotness>); the real
+  body moved to ParseCXXClassMemberDeclarationImpl.
+- cxxmg::applyCompactLayout gained a hotness lookup (llvm::function_ref);
+  computeCompactOrdering now partitions fields into hot / middle / cold,
+  stable-sorting each by descending alignment, then concatenates them.
+- CXXMGHotness lives in CXXMGLayout.h (folded into the existing files, so
+  no CMakeLists change and a small incremental rebuild).
+
+Tests (clang/test/CXXMG/compact/, one scenario per file):
+- compact-hot-first-cold-last.cpp: layout dump shows hot first, cold last.
+- compact-cold-pushed-to-tail.cpp: cold field goes last, rest padding-min.
+- compact-hot-group-padding-min.cpp: hot group is padding-min internally.
+- compact-hot-priority-over-padding.cpp: hot-first can exceed the pure
+  padding-minimized size.
+
+diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
+index 3e3fcf854..4adfeac66 100644
+--- a/clang/include/clang/AST/CXXMGLayout.h
++++ b/clang/include/clang/AST/CXXMGLayout.h
+@@ -16,12 +16,22 @@
+ #ifndef LLVM_CLANG_AST_CXXMGLAYOUT_H
+ #define LLVM_CLANG_AST_CXXMGLAYOUT_H
+ 
++#include "llvm/ADT/STLFunctionalExtras.h"
++
+ namespace clang {
+ class ASTContext;
++class FieldDecl;
+ class RecordDecl;
+ 
+ namespace cxxmg {
+ 
++/// Field-placement hint requested by the C++MG `hot` / `cold` field markers.
++enum class CXXMGHotness : unsigned char {
++  None = 0, ///< Unmarked field: ordered purely to minimize padding.
++  Hot = 1,  ///< `hot`: pack toward the first cache line(s).
++  Cold = 2, ///< `cold`: push toward the tail.
++};
++
+ /// Apply the C++MG `compact` layout to \p RD: reorder its fields to minimize
+ /// padding (a stable sort by descending alignment) and commit the new order
+ /// through RecordDecl::reorderDecls.
+@@ -35,8 +45,15 @@ namespace cxxmg {
+ /// dependent records, records with bases or a vptr, bitfields, anonymous
+ /// members, or fewer than two reorderable fields.
+ ///
++/// Optional `hot`/`cold` field markers refine the order: `hot` fields are
++/// placed first (toward the first cache line(s)) and `cold` fields last, with
++/// padding minimized within each group. \p GetHotness returns the hint for a
++/// given field (CXXMGHotness::None for unmarked fields).
++///
+ /// \returns true if the record's field order was changed.
+-bool applyCompactLayout(const ASTContext &Context, RecordDecl *RD);
++bool applyCompactLayout(
++    const ASTContext &Context, RecordDecl *RD,
++    llvm::function_ref<CXXMGHotness(const FieldDecl *)> GetHotness);
+ 
+ } // namespace cxxmg
+ } // namespace clang
+diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
+index 36a6dfa48..585796977 100644
+--- a/clang/include/clang/Parse/Parser.h
++++ b/clang/include/clang/Parse/Parser.h
+@@ -13,6 +13,7 @@
+ #ifndef LLVM_CLANG_PARSE_PARSER_H
+ #define LLVM_CLANG_PARSE_PARSER_H
+ 
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/Basic/OpenACCKinds.h"
+ #include "clang/Basic/OperatorPrecedence.h"
+ #include "clang/Lex/CodeCompletionHandler.h"
+@@ -3548,6 +3549,14 @@ private:
+       AccessSpecifier AS, ParsedAttributes &Attr,
+       ParsedTemplateInfo &TemplateInfo,
+       ParsingDeclRAIIObject *DiagsFromTParams = nullptr);
++
++  /// C++MG: the underlying member-declaration parser. It is wrapped by
++  /// ParseCXXClassMemberDeclaration, which consumes an optional leading
++  /// `hot`/`cold` field marker and records the resulting field placement hint.
++  DeclGroupPtrTy ParseCXXClassMemberDeclarationImpl(
++      AccessSpecifier AS, ParsedAttributes &Attr,
++      ParsedTemplateInfo &TemplateInfo,
++      ParsingDeclRAIIObject *DiagsFromTParams);
+   DeclGroupPtrTy
+   ParseCXXClassMemberDeclarationWithPragmas(AccessSpecifier &AS,
+                                             ParsedAttributes &AccessAttrs,
+@@ -3873,6 +3882,11 @@ private:
+   // used as type traits.
+   llvm::SmallDenseMap<IdentifierInfo *, tok::TokenKind> RevertibleTypeTraits;
+ 
++  /// C++MG: per-field placement hints (`hot` / `cold`) recorded while parsing a
++  /// class body, consumed by `compact` layout reordering once the record is a
++  /// complete definition.
++  llvm::DenseMap<const FieldDecl *, cxxmg::CXXMGHotness> CXXMGFieldHotness;
++
+   OffsetOfKind OffsetOfState = OffsetOfKind::Outside;
+ 
+   /// The location of the expression statement that is being parsed right now.
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index b01b9a4ae..280cd3185 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -26,14 +26,17 @@
+ #include <algorithm>
+ 
+ using namespace clang;
++using clang::cxxmg::CXXMGHotness;
+ 
+ namespace {
+ 
+-/// Compute a padding-minimizing ordering of \p RD's decls into \p FinalOrdering.
+-/// Returns false (and leaves the record alone) for any case this first
+-/// increment does not handle safely.
+-bool computeCompactOrdering(const ASTContext &Context, RecordDecl *RD,
+-                            llvm::SmallVectorImpl<Decl *> &FinalOrdering) {
++/// Compute a padding-minimizing, hotness-aware ordering of \p RD's decls into
++/// \p FinalOrdering. Returns false (and leaves the record alone) for any case
++/// this increment does not handle safely.
++bool computeCompactOrdering(
++    const ASTContext &Context, RecordDecl *RD,
++    llvm::function_ref<CXXMGHotness(const FieldDecl *)> GetHotness,
++    llvm::SmallVectorImpl<Decl *> &FinalOrdering) {
+   // Unions overlay all members at offset 0: reordering is a no-op.
+   if (RD->isUnion())
+     return false;
+@@ -99,26 +102,46 @@ bool computeCompactOrdering(const ASTContext &Context, RecordDecl *RD,
+     return false;
+   }
+ 
+-  // Stable sort by descending alignment, tie-broken by descending size. The
+-  // largest-aligned fields go first, funneling all inter-field slack into a
+-  // single tail pad. stable_sort keeps declaration order for equal keys, so the
+-  // result is deterministic and source-order-stable.
+-  std::stable_sort(Fields.begin(), Fields.end(),
+-                   [&Context](const FieldDecl *A, const FieldDecl *B) {
+-                     uint64_t AAlign =
+-                         Context.getTypeAlignInChars(A->getType()).getQuantity();
+-                     uint64_t BAlign =
+-                         Context.getTypeAlignInChars(B->getType()).getQuantity();
+-                     if (AAlign != BAlign)
+-                       return AAlign > BAlign;
+-                     uint64_t ASize =
+-                         Context.getTypeSizeInChars(A->getType()).getQuantity();
+-                     uint64_t BSize =
+-                         Context.getTypeSizeInChars(B->getType()).getQuantity();
+-                     return ASize > BSize;
+-                   });
+-
+-  llvm::append_range(FinalOrdering, Fields);
++  // Within a hotness group, sort by descending alignment, tie-broken by
++  // descending size. The largest-aligned fields go first, funneling inter-field
++  // slack into a single pad. stable_sort keeps declaration order for equal
++  // keys, so the result is deterministic and source-order-stable.
++  auto ByDescendingAlignment = [&Context](const FieldDecl *A,
++                                          const FieldDecl *B) {
++    uint64_t AAlign = Context.getTypeAlignInChars(A->getType()).getQuantity();
++    uint64_t BAlign = Context.getTypeAlignInChars(B->getType()).getQuantity();
++    if (AAlign != BAlign)
++      return AAlign > BAlign;
++    uint64_t ASize = Context.getTypeSizeInChars(A->getType()).getQuantity();
++    uint64_t BSize = Context.getTypeSizeInChars(B->getType()).getQuantity();
++    return ASize > BSize;
++  };
++
++  // Partition by hotness: `hot` fields first (toward the first cache line(s)),
++  // then unmarked fields, then `cold` fields (toward the tail). Padding is
++  // minimized within each group; hotness takes priority over padding across
++  // groups, which is the point of the markers.
++  llvm::SmallVector<FieldDecl *, 16> Hot, Middle, Cold;
++  for (FieldDecl *FD : Fields) {
++    switch (GetHotness(FD)) {
++    case CXXMGHotness::Hot:
++      Hot.push_back(FD);
++      break;
++    case CXXMGHotness::Cold:
++      Cold.push_back(FD);
++      break;
++    case CXXMGHotness::None:
++      Middle.push_back(FD);
++      break;
++    }
++  }
++  std::stable_sort(Hot.begin(), Hot.end(), ByDescendingAlignment);
++  std::stable_sort(Middle.begin(), Middle.end(), ByDescendingAlignment);
++  std::stable_sort(Cold.begin(), Cold.end(), ByDescendingAlignment);
++
++  llvm::append_range(FinalOrdering, Hot);
++  llvm::append_range(FinalOrdering, Middle);
++  llvm::append_range(FinalOrdering, Cold);
+   llvm::append_range(FinalOrdering, PostFields);
+   if (TrailingArray)
+     FinalOrdering.push_back(TrailingArray);
+@@ -131,13 +154,14 @@ bool computeCompactOrdering(const ASTContext &Context, RecordDecl *RD,
+ 
+ } // namespace
+ 
+-bool clang::cxxmg::applyCompactLayout(const ASTContext &Context,
+-                                      RecordDecl *RD) {
++bool clang::cxxmg::applyCompactLayout(
++    const ASTContext &Context, RecordDecl *RD,
++    llvm::function_ref<CXXMGHotness(const FieldDecl *)> GetHotness) {
+   if (!RD || RD->isInvalidDecl() || !RD->isCompleteDefinition())
+     return false;
+ 
+   llvm::SmallVector<Decl *, 32> NewOrdering;
+-  if (!computeCompactOrdering(Context, RD, NewOrdering))
++  if (!computeCompactOrdering(Context, RD, GetHotness, NewOrdering))
+     return false;
+ 
+   RD->reorderDecls(NewOrdering);
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index f46fda659..822a2dbd9 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -4549,7 +4549,12 @@ void Parser::ParseDeclarationSpecifiers(
+           DS.getTypeSpecType() == DeclSpec::TST_class ||
+           DS.getTypeSpecType() == DeclSpec::TST_union) {
+         if (auto *RD = dyn_cast_or_null<RecordDecl>(DS.getRepAsDecl()))
+-          cxxmg::applyCompactLayout(Actions.getASTContext(), RD);
++          cxxmg::applyCompactLayout(
++              Actions.getASTContext(), RD, [this](const FieldDecl *FD) {
++                auto It = CXXMGFieldHotness.find(FD);
++                return It == CXXMGFieldHotness.end() ? cxxmg::CXXMGHotness::None
++                                                     : It->second;
++              });
+       }
+ 
+       if (!Attributes.empty()) {
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index d76592b04..10d60f0e2 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -2715,6 +2715,29 @@ void Parser::MaybeParseAndDiagnoseDeclSpecAfterCXX11VirtSpecifierSeq(
+ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
+     AccessSpecifier AS, ParsedAttributes &AccessAttrs,
+     ParsedTemplateInfo &TemplateInfo, ParsingDeclRAIIObject *TemplateDiags) {
++  // C++MG: consume an optional leading `hot` / `cold` field marker, parse the
++  // member normally, then record the placement hint for any field it produces.
++  cxxmg::CXXMGHotness Hotness = cxxmg::CXXMGHotness::None;
++  if (getLangOpts().CPlusPlusMG && Tok.isOneOf(tok::kw_hot, tok::kw_cold)) {
++    Hotness = Tok.is(tok::kw_hot) ? cxxmg::CXXMGHotness::Hot
++                                  : cxxmg::CXXMGHotness::Cold;
++    ConsumeToken();
++  }
++
++  DeclGroupPtrTy DG = ParseCXXClassMemberDeclarationImpl(
++      AS, AccessAttrs, TemplateInfo, TemplateDiags);
++
++  if (Hotness != cxxmg::CXXMGHotness::None && DG) {
++    for (Decl *D : DG.get())
++      if (auto *FD = dyn_cast<FieldDecl>(D))
++        CXXMGFieldHotness[FD] = Hotness;
++  }
++  return DG;
++}
++
++Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationImpl(
++    AccessSpecifier AS, ParsedAttributes &AccessAttrs,
++    ParsedTemplateInfo &TemplateInfo, ParsingDeclRAIIObject *TemplateDiags) {
+   assert(getLangOpts().CPlusPlus &&
+          "ParseCXXClassMemberDeclaration should only be called in C++ mode");
+   if (Tok.is(tok::at)) {
+diff --git a/clang/test/CXXMG/compact/compact-cold-pushed-to-tail.cpp b/clang/test/CXXMG/compact/compact-cold-pushed-to-tail.cpp
+new file mode 100644
+index 000000000..85e944df5
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-cold-pushed-to-tail.cpp
+@@ -0,0 +1,20 @@
++// A `cold` field is pushed to the tail while the unmarked fields ahead of it
++// are padding-minimized.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s \
++// RUN:   | FileCheck %s
++
++compact struct Log {
++  cold char debug[16];
++  int level;
++  double timestamp;
++};
++
++// middle {level, timestamp} padding-min => {timestamp, level}; cold debug last.
++// timestamp@0, level@8, debug@12 (size 16) => 28, padded to 32.
++static_assert(sizeof(Log) == 32, "timestamp(8)+level(4)+debug(16) padded to 32");
++
++// CHECK:      0 | struct Log
++// CHECK-NEXT: 0 |   double timestamp
++// CHECK-NEXT: 8 |   int level
++// CHECK-NEXT: 12 |   char[16] debug
+diff --git a/clang/test/CXXMG/compact/compact-hot-first-cold-last.cpp b/clang/test/CXXMG/compact/compact-hot-first-cold-last.cpp
+new file mode 100644
+index 000000000..245924e1b
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-hot-first-cold-last.cpp
+@@ -0,0 +1,19 @@
++// `hot` fields are placed first (toward the first cache line(s)) and `cold`
++// fields last, regardless of source order.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s \
++// RUN:   | FileCheck %s
++
++compact struct Entity {
++  cold char name[8];  // declared first, but cold => goes last
++  int id;             // unmarked => middle
++  hot double position; // declared last, but hot => goes first
++};
++
++static_assert(sizeof(Entity) == 24, "position(8)+id(4)+name(8) padded to 24");
++
++// CHECK:      *** Dumping AST Record Layout
++// CHECK:      0 | struct Entity
++// CHECK-NEXT: 0 |   double position
++// CHECK-NEXT: 8 |   int id
++// CHECK-NEXT: 12 |   char[8] name
+diff --git a/clang/test/CXXMG/compact/compact-hot-group-padding-min.cpp b/clang/test/CXXMG/compact/compact-hot-group-padding-min.cpp
+new file mode 100644
+index 000000000..1d1e2388f
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-hot-group-padding-min.cpp
+@@ -0,0 +1,21 @@
++// Within the `hot` group, fields are still padding-minimized (stable sort by
++// descending alignment), so `hot double` precedes `hot char` even though the
++// char was declared first.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s \
++// RUN:   | FileCheck %s
++
++compact struct S {
++  hot char h1;
++  hot double h2;
++  int m;
++};
++
++// hot group {h1,h2} padding-min => {h2, h1}; then middle m.
++// h2@0, h1@8, pad to 12, m@12 => 16.
++static_assert(sizeof(S) == 16, "h2(8)+h1(1)+pad+m(4) => 16");
++
++// CHECK:      0 | struct S
++// CHECK-NEXT: 0 |   double h2
++// CHECK-NEXT: 8 |   char h1
++// CHECK-NEXT: 12 |   int m
+diff --git a/clang/test/CXXMG/compact/compact-hot-priority-over-padding.cpp b/clang/test/CXXMG/compact/compact-hot-priority-over-padding.cpp
+new file mode 100644
+index 000000000..1d8f54aac
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-hot-priority-over-padding.cpp
+@@ -0,0 +1,29 @@
++// `hot` placement takes priority over padding minimization: marking fields hot
++// can make the struct larger than the pure padding-minimized order, because the
++// hot fields are forced to the front. This is the intended tradeoff.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct HotFirst {
++  hot char a;
++  hot char b;
++  double d;
++  int i;
++};
++
++// hot {a,b} first (cost: padding before d), then middle {d,i}:
++// a@0, b@1, pad to 8, d@8, i@16 => 24.
++static_assert(sizeof(HotFirst) == 24, "hot-first costs padding");
++
++// Same members with no markers pack tightly: {d, i, a, b} => 16.
++compact struct NoMarkers {
++  char a;
++  char b;
++  double d;
++  int i;
++};
++static_assert(sizeof(NoMarkers) == 16, "padding-min packs to 16");
++
++static_assert(sizeof(HotFirst) > sizeof(NoMarkers),
++              "hotness overrides padding minimization");
+-- 
+2.54.0.windows.1
+

@@ -1,0 +1,433 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 19:22:01 -1000
+Subject: [PATCH] clang-mg: add compact record modifier (padding minimization)
+
+Second increment of the C++MG 'compact' feature: the record-level
+modifier now performs compile-time padding minimization.
+
+Surface: 'compact' immediately before struct/class/union opts the record
+into layout optimization, e.g. 'compact struct S { ... };'.
+
+Mechanism (mirrors Randstruct.cpp): after the class-specifier is parsed
+in ParseDeclarationSpecifiers, cxxmg::applyCompactLayout rewrites the
+RecordDecl's decl chain via reorderDecls(), stable-sorting fields by
+descending alignment (tie-break: descending size). This runs once the
+record is a complete definition but before its layout is computed, so the
+layout builders observe the optimized order -- no RecordLayoutBuilder
+change is needed, and it is correct on both the Itanium and Microsoft
+ABIs. No persistent RecordDecl state is added (RecordDeclBitfields is
+full); the parser drives the transform directly.
+
+The transform is conservative and skips unions, dependent records,
+records with bases or a vptr, bitfields, anonymous members, and fewer
+than two reorderable fields; a trailing flexible-array-like member is
+kept last.
+
+New files: clang/include/clang/AST/CXXMGLayout.h,
+clang/lib/AST/CXXMGLayout.cpp (registered in clang/lib/AST/CMakeLists.txt).
+Parser hook: a 'compact' case in Parser::ParseDeclarationSpecifiers.
+
+Tests (clang/test/CXXMG/compact/, one scenario per file):
+- compact-padding-minimization.cpp: compact struct is strictly smaller
+  than its non-compact twin (24 -> 16).
+- compact-already-optimal.cpp: already-descending order is preserved.
+- compact-class-keyword.cpp: works on 'class', not just 'struct'.
+- compact-union-noop.cpp: union is accepted but unchanged.
+- compact-trailing-array-stays-last.cpp: layout dump confirms a trailing
+  array stays last while the other fields reorder.
+
+diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
+new file mode 100644
+index 000000000..3e3fcf854
+--- /dev/null
++++ b/clang/include/clang/AST/CXXMGLayout.h
+@@ -0,0 +1,44 @@
++//===- CXXMGLayout.h - C++MG compact record layout ------------*- C++ -*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares the C++MG `compact` record-layout optimization: a
++// compile-time, opt-in transform that reorders a record's non-static data
++// members to minimize padding. It is the foundation for the optional `hot`/
++// `cold` field-placement refinements added in later increments.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_AST_CXXMGLAYOUT_H
++#define LLVM_CLANG_AST_CXXMGLAYOUT_H
++
++namespace clang {
++class ASTContext;
++class RecordDecl;
++
++namespace cxxmg {
++
++/// Apply the C++MG `compact` layout to \p RD: reorder its fields to minimize
++/// padding (a stable sort by descending alignment) and commit the new order
++/// through RecordDecl::reorderDecls.
++///
++/// This must be called once \p RD is a complete definition but before its
++/// memory layout has been computed (i.e. before the first getASTRecordLayout
++/// query), so the layout builder observes the optimized declaration order.
++///
++/// The transform is conservative and is skipped (returning false, leaving the
++/// record untouched) when reordering would be unsafe or pointless: unions,
++/// dependent records, records with bases or a vptr, bitfields, anonymous
++/// members, or fewer than two reorderable fields.
++///
++/// \returns true if the record's field order was changed.
++bool applyCompactLayout(const ASTContext &Context, RecordDecl *RD);
++
++} // namespace cxxmg
++} // namespace clang
++
++#endif // LLVM_CLANG_AST_CXXMGLAYOUT_H
+diff --git a/clang/lib/AST/CMakeLists.txt b/clang/lib/AST/CMakeLists.txt
+index 725cc1d05..13f298643 100644
+--- a/clang/lib/AST/CMakeLists.txt
++++ b/clang/lib/AST/CMakeLists.txt
+@@ -43,6 +43,7 @@ add_clang_library(clangAST
+   ComparisonCategories.cpp
+   ComputeDependence.cpp
+   CXXInheritance.cpp
++  CXXMGLayout.cpp
+   CXXMGTypeExpr.cpp
+   DataCollection.cpp
+   Decl.cpp
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+new file mode 100644
+index 000000000..b01b9a4ae
+--- /dev/null
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -0,0 +1,145 @@
++//===- CXXMGLayout.cpp - C++MG compact record layout ---------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements the C++MG `compact` record-layout optimization. The
++// approach mirrors Clang's structure-layout randomization (Randstruct.cpp):
++// the record's `Decl` chain is rewritten via RecordDecl::reorderDecls before
++// the layout builder runs, so no change to the layout builders is required --
++// they simply lay out the already-permuted declaration order. Where randstruct
++// shuffles for security, `compact` sorts by descending alignment to minimize
++// padding.
++//
++//===----------------------------------------------------------------------===//
++
++#include "clang/AST/CXXMGLayout.h"
++#include "clang/AST/ASTContext.h"
++#include "clang/AST/Decl.h"
++#include "clang/AST/DeclCXX.h" // CXXRecordDecl, StaticAssertDecl
++#include "clang/AST/Type.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SmallVector.h"
++#include <algorithm>
++
++using namespace clang;
++
++namespace {
++
++/// Compute a padding-minimizing ordering of \p RD's decls into \p FinalOrdering.
++/// Returns false (and leaves the record alone) for any case this first
++/// increment does not handle safely.
++bool computeCompactOrdering(const ASTContext &Context, RecordDecl *RD,
++                            llvm::SmallVectorImpl<Decl *> &FinalOrdering) {
++  // Unions overlay all members at offset 0: reordering is a no-op.
++  if (RD->isUnion())
++    return false;
++
++  // Only reorder concrete records; template patterns are reordered per
++  // instantiation (when they are no longer dependent).
++  if (RD->isDependentType())
++    return false;
++
++  // Restrict to simple records: no bases and no vptr. Members of such a record
++  // are laid out starting at offset 0, so a pure field permutation is sound.
++  if (const auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
++    if (CXXRD->getNumBases() != 0 || CXXRD->isPolymorphic())
++      return false;
++  }
++
++  llvm::SmallVector<FieldDecl *, 64> Fields;
++  llvm::SmallVector<Decl *, 8> PostFields;
++  unsigned TotalNumDecls = 0;
++  bool HasIndirectField = false;
++  for (Decl *D : RD->decls()) {
++    ++TotalNumDecls;
++    if (auto *FD = dyn_cast<FieldDecl>(D)) {
++      Fields.push_back(FD);
++    } else if (isa<StaticAssertDecl>(D)) {
++      PostFields.push_back(D);
++    } else if (isa<IndirectFieldDecl>(D)) {
++      // Anonymous struct/union members project IndirectFieldDecls; moving
++      // fields out from under them is unsafe. Bail out entirely.
++      HasIndirectField = true;
++      break;
++    } else {
++      FinalOrdering.push_back(D);
++    }
++  }
++
++  if (HasIndirectField || Fields.size() < 2)
++    return false;
++
++  // Bail on anything whose size/alignment we cannot (or should not) query, or
++  // that has special packing rules deferred to a later increment.
++  for (FieldDecl *FD : Fields) {
++    if (FD->isBitField())
++      return false;
++    QualType T = FD->getType();
++    if (T->isDependentType() || T->isIncompleteType())
++      return false;
++  }
++
++  // A trailing flexible array, or an array of size <= 1 used as one, must stay
++  // last. Exclude it from the reorderable set.
++  FieldDecl *TrailingArray = nullptr;
++  if (RD->hasFlexibleArrayMember()) {
++    TrailingArray = Fields.pop_back_val();
++  } else if (const auto *CA =
++                 dyn_cast<ConstantArrayType>(Fields.back()->getType())) {
++    if (CA->getSize().ule(1))
++      TrailingArray = Fields.pop_back_val();
++  }
++
++  if (Fields.size() < 2) {
++    // Nothing meaningful left to reorder.
++    return false;
++  }
++
++  // Stable sort by descending alignment, tie-broken by descending size. The
++  // largest-aligned fields go first, funneling all inter-field slack into a
++  // single tail pad. stable_sort keeps declaration order for equal keys, so the
++  // result is deterministic and source-order-stable.
++  std::stable_sort(Fields.begin(), Fields.end(),
++                   [&Context](const FieldDecl *A, const FieldDecl *B) {
++                     uint64_t AAlign =
++                         Context.getTypeAlignInChars(A->getType()).getQuantity();
++                     uint64_t BAlign =
++                         Context.getTypeAlignInChars(B->getType()).getQuantity();
++                     if (AAlign != BAlign)
++                       return AAlign > BAlign;
++                     uint64_t ASize =
++                         Context.getTypeSizeInChars(A->getType()).getQuantity();
++                     uint64_t BSize =
++                         Context.getTypeSizeInChars(B->getType()).getQuantity();
++                     return ASize > BSize;
++                   });
++
++  llvm::append_range(FinalOrdering, Fields);
++  llvm::append_range(FinalOrdering, PostFields);
++  if (TrailingArray)
++    FinalOrdering.push_back(TrailingArray);
++
++  assert(TotalNumDecls == FinalOrdering.size() &&
++         "Decl count changed during C++MG compact layout!");
++  (void)TotalNumDecls;
++  return true;
++}
++
++} // namespace
++
++bool clang::cxxmg::applyCompactLayout(const ASTContext &Context,
++                                      RecordDecl *RD) {
++  if (!RD || RD->isInvalidDecl() || !RD->isCompleteDefinition())
++    return false;
++
++  llvm::SmallVector<Decl *, 32> NewOrdering;
++  if (!computeCompactOrdering(Context, RD, NewOrdering))
++    return false;
++
++  RD->reorderDecls(NewOrdering);
++  return true;
++}
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index 7062de15f..f46fda659 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -11,6 +11,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "clang/AST/ASTContext.h"
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/PrettyDeclStackTrace.h"
+ #include "clang/Basic/AddressSpaces.h"
+@@ -4519,6 +4520,45 @@ void Parser::ParseDeclarationSpecifiers(
+       continue;
+     }
+ 
++    // C++MG class-specifier modifier:
++    //   compact struct/class/union { ... }
++    // 'compact' opts the following record into compile-time field-layout
++    // optimization (padding minimization). It is only meaningful immediately
++    // before a struct/class/union specifier.
++    case tok::kw_compact: {
++      tok::TokenKind Next = NextToken().getKind();
++      if (Next != tok::kw_struct && Next != tok::kw_class &&
++          Next != tok::kw_union) {
++        // 'compact' is not introducing a record: end the decl-specifier
++        // sequence and let the normal parser diagnose the stray keyword.
++        goto DoneWithDeclSpec;
++      }
++      ConsumeToken(); // 'compact'
++      SourceLocation TagLoc = Tok.getLocation();
++      tok::TokenKind Kind = Tok.getKind();
++      ConsumeToken(); // struct/class/union
++
++      ParsedAttributes Attributes(AttrFactory);
++      ParseClassSpecifier(Kind, TagLoc, DS, TemplateInfo, AS, EnteringContext,
++                          DSContext, Attributes);
++
++      // Apply the compact layout to the record we just parsed. This runs after
++      // the definition is complete but before its layout is computed, so the
++      // layout builder observes the optimized field order.
++      if (DS.getTypeSpecType() == DeclSpec::TST_struct ||
++          DS.getTypeSpecType() == DeclSpec::TST_class ||
++          DS.getTypeSpecType() == DeclSpec::TST_union) {
++        if (auto *RD = dyn_cast_or_null<RecordDecl>(DS.getRepAsDecl()))
++          cxxmg::applyCompactLayout(Actions.getASTContext(), RD);
++      }
++
++      if (!Attributes.empty()) {
++        AttrsLastTime = true;
++        attrs.takeAllAppendingFrom(Attributes);
++      }
++      continue;
++    }
++
+     // enum-specifier:
+     case tok::kw_enum:
+       ConsumeToken();
+diff --git a/clang/test/CXXMG/compact/compact-already-optimal.cpp b/clang/test/CXXMG/compact/compact-already-optimal.cpp
+new file mode 100644
+index 000000000..5d5951e0e
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-already-optimal.cpp
+@@ -0,0 +1,13 @@
++// When the fields are already in descending-alignment order, `compact` is a
++// no-op for size and correctness: the stable sort preserves the order.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct AlreadyOptimal {
++  double d;
++  int b;
++  char a;
++};
++
++static_assert(sizeof(AlreadyOptimal) == 16, "already-optimal layout is 16");
+diff --git a/clang/test/CXXMG/compact/compact-class-keyword.cpp b/clang/test/CXXMG/compact/compact-class-keyword.cpp
+new file mode 100644
+index 000000000..f0db172f0
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-class-keyword.cpp
+@@ -0,0 +1,15 @@
++// `compact` works on a `class` as well as a `struct`.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact class Entity {
++public:
++  char tag;
++  int id;
++  char flag;
++  double weight;
++};
++
++// Same packing as the struct case: {weight, id, tag, flag} => 16.
++static_assert(sizeof(Entity) == 16, "compact class should pack to 16 bytes");
+diff --git a/clang/test/CXXMG/compact/compact-padding-minimization.cpp b/clang/test/CXXMG/compact/compact-padding-minimization.cpp
+new file mode 100644
+index 000000000..045085ea2
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-padding-minimization.cpp
+@@ -0,0 +1,27 @@
++// A `compact` struct reorders its fields (stable sort by descending alignment)
++// to minimize padding, so it is no larger than -- and here strictly smaller
++// than -- the same struct declared without `compact`.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct Packed {
++  char a;
++  int b;
++  char c;
++  double d;
++};
++
++// Same members, no `compact`: declaration-order layout keeps the padding.
++struct Plain {
++  char a;
++  int b;
++  char c;
++  double d;
++};
++
++// Reordered to {d, b, a, c}: 8 + 4 + 1 + 1 = 14, padded to the 8-byte
++// alignment of `double` => 16. Plain stays in source order => 24.
++static_assert(sizeof(Packed) == 16, "compact should pack to 16 bytes");
++static_assert(sizeof(Plain) == 24, "plain layout keeps source-order padding");
++static_assert(sizeof(Packed) < sizeof(Plain), "compact must shrink the struct");
+diff --git a/clang/test/CXXMG/compact/compact-trailing-array-stays-last.cpp b/clang/test/CXXMG/compact/compact-trailing-array-stays-last.cpp
+new file mode 100644
+index 000000000..1cb0afa22
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-trailing-array-stays-last.cpp
+@@ -0,0 +1,22 @@
++// A trailing array of size <= 1 (a flexible-array-like member) must stay last;
++// only the other fields are reordered around it. The record layout is dumped to
++// confirm the field *order*, not just the size (`static_assert` below forces
++// the layout to be computed so -fdump-record-layouts emits it).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s \
++// RUN:   | FileCheck %s
++
++compact struct WithTail {
++  char a;
++  double d;
++  char tail[1];
++};
++
++// Reorder {a, d} by descending alignment => {d, a}; `tail` stays last.
++static_assert(sizeof(WithTail) == 16, "d(8)+a(1)+tail(1) padded to 16");
++
++// CHECK:      *** Dumping AST Record Layout
++// CHECK:      0 | struct WithTail
++// CHECK-NEXT: 0 |   double d
++// CHECK-NEXT: 8 |   char a
++// CHECK-NEXT: 9 |   char[1] tail
+diff --git a/clang/test/CXXMG/compact/compact-union-noop.cpp b/clang/test/CXXMG/compact/compact-union-noop.cpp
+new file mode 100644
+index 000000000..496778918
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-union-noop.cpp
+@@ -0,0 +1,13 @@
++// `compact` on a union is accepted but is a no-op: union members overlay at
++// offset 0, so there is nothing to reorder.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact union Word {
++  char a;
++  int b;
++  double d;
++};
++
++static_assert(sizeof(Word) == 8, "union size is the largest member, unchanged");
+-- 
+2.54.0.windows.1
+

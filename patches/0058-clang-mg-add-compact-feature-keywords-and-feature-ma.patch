@@ -1,0 +1,156 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 18:41:02 -1000
+Subject: [PATCH] clang-mg: add compact feature keywords and feature macro
+
+First increment of the C++MG 'compact' struct-layout feature: surface
+plumbing only (no parser/Sema behavior yet).
+
+- TokenKinds.def: register 'compact', 'hot', 'cold' as KEYCXXMG keywords,
+  alongside 'trait'/'implements'. They are active under C++MG and inert
+  (ordinary identifiers) under -fno-cxxmg.
+- Features.def: add FEATURE(cxxmg_compact) so __has_feature/__has_extension
+  report the feature in C++MG C++ mode.
+- InitPreprocessor.cpp: define __cxxmg_compact (202606L) in C++MG mode.
+
+Tests (clang/test/CXXMG/compact/, one scenario per file):
+- compact-feature-test.cpp: macro value + __has_feature/__has_extension,
+  positive under -fcxxmg and negative under -fno-cxxmg / C.
+- compact-keywords-inert-without-cxxmg.cpp: keywords usable as identifiers
+  under -fno-cxxmg.
+- compact-keywords-reserved-with-cxxmg.cpp: keywords rejected as identifiers
+  under C++MG.
+
+diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
+index 3c43cb23b..0e3767493 100644
+--- a/clang/include/clang/Basic/Features.def
++++ b/clang/include/clang/Basic/Features.def
+@@ -385,6 +385,7 @@ FEATURE(clang_atomic_attributes, true)
+ FEATURE(cxxmg_if_constexpr_members, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
+ FEATURE(cxxmg_traits, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
+ FEATURE(cxxmg_type_expressions, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
++FEATURE(cxxmg_compact, LangOpts.CPlusPlus && LangOpts.CPlusPlusMG)
+ 
+ // CUDA/HIP Features
+ FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
+diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
+index 22ae3cf15..825867498 100644
+--- a/clang/include/clang/Basic/TokenKinds.def
++++ b/clang/include/clang/Basic/TokenKinds.def
+@@ -392,6 +392,9 @@ KEYWORD(this                        , KEYCXX)
+ KEYWORD(throw                       , KEYCXX)
+ KEYWORD(trait                       , KEYCXXMG)
+ KEYWORD(implements                  , KEYCXXMG)
++KEYWORD(compact                     , KEYCXXMG)
++KEYWORD(hot                         , KEYCXXMG)
++KEYWORD(cold                        , KEYCXXMG)
+ KEYWORD(true                        , BOOLSUPPORT|KEYC23)
+ KEYWORD(try                         , KEYCXX)
+ KEYWORD(typename                    , KEYCXX)
+diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
+index 70f105a0f..b4481e8c6 100644
+--- a/clang/lib/Frontend/InitPreprocessor.cpp
++++ b/clang/lib/Frontend/InitPreprocessor.cpp
+@@ -760,6 +760,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
+     Builder.defineMacro("__cxxmg_if_constexpr_member", "202604L");
+     Builder.defineMacro("__cxxmg_traits", "202605L");
+     Builder.defineMacro("__cxxmg_type_expressions", "202605L");
++    Builder.defineMacro("__cxxmg_compact", "202606L");
+   }
+ }
+ 
+diff --git a/clang/test/CXXMG/compact/compact-feature-test.cpp b/clang/test/CXXMG/compact/compact-feature-test.cpp
+new file mode 100644
+index 000000000..e3d0338b3
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-feature-test.cpp
+@@ -0,0 +1,44 @@
++// Feature-test macro and __has_feature/__has_extension plumbing for the
++// C++MG `compact` struct-layout feature.
++//
++// RUN: %clang_cc1 -x c++ -std=c++20 -fcxxmg -DEXPECT_CXXMG=1 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++20 -fno-cxxmg -DEXPECT_NO_CXXMG=1 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++17 -fno-cxxmg -DEXPECT_NO_CXXMG=1 -fsyntax-only %s
++// RUN: %clang_cc1 -x c++ -std=c++98 -fno-cxxmg -DEXPECT_NO_CXXMG=1 -fsyntax-only %s
++// RUN: %clang_cc1 -x c -std=c23 -fno-cxxmg -DEXPECT_NO_CXXMG=1 -fsyntax-only %s
++
++#ifndef __has_feature
++#error "__has_feature should be available"
++#endif
++
++#ifdef EXPECT_CXXMG
++#ifndef __cxxmg_compact
++#error "__cxxmg_compact should be defined in C++MG mode"
++#endif
++
++#if __cxxmg_compact != 202606L
++#error "__cxxmg_compact has the wrong value"
++#endif
++
++#if !__has_feature(cxxmg_compact)
++#error "cxxmg_compact should be available in C++MG mode"
++#endif
++
++#if !__has_extension(cxxmg_compact)
++#error "cxxmg_compact should also be visible as an extension"
++#endif
++#endif
++
++#ifdef EXPECT_NO_CXXMG
++#ifdef __cxxmg_compact
++#error "__cxxmg_compact should not be defined outside C++MG"
++#endif
++
++#if __has_feature(cxxmg_compact)
++#error "cxxmg_compact should not be available outside C++MG"
++#endif
++
++#if __has_extension(cxxmg_compact)
++#error "cxxmg_compact should not be an extension outside C++MG"
++#endif
++#endif
+diff --git a/clang/test/CXXMG/compact/compact-keywords-inert-without-cxxmg.cpp b/clang/test/CXXMG/compact/compact-keywords-inert-without-cxxmg.cpp
+new file mode 100644
+index 000000000..3a133f5df
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-keywords-inert-without-cxxmg.cpp
+@@ -0,0 +1,20 @@
++// Outside C++MG mode (-fno-cxxmg), `compact`, `hot`, and `cold` must remain
++// ordinary identifiers so that existing C++ code keeps compiling.
++//
++// RUN: %clang_cc1 -x c++ -std=c++20 -fno-cxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++int compact = 1;
++int hot = 2;
++int cold = 3;
++
++struct WithMembers {
++  int compact;
++  int hot;
++  int cold;
++};
++
++int use(WithMembers w) {
++  int compact_local = compact + hot + cold;
++  return compact_local + w.compact + w.hot + w.cold;
++}
+diff --git a/clang/test/CXXMG/compact/compact-keywords-reserved-with-cxxmg.cpp b/clang/test/CXXMG/compact/compact-keywords-reserved-with-cxxmg.cpp
+new file mode 100644
+index 000000000..fa99b42ea
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-keywords-reserved-with-cxxmg.cpp
+@@ -0,0 +1,10 @@
++// In C++MG mode, `compact`, `hot`, and `cold` are reserved keywords and may
++// not be used as ordinary identifiers.
++//
++// RUN: %clang_cc1 -x c++ -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++int compact; // expected-error {{expected unqualified-id}}
++
++int hot; // expected-error {{expected unqualified-id}}
++
++int cold; // expected-error {{expected unqualified-id}}
+-- 
+2.54.0.windows.1
+

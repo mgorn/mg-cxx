@@ -3,3 +3,5 @@ work/
 *.backup.*
 /.cxxmg-cache
 __pycache__
+# Local Claude research — personal notes, not part of the patch repo
+research/

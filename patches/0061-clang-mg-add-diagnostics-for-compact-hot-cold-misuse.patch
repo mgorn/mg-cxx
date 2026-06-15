@@ -1,0 +1,161 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 19:45:47 -1000
+Subject: [PATCH] clang-mg: add diagnostics for compact/hot/cold misuse
+
+Fourth increment of the C++MG 'compact' feature: user-facing diagnostics
+for the common misuses, with parser recovery.
+
+New diagnostics (DiagnosticParseKinds.td, C++MG Issue category):
+- err_cxxmg_compact_requires_record: 'compact' not immediately before a
+  struct/class/union (only when 'compact' is the leading specifier; after a
+  type specifier 'compact' is left to the declarator parser, which keeps the
+  existing 'expected unqualified-id' for reserved-keyword misuse).
+- err_cxxmg_field_both_hot_and_cold: a field carrying more than one hot/cold
+  marker; the parser keeps the first and recovers.
+- warn_cxxmg_compact_on_union (-Wcxxmg-compact): 'compact' on a union has no
+  effect, since members overlay at offset 0.
+
+Tests (clang/test/CXXMG/compact/, one scenario per file):
+- compact-requires-record.cpp: 'compact int' / 'compact enum' rejected and
+  recovered.
+- compact-field-both-hot-and-cold.cpp: 'hot cold' / 'cold hot' rejected.
+- compact-union-noop.cpp: updated to expect the union warning.
+
+diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
+index 1d2dd05f5..58c40980a 100644
+--- a/clang/include/clang/Basic/DiagnosticParseKinds.td
++++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
+@@ -1882,6 +1882,13 @@ def err_cxxmg_type_expr_invalid_operator_predicate :
+   Error<"operator %0 is not supported in a type predicate expression">;
+ def err_cxxmg_implements_not_type_expression :
+   Error<"C++MG 'implements' predicate produces 'bool' and cannot be used as a type expression">;
++def err_cxxmg_compact_requires_record : Error<
++  "'compact' must be followed by 'struct', 'class', or 'union'">;
++def err_cxxmg_field_both_hot_and_cold : Error<
++  "a C++MG field cannot be marked both 'hot' and 'cold'">;
++def warn_cxxmg_compact_on_union : Warning<
++  "'compact' has no effect on a union; its members overlay at offset 0">,
++  InGroup<DiagGroup<"cxxmg-compact">>;
+ }
+ 
+ def warn_max_tokens : Warning<
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index 822a2dbd9..79129ad4a 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -4529,9 +4529,16 @@ void Parser::ParseDeclarationSpecifiers(
+       tok::TokenKind Next = NextToken().getKind();
+       if (Next != tok::kw_struct && Next != tok::kw_class &&
+           Next != tok::kw_union) {
+-        // 'compact' is not introducing a record: end the decl-specifier
+-        // sequence and let the normal parser diagnose the stray keyword.
+-        goto DoneWithDeclSpec;
++        // 'compact' here does not introduce a record. If it follows a type
++        // specifier (e.g. 'int compact'), it is being used as a declarator
++        // name: end the decl-specifiers and let the declarator parser reject
++        // the reserved keyword. Otherwise it is a misused leading modifier,
++        // which we diagnose and recover from by dropping the keyword.
++        if (DS.hasTypeSpecifier())
++          goto DoneWithDeclSpec;
++        Diag(Tok, diag::err_cxxmg_compact_requires_record);
++        ConsumeToken(); // 'compact'
++        continue;
+       }
+       ConsumeToken(); // 'compact'
+       SourceLocation TagLoc = Tok.getLocation();
+@@ -4548,13 +4555,18 @@ void Parser::ParseDeclarationSpecifiers(
+       if (DS.getTypeSpecType() == DeclSpec::TST_struct ||
+           DS.getTypeSpecType() == DeclSpec::TST_class ||
+           DS.getTypeSpecType() == DeclSpec::TST_union) {
+-        if (auto *RD = dyn_cast_or_null<RecordDecl>(DS.getRepAsDecl()))
+-          cxxmg::applyCompactLayout(
+-              Actions.getASTContext(), RD, [this](const FieldDecl *FD) {
+-                auto It = CXXMGFieldHotness.find(FD);
+-                return It == CXXMGFieldHotness.end() ? cxxmg::CXXMGHotness::None
+-                                                     : It->second;
+-              });
++        if (auto *RD = dyn_cast_or_null<RecordDecl>(DS.getRepAsDecl())) {
++          if (RD->isUnion())
++            Diag(TagLoc, diag::warn_cxxmg_compact_on_union);
++          else
++            cxxmg::applyCompactLayout(
++                Actions.getASTContext(), RD, [this](const FieldDecl *FD) {
++                  auto It = CXXMGFieldHotness.find(FD);
++                  return It == CXXMGFieldHotness.end()
++                             ? cxxmg::CXXMGHotness::None
++                             : It->second;
++                });
++        }
+       }
+ 
+       if (!Attributes.empty()) {
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index 10d60f0e2..cb2d03f6e 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -2722,6 +2722,11 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
+     Hotness = Tok.is(tok::kw_hot) ? cxxmg::CXXMGHotness::Hot
+                                   : cxxmg::CXXMGHotness::Cold;
+     ConsumeToken();
++    // A field may carry at most one hot/cold marker; reject any extra.
++    while (Tok.isOneOf(tok::kw_hot, tok::kw_cold)) {
++      Diag(Tok, diag::err_cxxmg_field_both_hot_and_cold);
++      ConsumeToken();
++    }
+   }
+ 
+   DeclGroupPtrTy DG = ParseCXXClassMemberDeclarationImpl(
+diff --git a/clang/test/CXXMG/compact/compact-field-both-hot-and-cold.cpp b/clang/test/CXXMG/compact/compact-field-both-hot-and-cold.cpp
+new file mode 100644
+index 000000000..5b1e2becf
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-field-both-hot-and-cold.cpp
+@@ -0,0 +1,9 @@
++// A field may carry at most one `hot`/`cold` marker; combining them (in either
++// order) is an error. The parser keeps the first marker and recovers.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact struct S {
++  hot cold int a; // expected-error {{cannot be marked both 'hot' and 'cold'}}
++  cold hot int b; // expected-error {{cannot be marked both 'hot' and 'cold'}}
++};
+diff --git a/clang/test/CXXMG/compact/compact-requires-record.cpp b/clang/test/CXXMG/compact/compact-requires-record.cpp
+new file mode 100644
+index 000000000..7423a1ca0
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-requires-record.cpp
+@@ -0,0 +1,11 @@
++// `compact` is only valid immediately before a struct/class/union specifier.
++// Other uses are diagnosed, and the parser recovers by dropping the keyword.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact int x; // expected-error {{'compact' must be followed by 'struct', 'class', or 'union'}}
++
++compact enum E { A, B }; // expected-error {{'compact' must be followed by 'struct', 'class', or 'union'}}
++
++// Recovery: after dropping 'compact', the rest parses normally.
++static_assert(sizeof(x) == sizeof(int), "");
+diff --git a/clang/test/CXXMG/compact/compact-union-noop.cpp b/clang/test/CXXMG/compact/compact-union-noop.cpp
+index 496778918..87c1b79f9 100644
+--- a/clang/test/CXXMG/compact/compact-union-noop.cpp
++++ b/clang/test/CXXMG/compact/compact-union-noop.cpp
+@@ -1,10 +1,9 @@
+-// `compact` on a union is accepted but is a no-op: union members overlay at
+-// offset 0, so there is nothing to reorder.
++// `compact` on a union is accepted but is a no-op -- union members overlay at
++// offset 0 -- so the compiler warns that the modifier has no effect.
+ //
+ // RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
+-// expected-no-diagnostics
+ 
+-compact union Word {
++compact union Word { // expected-warning {{'compact' has no effect on a union}}
+   char a;
+   int b;
+   double d;
+-- 
+2.54.0.windows.1
+
