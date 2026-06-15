@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: isolate atomic fields onto their own cache line
 
 In a compact struct, packing concurrently-written atomic fields tightly causes false sharing. After the reorder, synthesize a 64-byte cache-line AlignedAttr on each atomic field and on the field immediately following it, so no two atomics (and no neighbor) share a cache line. RecordLayoutBuilder honors the field AlignedAttr via getMaxAlignment, so no layout-builder change is needed, and reorderDecls leaves attributes intact. Detects C11 _Atomic (isAtomicType) and std::atomic/std::atomic_ref/std::atomic_flag (template name in std namespace). Do-no-harm: never lowers a field that already has alignas >= the line. Cache line is fixed at 64 (x86-64); a -fcxxmg-cache-line flag is a future refinement. Isolation grows sizeof (e.g. 16 to 128), the deliberate cost. Test covers _Atomic and std::atomic.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
 index 7a57642f8..b6237a824 100644

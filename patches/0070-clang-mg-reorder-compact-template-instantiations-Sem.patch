@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: reorder compact template instantiations
 
 A compact class template could not reorder its instantiations: the parser keyword hook bails on the dependent pattern, and DS.getRepAsDecl() for a template is a ClassTemplateDecl (not a RecordDecl), so the pattern was never recorded. Now the parser marks the compact pattern (the RecordDecl, or a ClassTemplateDecl's getTemplatedDecl()) in a per-ASTContext canonical-keyed set; a new sibling hook in Sema::ActOnFields -- beside randstruct, after completeDefinition/ProcessDeclAttributeList, before getASTRecordLayout -- reorders each concrete instantiation (padding-min) when its getTemplateInstantiationPattern() is marked. Box<double> now packs to 16 (was source-order 24). Determinism: each instantiation is ordered by its own field alignments, identical across TUs. Textual form's parser hook is untouched; lambdas/non-compact records are skipped by the guard. Hot/cold on template fields is a separate follow-up. All CXXMG suites pass.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
 index 4adfeac66..ce8145eae 100644

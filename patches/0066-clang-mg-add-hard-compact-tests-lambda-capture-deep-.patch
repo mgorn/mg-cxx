@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: add hard compact tests (lambda capture, deep
 
 Two more verified hard-scenario tests: a lambda capturing a hot/cold-reordered compact struct by reference and reading several reordered members in constexpr; and four levels of nested compact structs where writing/taking-address of the deepest leaf must compose offsets through every reordered subobject. Both validated against the real binary. No compiler change.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-deeply-nested-reordered-access.cpp b/clang/test/CXXMG/compact/compact-deeply-nested-reordered-access.cpp
 new file mode 100644

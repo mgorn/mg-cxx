@@ -16,7 +16,7 @@ the textual form. No code change. Full CXXMG suite green (compact 52,
 conditional-members 14, traits 16, type-expressions 23, regression 1 =
 106).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  .../compact-template-optimal-packing.cpp      | 40 +++++++++++++++++++
  1 file changed, 40 insertions(+)

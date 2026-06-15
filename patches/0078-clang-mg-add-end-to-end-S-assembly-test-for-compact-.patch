@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add end-to-end -S assembly test for compact reorder
 
 Verifies the reorder reaches machine code: a hot field declared last is reordered to offset 0, and the emitted load uses a zero displacement, while a field at offset 8 uses 8(reg). Proves codegen consumes the reordered AST layout and no later pass re-permutes it. Exact asm captured from -S output, not guessed.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-hot-field-asm.cpp b/clang/test/CXXMG/compact/compact-hot-field-asm.cpp
 new file mode 100644

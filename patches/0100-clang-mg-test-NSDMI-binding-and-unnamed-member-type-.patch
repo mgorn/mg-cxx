@@ -16,7 +16,7 @@ so initializer binding is unaffected. No code change. Full CXXMG suite
 green (compact 59, conditional-members 14, traits 16, type-expressions 23,
 regression 1 = 113).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  .../compact-nsdmi-and-unnamed-member.cpp      | 38 +++++++++++++++++++
  1 file changed, 38 insertions(+)

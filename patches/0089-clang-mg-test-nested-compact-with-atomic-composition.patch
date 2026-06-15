@@ -14,7 +14,7 @@ isolation composes through nesting and the outer reorder still satisfies
 do-no-harm. Surfaced while adversarially stress-testing weird field
 combinations; no code change needed -- behavior was already correct.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  ...pact-nested-compact-atomic-composition.cpp | 25 +++++++++++++++++++
  1 file changed, 25 insertions(+)

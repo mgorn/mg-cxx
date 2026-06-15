@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add hard test for array-of-compact-structs field
 
 A compact struct containing an array of another compact struct. The inner element reorders to 16 bytes, and the outer struct treats the array field by its packed element alignment and total size, reordering elems before int before char. Ground truth from the layout dump.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-array-of-structs.cpp b/clang/test/CXXMG/compact/compact-array-of-structs.cpp
 new file mode 100644

@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: fix segfault on '<' comparison under -fcxxmg (lex
 
 hasTopLevelCXXMGImplementsKeyword does a 128-token lookahead to detect an 'implements' expression, but only treats eof/semi/'}' as scan terminators when AngleDepth==0. An ordinary comparison like 'a < b' (no matching '>') pushes AngleDepth to 1 and never returns to 0, so the scan runs PAST the eof token; GetLookAheadToken then Lex()es a torn-down lexer and segfaults (0xC0000005). Make tok::eof and tok::r_brace unconditional terminators that return false (fall back to normal parsing). Conservative: real 'implements' exprs are recognized by kw_implements at AngleDepth 0 before any eof/'}'. Pre-existing crash, latent because no test used a '<' comparison. Validated: '<' comparisons, for/while loops, and the implements/type-expression suites all pass.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 index 1aa595761..04498141b 100644

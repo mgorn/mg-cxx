@@ -15,7 +15,7 @@ the prior block-scope fix. Full CXXMG suite green (compact 58,
 conditional-members 14, traits 16, type-expressions 23, regression 1 =
 112).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  ...act-template-and-constexpr-local-class.cpp | 55 +++++++++++++++++++
  1 file changed, 55 insertions(+)

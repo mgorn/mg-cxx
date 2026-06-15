@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: warn on offsetof of a compact struct (layout-escape
 
 A compact struct reorders its fields, so offsetof returns the reordered offset, which differs from source declaration order -- a layout-escape hazard for code that assumes source layout. Emit a use-site warning in Sema::BuildBuiltinOffsetOf (the single choke point covering ActOnBuiltinOffsetOf and TreeTransform). Detection: CRD->isRandomized() plus cxxmg::isCompactPattern on the record or its template instantiation pattern, so it fires for textual compact structs and template instantiations but not for plain or randstruct types. New warning warn_cxxmg_offsetof_compact in the existing cxxmg-compact group. Cross-TU ABI escape and PCH-imported compact records remain documented single-TU limitations. All CXXMG suites pass.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
 index 4a70180eb..da1ae3b82 100644

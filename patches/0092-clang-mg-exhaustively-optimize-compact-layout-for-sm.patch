@@ -31,7 +31,7 @@ Test compact-optimal-small-struct.cpp. Full CXXMG suite green (compact 51,
 conditional-members 14, traits 16, type-expressions 23, regression 1 =
 105).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  clang/lib/AST/CXXMGLayout.cpp                 | 43 +++++++++++++------
  .../compact/compact-optimal-small-struct.cpp  | 28 ++++++++++++

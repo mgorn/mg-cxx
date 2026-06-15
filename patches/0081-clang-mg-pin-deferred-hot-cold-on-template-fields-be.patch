@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: pin deferred hot/cold-on-template-fields behavior
 
 Documents the current v1 limitation: hot/cold markers on a compact class template are ignored for instantiations (padding-min only), while atomic isolation still applies. Mega<int> places d first by alignment, not the hot value. Flip this test when hot/cold-on-template-fields is implemented. Ground truth from the layout dump.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp b/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp
 new file mode 100644

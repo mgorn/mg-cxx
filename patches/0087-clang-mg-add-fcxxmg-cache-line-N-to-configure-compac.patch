@@ -32,7 +32,7 @@ tests are unchanged (default is still 64). Full CXXMG suite green
 (compact 46, conditional-members 14, traits 16, type-expressions 23,
 regression 1 = 100).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  clang/include/clang/Basic/LangOptions.def     |  4 ++
  clang/include/clang/Options/Options.td        |  5 ++

@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add test for atomic isolation in compact templates
 
 Combines per-instantiation reorder with atomic false-sharing isolation: a compact class template with an atomic field isolates that field onto its own cache line in every instantiation (Box<long> and Box<int> both place counter at offset 0, n at 64). Validated against layout dumps.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-atomic-isolation-template.cpp b/clang/test/CXXMG/compact/compact-atomic-isolation-template.cpp
 new file mode 100644

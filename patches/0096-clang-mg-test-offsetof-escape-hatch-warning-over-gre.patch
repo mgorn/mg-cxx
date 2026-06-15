@@ -14,7 +14,7 @@ diagnostic. No code change. Full CXXMG suite green (compact 55,
 conditional-members 14, traits 16, type-expressions 23, regression 1 =
 109).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  .../compact-offsetof-on-greedy-layout.cpp     | 23 +++++++++++++++++++
  1 file changed, 23 insertions(+)

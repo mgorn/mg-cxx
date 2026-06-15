@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add loop-weighted suggest-hot test (now unblocked)
 
 Verifies -Rcxxmg-suggest-hot weights field uses by loop-nesting depth: a field touched once in a doubly-nested loop (weight 4) outranks a field touched three times at top level (weight 3). This test was deferred from patch 0067 because it tripped the pre-existing '<' crash (fixed in 0068); it now passes, completing validation of the advisory feature including loop weighting.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-suggest-hot-loop-weighted.cpp b/clang/test/CXXMG/compact/compact-suggest-hot-loop-weighted.cpp
 new file mode 100644

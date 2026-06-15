@@ -25,7 +25,7 @@ both now parse and reorder ({a,b,c} -> {b,c,a}). Full CXXMG suite green
 (compact 56, conditional-members 14, traits 16, type-expressions 23,
 regression 1 = 110).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  clang/lib/Parse/ParseTentative.cpp            |  7 +++
  .../compact/compact-function-local-class.cpp  | 43 +++++++++++++++++++

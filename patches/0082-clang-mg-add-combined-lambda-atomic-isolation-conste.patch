@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: add combined lambda + atomic-isolation + constexpr
 
 A constexpr lambda captures by reference and mutates a compact struct whose atomic field is isolated to its own cache line. The lambda accesses a member at the reordered offset and constant evaluation yields the right value, proving the isolated layout is consistent across capture, member access, and constexpr evaluation.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-lambda-over-isolated-atomic.cpp b/clang/test/CXXMG/compact/compact-lambda-over-isolated-atomic.cpp
 new file mode 100644

@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add -Rcxxmg-suggest-hot advisory usage analysis
 
 After a TU is parsed, a Parser-hosted RecursiveASTVisitor counts per-field member references (loop-depth weighted) and emits an opt-in remark naming each compact struct's most-referenced field, suggesting a 'hot' marker. ABI-safe: advisory only, never changes layout. Hosted entirely on the Parser (CXXMGCompactRecords + CXXMGEmitFieldUsageRemarks, called at eof) so no Sema.h/AST-bit changes. Off by default (DefaultIgnore); enable with -Rcxxmg-suggest-hot. Tests cover the basic suggestion and the off-by-default behavior. NOTE: loop-depth weighting is implemented but its test is deferred -- C++MG has a pre-existing crash on for-loops (unrelated to this change) that blocks exercising the loop path.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
 index 851626f4b..77495eab0 100644

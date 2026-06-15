@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add hard test for mixed-width type packing
 
 Compact packing across pointer, long long, int, short, bool and char (prior tests used only char/int/double). Verifies descending-alignment order with size and source-order tie-breaks: void-star, long long, int, short, bool, char. Ground truth read from the layout dump.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-mixed-int-widths-pointer.cpp b/clang/test/CXXMG/compact/compact-mixed-int-widths-pointer.cpp
 new file mode 100644

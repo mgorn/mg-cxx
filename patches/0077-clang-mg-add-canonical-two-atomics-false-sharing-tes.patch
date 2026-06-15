@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add canonical two-atomics false-sharing test
 
 Two adjacent atomic counters that would otherwise share a 64-byte cache line are forced onto separate lines by compact atomic isolation (a at 0, b at 64). The canonical false-sharing scenario, proven by the layout dump and size assertions.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-two-atomics-no-false-sharing.cpp b/clang/test/CXXMG/compact/compact-two-atomics-no-false-sharing.cpp
 new file mode 100644

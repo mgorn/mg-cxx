@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: add hard compact tests (nested, constexpr)
 
 Two verified hard-scenario tests: a compact struct nested inside another compact struct (outer uses the inner's already-reordered size/align), and a compact struct used in constexpr construction + by-name member reads (constant evaluator follows the reorder consistently). Ground-truth values read from actual layout dumps, not guessed. No compiler change.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-constexpr-evaluation.cpp b/clang/test/CXXMG/compact/compact-constexpr-evaluation.cpp
 new file mode 100644

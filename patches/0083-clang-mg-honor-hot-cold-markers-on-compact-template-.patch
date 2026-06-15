@@ -5,7 +5,7 @@ Subject: [PATCH] clang-mg: honor hot/cold markers on compact template fields
 
 Previously hot/cold markers were ignored for compact template instantiations (padding-min only). Now the parser records each pattern field's hotness in a per-ASTContext map (cxxmg::markFieldHotness), and the Sema::ActOnFields instantiation hook maps each instantiated field to its pattern field positionally and looks up the marker (cxxmg::getFieldHotness), falling back to None if field counts differ (e.g. conditional members). Mega<int> now pulls its hot field to offset 0 like the non-template form, keeps cold last, and still isolates atomics. Replaces the deferred-limitation test with compact-template-hotcold-honored.cpp; non-template hot/cold and all other CXXMG suites unaffected.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
 index ce8145eae..74a50b2a1 100644

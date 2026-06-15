@@ -6,7 +6,7 @@ Subject: [PATCH] clang-mg: add hard test (compact x conditional-members x
 
 Triple-feature interaction: a compact class template whose field set is determined by a C++MG  conditional member. The conditional resolves per instantiation, then compact reorders the resolved fields by alignment -- S<true> packs {big,c,a}=16, S<false> packs {c,a,small}=8. Verifies the reorderable field set is computed after conditional-member resolution and that the per-instantiation Sema::ActOnFields reorder (patch 0070) sees the resolved fields. Validated against real layout dumps.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 
 diff --git a/clang/test/CXXMG/compact/compact-conditional-members-template.cpp b/clang/test/CXXMG/compact/compact-conditional-members-template.cpp
 new file mode 100644

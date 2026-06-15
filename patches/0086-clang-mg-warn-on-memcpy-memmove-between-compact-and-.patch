@@ -29,7 +29,7 @@ the template case, and all four silent cases. Full CXXMG suite green
 (compact 45, conditional-members 14, traits 16, type-expressions 23,
 regression 1 = 99).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  .../clang/Basic/DiagnosticSemaKinds.td        |  4 ++
  clang/lib/Sema/SemaChecking.cpp               | 42 ++++++++++++

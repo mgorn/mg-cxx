@@ -15,7 +15,7 @@ generates no [1]/flexible arrays). No code change. Full CXXMG suite green
 (compact 53, conditional-members 14, traits 16, type-expressions 23,
 regression 1 = 107).
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
 ---
  .../compact-trailing-array-with-packer.cpp    | 24 +++++++++++++++++++
  1 file changed, 24 insertions(+)
