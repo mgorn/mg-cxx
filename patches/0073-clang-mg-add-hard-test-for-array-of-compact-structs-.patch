@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:23:55 -1000
+Subject: [PATCH] clang-mg: add hard test for array-of-compact-structs field
+
+A compact struct containing an array of another compact struct. The inner element reorders to 16 bytes, and the outer struct treats the array field by its packed element alignment and total size, reordering elems before int before char. Ground truth from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-array-of-structs.cpp b/clang/test/CXXMG/compact/compact-array-of-structs.cpp
+new file mode 100644
+index 000000000..cffd6f9a3
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-array-of-structs.cpp
+@@ -0,0 +1,22 @@
++// HARD: a compact struct containing an ARRAY of another compact struct. The
++// inner E packs to 16 (each element reordered to {b, a}); the outer C sees the
++// field E[3] as align 8, size 48 and reorders to {elems, n, tag} = 56. Verifies
++// that an array-of-struct field uses its (already-reordered) element's alignment
++// and size when the outer record is packed.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct E { char a; double b; };
++compact struct C { char tag; E elems[3]; int n; };
++C c;
++
++static_assert(sizeof(E) == 16, "double then char, padded to 16");
++static_assert(sizeof(C) == 56, "elems(3*16=48)+int(4)+char, padded to 56");
++
++// CHECK:      struct E
++// CHECK-NEXT: double b
++// CHECK-NEXT: char a
++// CHECK:      struct C
++// CHECK-NEXT: E[3] elems
++// CHECK-NEXT: int n
++// CHECK-NEXT: char tag
+-- 
+2.54.0.windows.1
+

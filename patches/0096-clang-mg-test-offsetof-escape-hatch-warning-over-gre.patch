@@ -1,0 +1,54 @@
+From db63037799af3c97a057170ba9c2281de20818ea Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 04:52:59 -1000
+Subject: [PATCH] clang-mg: test offsetof escape-hatch warning over
+ greedy-packed layout
+
+Confirms the offsetof safety warning composes with the optimal packer:
+__builtin_offsetof on a compact struct reports the OPTIMIZED offset (not
+the source-declaration offset) and still emits -Wcxxmg-compact at every
+use site. P is packed to {hdr, s, a, b, payload} at offsets 0,4,6,7,8;
+each offsetof returns the packed offset and warns that it observes the
+reordered layout. Ties the layout optimizer to the layout-escape
+diagnostic. No code change. Full CXXMG suite green (compact 55,
+conditional-members 14, traits 16, type-expressions 23, regression 1 =
+109).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../compact-offsetof-on-greedy-layout.cpp     | 23 +++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-offsetof-on-greedy-layout.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-offsetof-on-greedy-layout.cpp b/clang/test/CXXMG/compact/compact-offsetof-on-greedy-layout.cpp
+new file mode 100644
+index 000000000..9b78f1e2d
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-offsetof-on-greedy-layout.cpp
+@@ -0,0 +1,23 @@
++// The offsetof escape-hatch warning composes with the greedy/exhaustive packer:
++// __builtin_offsetof on a compact struct returns the OPTIMIZED offset (not the
++// source-declaration offset) and still warns at every use site, since the field
++// offset differs from declaration order. P is packed to {hdr, s, a, b, payload}
++// at offsets 0,4,6,7,8 -- none of which match declaration order except hdr.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact struct P {
++  alignas(16) int hdr;
++  double payload;
++  short s;
++  char a;
++  char b;
++};
++
++// Offsets reflect the packed layout (hdr@0, s@4, a@6, b@7, payload@8), and each
++// offsetof on the compact type warns that it sees the reordered layout.
++static_assert(__builtin_offsetof(P, hdr) == 0, "");     // expected-warning {{'offsetof' on 'compact' type 'P' uses the reordered layout}}
++static_assert(__builtin_offsetof(P, s) == 4, "");       // expected-warning {{'offsetof' on 'compact' type 'P' uses the reordered layout}}
++static_assert(__builtin_offsetof(P, a) == 6, "");       // expected-warning {{'offsetof' on 'compact' type 'P' uses the reordered layout}}
++static_assert(__builtin_offsetof(P, b) == 7, "");       // expected-warning {{'offsetof' on 'compact' type 'P' uses the reordered layout}}
++static_assert(__builtin_offsetof(P, payload) == 8, ""); // expected-warning {{'offsetof' on 'compact' type 'P' uses the reordered layout}}
+-- 
+2.54.0.windows.1
+

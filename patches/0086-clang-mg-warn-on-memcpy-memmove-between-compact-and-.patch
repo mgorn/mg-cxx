@@ -1,0 +1,188 @@
+From 4aadaf94ee5804600533cfc76b436f77739874c0 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 02:25:52 -1000
+Subject: [PATCH] clang-mg: warn on memcpy/memmove between compact and
+ unrelated type
+
+memcpy/memmove between a `compact` record and an unrelated record type
+copies the field-reordered bytes, which the other type then reinterprets
+at its own (different) offsets. Critically, memcpy launders both pointers
+through `void *`, so warn_cxxmg_cast_from_compact (which excludes
+void-pointer casts) cannot observe this -- it is a distinct, otherwise
+completely silent escape hatch. This completes the escape-hatch warning
+trio: offsetof (0-), cast (0085), memcpy (this).
+
+Implemented in Sema::CheckMemaccessArguments (SemaChecking.cpp), before
+the per-arg loop, for BImemcpy/BImemmove only. It fetches both pointee
+record types and, when they differ and at least one is a compact-
+randomized record (isRandomized() && (isCompactPattern(RD) ||
+isCompactPattern(RD's template instantiation pattern))), emits
+warn_cxxmg_memcpy_compact at the call. The check is symmetric (compact on
+either side) and covers compact class-template instantiations. Same-type
+copies (the common, safe case) and copies to/from a non-record buffer
+(char[], the serialization idiom) are intentionally not flagged because
+getAsRecordDecl() is null or the two record decls are equal.
+
+New diagnostic warn_cxxmg_memcpy_compact in the existing -Wcxxmg-compact
+group. Test compact-memcpy-warning.cpp covers both directions, memmove,
+the template case, and all four silent cases. Full CXXMG suite green
+(compact 45, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 99).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../clang/Basic/DiagnosticSemaKinds.td        |  4 ++
+ clang/lib/Sema/SemaChecking.cpp               | 42 ++++++++++++
+ .../CXXMG/compact/compact-memcpy-warning.cpp  | 65 +++++++++++++++++++
+ 3 files changed, 111 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-memcpy-warning.cpp
+
+diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+index 1d8bff21f..7a2cb279d 100644
+--- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -7524,6 +7524,10 @@ def warn_cxxmg_cast_from_compact : Warning<
+   "layout; field offsets in the destination type will not match source "
+   "declaration order">,
+   InGroup<DiagGroup<"cxxmg-compact">>;
++def warn_cxxmg_memcpy_compact : Warning<
++  "%0 between 'compact' type %1 and unrelated type %2 copies the reordered "
++  "byte layout; the two types interpret the bytes at different field offsets">,
++  InGroup<DiagGroup<"cxxmg-compact">>;
+ def err_offsetof_bitfield : Error<"cannot compute offset of bit-field %0">;
+ def err_offsetof_field_of_virtual_base : Error<
+   "invalid application of 'offsetof' to a field of a virtual base">;
+diff --git a/clang/lib/Sema/SemaChecking.cpp b/clang/lib/Sema/SemaChecking.cpp
+index b8a3f48a3..b8fe71cef 100644
+--- a/clang/lib/Sema/SemaChecking.cpp
++++ b/clang/lib/Sema/SemaChecking.cpp
+@@ -17,6 +17,7 @@
+ #include "clang/AST/ASTDiagnostic.h"
+ #include "clang/AST/Attr.h"
+ #include "clang/AST/AttrIterator.h"
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/CharUnits.h"
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclBase.h"
+@@ -10928,6 +10929,47 @@ void Sema::CheckMemaccessArguments(const CallExpr *Call,
+   if (BId == Builtin::BIbzero && !FirstArgTy->getAs<PointerType>())
+     return;
+ 
++  // C++MG: memcpy/memmove between a `compact` record and an unrelated record
++  // type copies the field-reordered byte layout, which the other type then
++  // reinterprets at its own (different) field offsets. memcpy launders both
++  // pointers through `void *`, so warn_cxxmg_cast_from_compact (which excludes
++  // void-pointer casts) cannot observe this -- check the two pointee record
++  // types directly here. Same-type copies (the common case) and copies to/from
++  // a non-record buffer (char[], serialization) are intentionally not flagged.
++  if (BId == Builtin::BImemcpy || BId == Builtin::BImemmove) {
++    auto PointeeRecord = [](const Expr *E) -> const RecordDecl * {
++      if (const PointerType *PT = E->getType()->getAs<PointerType>())
++        return PT->getPointeeType()->getAsRecordDecl();
++      return nullptr;
++    };
++    const Expr *DstE = Call->getArg(0)->IgnoreParenImpCasts();
++    const Expr *SrcE = Call->getArg(1)->IgnoreParenImpCasts();
++    const RecordDecl *DstRD = PointeeRecord(DstE);
++    const RecordDecl *SrcRD = PointeeRecord(SrcE);
++    if (DstRD && SrcRD && DstRD != SrcRD) {
++      auto IsCompact = [&](const RecordDecl *RD) {
++        if (!RD->isRandomized())
++          return false;
++        const CXXRecordDecl *Pattern = nullptr;
++        if (const auto *CXX = dyn_cast<CXXRecordDecl>(RD))
++          Pattern = CXX->getTemplateInstantiationPattern();
++        return cxxmg::isCompactPattern(Context, RD) ||
++               (Pattern && cxxmg::isCompactPattern(Context, Pattern));
++      };
++      bool DstCompact = IsCompact(DstRD);
++      bool SrcCompact = IsCompact(SrcRD);
++      if (DstCompact || SrcCompact) {
++        QualType CompactTy =
++            (DstCompact ? DstE : SrcE)->getType()->getPointeeType();
++        QualType OtherTy =
++            (DstCompact ? SrcE : DstE)->getType()->getPointeeType();
++        Diag(Call->getBeginLoc(), diag::warn_cxxmg_memcpy_compact)
++            << FnName << CompactTy << OtherTy
++            << Call->getCallee()->getSourceRange();
++      }
++    }
++  }
++
+   for (unsigned ArgIdx = 0; ArgIdx != LastArg; ++ArgIdx) {
+     const Expr *Dest = Call->getArg(ArgIdx)->IgnoreParenImpCasts();
+     SourceRange ArgRange = Call->getArg(ArgIdx)->getSourceRange();
+diff --git a/clang/test/CXXMG/compact/compact-memcpy-warning.cpp b/clang/test/CXXMG/compact/compact-memcpy-warning.cpp
+new file mode 100644
+index 000000000..9ada78e96
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-memcpy-warning.cpp
+@@ -0,0 +1,65 @@
++// Safety: memcpy/memmove between a `compact` record and an UNRELATED record
++// type copies the field-reordered bytes, which the other type reinterprets at
++// its own (different) offsets. memcpy launders both pointers through `void *`,
++// so warn_cxxmg_cast_from_compact cannot see it -- this is a distinct, otherwise
++// silent escape hatch. Warn at the call (-Wcxxmg-compact). Same-type copies and
++// copies to/from a non-record buffer are intentionally NOT flagged.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++// A is compact: {a,b,c} reorders to {c,b,a}. B keeps source order.
++compact struct A {
++  char a;
++  int b;
++  double c;
++};
++
++struct B {
++  char a;
++  int b;
++  double c;
++};
++
++void f(A *pa, A *pa2, B *pb) {
++  // compact source -> unrelated dest: warns.
++  __builtin_memcpy(pb, pa, sizeof(A)); // expected-warning {{between 'compact' type 'A' and unrelated type 'B' copies the reordered byte layout}}
++
++  // compact dest <- unrelated source: warns too (mismatch is symmetric).
++  __builtin_memcpy(pa, pb, sizeof(A)); // expected-warning {{between 'compact' type 'A' and unrelated type 'B' copies the reordered byte layout}}
++
++  // memmove behaves the same.
++  __builtin_memmove(pb, pa, sizeof(A)); // expected-warning {{between 'compact' type 'A' and unrelated type 'B' copies the reordered byte layout}}
++
++  // Same compact type on both sides: faithful byte copy, no warning.
++  __builtin_memcpy(pa, pa2, sizeof(A));
++
++  // To/from a raw byte buffer (serialization idiom): no record on one side,
++  // no warning.
++  char buf[sizeof(A)];
++  __builtin_memcpy(buf, pa, sizeof(A));
++  __builtin_memcpy(pa, buf, sizeof(A));
++}
++
++// Two non-compact records: ordinary programmer business, no compact warning.
++struct PlainSrc {
++  char a;
++  int b;
++  double c;
++};
++void g(PlainSrc *ps, B *pb) {
++  __builtin_memcpy(pb, ps, sizeof(B)); // no warning: neither side is compact
++}
++
++// Compact class template: an instantiated specialization is reordered and
++// inherits the compact-pattern mark, so memcpy to an unrelated type warns.
++template <class T> compact struct Box {
++  char tag;
++  T payload;
++};
++Box<double> g_box; // force instantiation -> Box<double> reordered
++
++struct Other { int x; double y; };
++
++void h(Box<double> *pbox, Other *po) {
++  __builtin_memcpy(po, pbox, sizeof(Box<double>)); // expected-warning {{between 'compact' type 'Box<double>' and unrelated type 'Other' copies the reordered byte layout}}
++}
+-- 
+2.54.0.windows.1
+

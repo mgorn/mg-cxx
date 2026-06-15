@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:06:06 -1000
+Subject: [PATCH] clang-mg: add canonical two-atomics false-sharing test
+
+Two adjacent atomic counters that would otherwise share a 64-byte cache line are forced onto separate lines by compact atomic isolation (a at 0, b at 64). The canonical false-sharing scenario, proven by the layout dump and size assertions.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-two-atomics-no-false-sharing.cpp b/clang/test/CXXMG/compact/compact-two-atomics-no-false-sharing.cpp
+new file mode 100644
+index 000000000..b7811deb0
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-two-atomics-no-false-sharing.cpp
+@@ -0,0 +1,24 @@
++// The canonical false-sharing scenario: two atomic counters that, packed
++// adjacently, would share one 64-byte cache line and ping-pong between cores on
++// every write. Compact's atomic isolation forces each onto its OWN line --
++// a at offset 0, b at offset 64 -- so independent writes never contend. sizeof
++// grows to 192 (a + b + the trailing char each on a separate line): the
++// deliberate cost of correctness over density.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct Counters {
++  _Atomic long a;
++  _Atomic long b;
++  char pad;
++};
++Counters cc;
++
++static_assert(sizeof(Counters) == 192, "a, b and pad each on a separate line");
++static_assert(alignof(Counters) == 64, "record alignment raised to the line");
++
++// The two atomics are 64 bytes apart -> different cache lines -> no false sharing.
++// CHECK:      struct Counters
++// CHECK:      0 |{{.*}} a
++// CHECK:      64 |{{.*}} b
++// CHECK:      128 |{{.*}} pad
+-- 
+2.54.0.windows.1
+

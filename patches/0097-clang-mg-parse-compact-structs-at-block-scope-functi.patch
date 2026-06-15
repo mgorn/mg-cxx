@@ -1,0 +1,111 @@
+From 9f069fa5bb82351d8f7615d113674af7bf29ac32 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 05:27:08 -1000
+Subject: [PATCH] clang-mg: parse compact structs at block scope
+ (function-local classes)
+
+A `compact struct` declared inside a function (or a lambda body) failed
+to parse with "expected expression": the C++ tentative parser, which
+disambiguates a block-scope statement between a declaration and an
+expression, did not list `kw_compact` among the tokens that can start a
+declaration specifier. So at namespace scope `compact struct` worked, but
+at block scope the parser tried to parse `compact` as an expression.
+
+Fix: add `case tok::kw_compact` to isCXXDeclarationSpecifier (return
+TPResult::True) and to isCXXDeclarationSpecifierAType (return true).
+`compact` is a reserved C++MG keyword that only ever introduces a
+`compact struct/class/union`, so it unambiguously starts a declaration --
+returning True is correct, and the token is only ever kw_compact when
+-fcxxmg is on (otherwise it is a plain identifier), so non-C++MG code is
+unaffected.
+
+Found by adversarially probing scopes. Test compact-function-local-class
+covers a function-local compact struct and one nested in a lambda body;
+both now parse and reorder ({a,b,c} -> {b,c,a}). Full CXXMG suite green
+(compact 56, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 110).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/lib/Parse/ParseTentative.cpp            |  7 +++
+ .../compact/compact-function-local-class.cpp  | 43 +++++++++++++++++++
+ 2 files changed, 50 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-function-local-class.cpp
+
+diff --git a/clang/lib/Parse/ParseTentative.cpp b/clang/lib/Parse/ParseTentative.cpp
+index 1477fc38b..7c2863076 100644
+--- a/clang/lib/Parse/ParseTentative.cpp
++++ b/clang/lib/Parse/ParseTentative.cpp
+@@ -1215,6 +1215,11 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
+   case tok::kw_struct:
+   case tok::kw_union:
+   case tok::kw___interface:
++    // C++MG: `compact` is a reserved keyword that only ever introduces a
++    // `compact struct/class/union` declaration, so it unambiguously starts a
++    // declaration (e.g. as a function-local class). Without this the block-scope
++    // statement parser treats it as the start of an expression.
++  case tok::kw_compact:
+     // enum-specifier
+   case tok::kw_enum:
+     // cv-qualifier
+@@ -1603,6 +1608,8 @@ bool Parser::isCXXDeclarationSpecifierAType() {
+   case tok::kw_union:
+   case tok::kw___interface:
+   case tok::kw_enum:
++    // C++MG: `compact struct/class/union` is a type-specifier.
++  case tok::kw_compact:
+     return true;
+ 
+     // simple-type-specifier
+diff --git a/clang/test/CXXMG/compact/compact-function-local-class.cpp b/clang/test/CXXMG/compact/compact-function-local-class.cpp
+new file mode 100644
+index 000000000..2861b1464
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-function-local-class.cpp
+@@ -0,0 +1,43 @@
++// WEIRD scenario: a `compact` struct declared at BLOCK SCOPE (a function-local
++// class). The block-scope statement parser must recognize `compact` as the
++// start of a declaration statement (via the C++ tentative parse), not an
++// expression -- otherwise it errors with "expected expression". The local class
++// is reordered like any compact struct: {a, b, c} -> {b, c, a}.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++int use() {
++  compact struct L {
++    char a;
++    double b;
++    int c;
++  };
++  L x{};
++  x.a = 1;
++  x.b = 2.5;
++  x.c = 3;
++  static_assert(sizeof(L) == 16, "local compact struct reorders to {b,c,a}");
++  return x.a + x.c;
++}
++
++// A local compact struct nested inside a lambda body, for good measure.
++auto lam = [] {
++  compact struct M {
++    char tag;
++    double val;
++    int n;
++  };
++  M m{};
++  m.val = 1.0;
++  static_assert(sizeof(M) == 16, "compact struct local to a lambda body reorders too");
++  return (int)sizeof(M);
++};
++
++// CHECK:      struct L
++// CHECK-NEXT: 0 |{{.*}}double b
++// CHECK-NEXT: 8 |{{.*}}int c
++// CHECK-NEXT: 12 |{{.*}}char a
++// CHECK:      struct M
++// CHECK-NEXT: 0 |{{.*}}double val
++// CHECK-NEXT: 8 |{{.*}}int n
++// CHECK-NEXT: 12 |{{.*}}char tag
+-- 
+2.54.0.windows.1
+

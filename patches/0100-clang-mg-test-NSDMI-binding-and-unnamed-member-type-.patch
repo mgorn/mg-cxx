@@ -1,0 +1,71 @@
+From e747512c81ed463bb6bb57fa68145eb41338b5d4 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 06:26:26 -1000
+Subject: [PATCH] clang-mg: test NSDMI binding and unnamed member type under
+ compact reorder
+
+Two realistic correctness scenarios over a reordered compact struct:
+- Default member initializers (NSDMI) bind to their FIELDS, not to
+  positions, so reordering preserves them -- each field keeps its
+  initializer and value-init {} produces the right values (verified in
+  constexpr).
+- A compact struct with no type name, used as a member's type, reorders
+  like any other ({x,y,z} -> {y,x,z}, sizeof 16).
+Confirms reordering operates on field identity, not declaration position,
+so initializer binding is unaffected. No code change. Full CXXMG suite
+green (compact 59, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 113).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../compact-nsdmi-and-unnamed-member.cpp      | 38 +++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-nsdmi-and-unnamed-member.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-nsdmi-and-unnamed-member.cpp b/clang/test/CXXMG/compact/compact-nsdmi-and-unnamed-member.cpp
+new file mode 100644
+index 000000000..597a137f5
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-nsdmi-and-unnamed-member.cpp
+@@ -0,0 +1,38 @@
++// Default member initializers (NSDMI) bind to their FIELDS, not to positions, so
++// reordering a compact struct preserves them: each field keeps its initializer.
++// Also covers a compact struct with no type name used as a member type, which
++// reorders like any other. Both are realistic patterns that must keep working.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++// {a,b,c} reorders to {b,c,a}, but the NSDMIs travel with their fields.
++compact struct N {
++  char a = 'A';
++  double b = 2.5;
++  int c = 42;
++};
++constexpr N n{}; // value-init uses the NSDMIs
++static_assert(n.a == 'A' && n.b == 2.5 && n.c == 42,
++              "each default member initializer binds to its own field after reorder");
++static_assert(sizeof(N) == 16, "reordered to {b,c,a}");
++
++// A nested compact struct whose NSDMI references an earlier member still works
++// (initialization order follows declaration order, independent of layout order).
++compact struct M {
++  int base = 100;
++  double scaled = 1.5;
++  char tag = 't';
++};
++constexpr M m{};
++static_assert(m.base == 100 && m.scaled == 1.5 && m.tag == 't', "");
++
++// A compact struct with no type name, used as a member's type, reorders too.
++struct Outer {
++  compact struct {
++    int x;
++    double y;
++    char z;
++  } inner;
++};
++static_assert(sizeof(Outer) == 16, "unnamed compact member reorders to {y,x,z}");
+-- 
+2.54.0.windows.1
+

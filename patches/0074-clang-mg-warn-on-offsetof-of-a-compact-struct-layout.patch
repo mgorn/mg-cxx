@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:44:49 -1000
+Subject: [PATCH] clang-mg: warn on offsetof of a compact struct (layout-escape
+ safety)
+
+A compact struct reorders its fields, so offsetof returns the reordered offset, which differs from source declaration order -- a layout-escape hazard for code that assumes source layout. Emit a use-site warning in Sema::BuildBuiltinOffsetOf (the single choke point covering ActOnBuiltinOffsetOf and TreeTransform). Detection: CRD->isRandomized() plus cxxmg::isCompactPattern on the record or its template instantiation pattern, so it fires for textual compact structs and template instantiations but not for plain or randstruct types. New warning warn_cxxmg_offsetof_compact in the existing cxxmg-compact group. Cross-TU ABI escape and PCH-imported compact records remain documented single-TU limitations. All CXXMG suites pass.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+index 4a70180eb..da1ae3b82 100644
+--- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -7515,6 +7515,10 @@ def ext_offsetof_non_pod_type : ExtWarn<"'offsetof' on non-POD type %0">,
+   InGroup<InvalidOffsetof>;
+ def ext_offsetof_non_standardlayout_type : ExtWarn<
+   "'offsetof' on non-standard-layout type %0">, InGroup<InvalidOffsetof>;
++def warn_cxxmg_offsetof_compact : Warning<
++  "'offsetof' on 'compact' type %0 uses the reordered layout; the field offset "
++  "differs from source declaration order">,
++  InGroup<DiagGroup<"cxxmg-compact">>;
+ def err_offsetof_bitfield : Error<"cannot compute offset of bit-field %0">;
+ def err_offsetof_field_of_virtual_base : Error<
+   "invalid application of 'offsetof' to a field of a virtual base">;
+diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
+index 6008f651f..ddd2f877d 100644
+--- a/clang/lib/Sema/SemaExpr.cpp
++++ b/clang/lib/Sema/SemaExpr.cpp
+@@ -20,6 +20,7 @@
+ #include "clang/AST/ASTLambda.h"
+ #include "clang/AST/ASTMutationListener.h"
+ #include "clang/AST/Attr.h"
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/CXXInheritance.h"
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclObjC.h"
+@@ -16754,6 +16755,19 @@ ExprResult Sema::BuildBuiltinOffsetOf(SourceLocation BuiltinLoc,
+             << SourceRange(Components[0].LocStart, OC.LocEnd) << CurrentType;
+         DidWarnAboutNonPOD = true;
+       }
++
++      // C++MG: offsetof on a `compact` record observes the REORDERED field
++      // layout, so the computed offset differs from source declaration order.
++      // (Covers both the textual `compact struct` and template instantiations,
++      // whose dependent pattern is what gets marked compact.)
++      if (CRD->isRandomized() && !isUnevaluatedContext()) {
++        const CXXRecordDecl *Pattern = CRD->getTemplateInstantiationPattern();
++        if (cxxmg::isCompactPattern(Context, CRD) ||
++            (Pattern && cxxmg::isCompactPattern(Context, Pattern)))
++          Diag(BuiltinLoc, diag::warn_cxxmg_offsetof_compact)
++              << CurrentType
++              << SourceRange(Components[0].LocStart, OC.LocEnd);
++      }
+     }
+ 
+     // Look for the field.
+diff --git a/clang/test/CXXMG/compact/compact-offsetof-warning.cpp b/clang/test/CXXMG/compact/compact-offsetof-warning.cpp
+new file mode 100644
+index 000000000..40320410b
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-offsetof-warning.cpp
+@@ -0,0 +1,25 @@
++// Safety: `offsetof` on a `compact` struct returns the REORDERED offset, which
++// differs from the source declaration order -- a layout-escape hazard. Warn at
++// the offsetof use site (-Wcxxmg-compact). Here compact reorders {a,b,c} to
++// {c,b,a}, so c moves from source-order offset 8 to 0.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++compact struct S {
++  char a;
++  int b;
++  double c;
++};
++
++// c is the first field after the compact reorder, so its offset is 0 (it would
++// be 8 in source order) -- offsetof observes the reordered layout.
++static_assert(__builtin_offsetof(S, c) == 0, ""); // expected-warning {{'offsetof' on 'compact' type 'S' uses the reordered layout}}
++static_assert(__builtin_offsetof(S, a) == 12, ""); // expected-warning {{'offsetof' on 'compact' type 'S' uses the reordered layout}}
++
++// A non-compact struct with the same members is NOT warned (source-order layout).
++struct Plain {
++  char a;
++  int b;
++  double c;
++};
++static_assert(__builtin_offsetof(Plain, c) == 8, "");
+-- 
+2.54.0.windows.1
+

@@ -1,0 +1,52 @@
+From 9a25e0b95027b0044f3235920b08e501485971e9 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 05:28:46 -1000
+Subject: [PATCH] clang-mg: test compact structs in if-init and for-init
+ statements
+
+Follows up the block-scope parsing fix with coverage for C++17 if-init and
+for-init statements, which reach the declaration-vs-expression
+disambiguation through distinct parse paths from a plain function-local
+declaration. A compact struct defined inline in either init-statement now
+parses and reorders ({a,b,c} -> {b,c,a}; {a,b} -> {b,a}). No code change
+beyond the prior fix. Full CXXMG suite green (compact 57, conditional-
+members 14, traits 16, type-expressions 23, regression 1 = 111).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../compact/compact-init-statement-scopes.cpp | 23 +++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-init-statement-scopes.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-init-statement-scopes.cpp b/clang/test/CXXMG/compact/compact-init-statement-scopes.cpp
+new file mode 100644
+index 000000000..9cd418e73
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-init-statement-scopes.cpp
+@@ -0,0 +1,23 @@
++// WEIRD scenarios: a `compact` struct defined inline in a C++17 if-init and a
++// for-init statement. These reach the tentative declaration-vs-expression
++// disambiguation through distinct parse paths from a plain function-local
++// declaration, so they separately exercise the kw_compact fix. Both reorder
++// like any compact struct.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++int f(int k) {
++  // if-init-statement: X is defined and reordered ({a,b,c} -> {b,c,a}).
++  if (compact struct X { char a; double b; int c; } v{}; k > 0) {
++    static_assert(sizeof(X) == 16, "if-init compact reorders");
++    (void)v;
++    return v.c;
++  }
++  // for-init-statement: Y is defined and reordered ({a,b} -> {b,a}).
++  for (compact struct Y { char a; double b; } y{}; k < 0; ++k) {
++    static_assert(sizeof(Y) == 16, "for-init compact reorders");
++    return (int)y.b;
++  }
++  return 0;
++}
+-- 
+2.54.0.windows.1
+

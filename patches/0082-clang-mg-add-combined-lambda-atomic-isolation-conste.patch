@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:27:49 -1000
+Subject: [PATCH] clang-mg: add combined lambda + atomic-isolation + constexpr
+ test
+
+A constexpr lambda captures by reference and mutates a compact struct whose atomic field is isolated to its own cache line. The lambda accesses a member at the reordered offset and constant evaluation yields the right value, proving the isolated layout is consistent across capture, member access, and constexpr evaluation.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-lambda-over-isolated-atomic.cpp b/clang/test/CXXMG/compact/compact-lambda-over-isolated-atomic.cpp
+new file mode 100644
+index 000000000..d86bf1829
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-lambda-over-isolated-atomic.cpp
+@@ -0,0 +1,27 @@
++// HARD (combined lambda + atomic isolation + constexpr): a constexpr lambda
++// captures by reference and mutates a compact struct whose atomic field is
++// isolated onto its own 64-byte cache line. The lambda reads/writes a member at
++// the reordered offset and constant evaluation produces the right value --
++// proving the isolated layout is consistent across capture, member access, and
++// constexpr evaluation.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct S {
++  char tag;
++  _Atomic int a; // isolated onto its own cache line
++  int b;
++};
++
++constexpr int run() {
++  S s{};
++  auto inc = [&s](int d) {
++    s.b += d;
++    return s.b;
++  };
++  inc(3);
++  return inc(4);
++}
++
++static_assert(run() == 7, "lambda mutates the reordered/isolated struct");
+-- 
+2.54.0.windows.1
+

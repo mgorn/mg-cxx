@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 23:46:24 -1000
+Subject: [PATCH] clang-mg: add loop-weighted suggest-hot test (now unblocked)
+
+Verifies -Rcxxmg-suggest-hot weights field uses by loop-nesting depth: a field touched once in a doubly-nested loop (weight 4) outranks a field touched three times at top level (weight 3). This test was deferred from patch 0067 because it tripped the pre-existing '<' crash (fixed in 0068); it now passes, completing validation of the advisory feature including loop weighting.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-suggest-hot-loop-weighted.cpp b/clang/test/CXXMG/compact/compact-suggest-hot-loop-weighted.cpp
+new file mode 100644
+index 000000000..92871438d
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-suggest-hot-loop-weighted.cpp
+@@ -0,0 +1,21 @@
++// HARD: loop weighting. A field touched once inside a doubly-nested loop
++// outweighs a field touched three times at top level, because uses are weighted
++// by lexical loop-nesting depth (weight = 1 << depth). The suggestion must name
++// the loop-hot field, not the raw-most-frequent one.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -Rcxxmg-suggest-hot -fsyntax-only -verify %s
++
++compact struct S {
++  int outer;
++  double loophot; // expected-remark {{field 'loophot' is the most-referenced member (4 uses); consider marking it 'hot'}}
++  char c;
++};
++
++void use(S &s, int n) {
++  s.outer = 1; // depth 0 -> weight 1
++  s.outer = 2; // depth 0 -> weight 1
++  s.outer = 3; // depth 0 -> weight 1   (total 3)
++  for (int i = 0; i < n; ++i)
++    for (int j = 0; j < n; ++j)
++      s.loophot += 1.0; // depth 2 -> weight 1 << 2 = 4
++}
+-- 
+2.54.0.windows.1
+

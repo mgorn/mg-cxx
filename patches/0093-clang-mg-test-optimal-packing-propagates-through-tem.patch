@@ -1,0 +1,73 @@
+From 4cc7c34cf3971d58d8eb527597db857441a2f146 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 03:56:09 -1000
+Subject: [PATCH] clang-mg: test optimal packing propagates through template
+ instantiation
+
+A compact class template is reordered per-instantiation at
+Sema::ActOnFields, which runs the same packing search (descending / greedy
+/ exhaustive) as the textual parser path -- so the optimizer must apply to
+instantiations too. This test pins a Box<T> with a field-level alignas(16)
+over T: Box<int> packs to 16 (the two chars fill the hole after the
+4-byte-but-16-aligned int, beating the 32 a descending sort gives) while
+Box<double> packs to a different per-instantiation optimum (32). Confirms
+the greedy/exhaustive packer reaches template instantiations, not only
+the textual form. No code change. Full CXXMG suite green (compact 52,
+conditional-members 14, traits 16, type-expressions 23, regression 1 =
+106).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../compact-template-optimal-packing.cpp      | 40 +++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-template-optimal-packing.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-template-optimal-packing.cpp b/clang/test/CXXMG/compact/compact-template-optimal-packing.cpp
+new file mode 100644
+index 000000000..f929b4444
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-template-optimal-packing.cpp
+@@ -0,0 +1,40 @@
++// Hard combination: a compact CLASS TEMPLATE whose field carries a field-level
++// `alignas(16)` over a small type. Each instantiation is reordered at
++// Sema::ActOnFields, which runs the SAME packing search as the textual parser
++// path -- so the greedy/exhaustive optimizer applies to template instantiations
++// too. In Box<int>, `alignas(16) int b` (size 4, align 16) opens a hole that the
++// two chars fill before the double, packing the instantiation to 16 bytes
++// rather than the 32 a descending-alignment sort would give. Box<double> packs
++// to a different optimum, proving the search runs per-instantiation.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <class T> compact struct Box {
++  alignas(16) T b;
++  double d;
++  char e;
++  char f;
++};
++
++Box<int> bi;
++static_assert(sizeof(Box<int>) == 16, "greedy fills the alignas hole in the instantiation");
++
++// CHECK:      struct Box<int>
++// CHECK-NEXT: 0 |{{.*}}int b
++// CHECK-NEXT: 4 |{{.*}}char e
++// CHECK-NEXT: 5 |{{.*}}char f
++// CHECK-NEXT: 8 |{{.*}}double d
++// CHECK:      sizeof=16, align=16
++
++// Box<double>: b is alignas(16) double (size 8, align 16). The hole after it is
++// 8 bytes; the two chars cannot fill a full double slot, so d follows at 8 and
++// the chars tail it -> 24 rounded to 32.
++Box<double> bd;
++static_assert(sizeof(Box<double>) == 32, "different T -> different optimum, per instantiation");
++
++// CHECK:      struct Box<double>
++// CHECK-NEXT: 0 |{{.*}}double b
++// CHECK-NEXT: 8 |{{.*}}double d
++// CHECK-NEXT: 16 |{{.*}}char e
++// CHECK-NEXT: 17 |{{.*}}char f
++// CHECK:      sizeof=32, align=16
+-- 
+2.54.0.windows.1
+

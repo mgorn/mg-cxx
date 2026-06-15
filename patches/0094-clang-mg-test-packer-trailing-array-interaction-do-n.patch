@@ -1,0 +1,56 @@
+From 03d1ca2fa004328844576e4dc00a6c16e54722d2 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 03:58:18 -1000
+Subject: [PATCH] clang-mg: test packer + trailing array interaction
+ (do-no-harm)
+
+The packing search excludes a trailing flexible-array-like member (kept
+last) but the size simulation appends it when comparing candidate
+orderings of the head fields, so the chosen order is optimal for the whole
+record. This test reorders the head {a, b, c} around `tail`, packing V to
+32 bytes versus 48 in declaration order (where alignas(16) int after a
+char wastes 15 bytes), with `tail` still last. Guards the SimWithTail
+trailing-array path, which the do-no-harm fuzzer does not exercise (it
+generates no [1]/flexible arrays). No code change. Full CXXMG suite green
+(compact 53, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 107).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../compact-trailing-array-with-packer.cpp    | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-trailing-array-with-packer.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-trailing-array-with-packer.cpp b/clang/test/CXXMG/compact/compact-trailing-array-with-packer.cpp
+new file mode 100644
+index 000000000..31e651db0
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-trailing-array-with-packer.cpp
+@@ -0,0 +1,24 @@
++// The packing search excludes a trailing flexible-array-like member (it must
++// stay last) but still accounts for it when comparing candidate orderings of
++// the head fields (the size simulation appends the trailing array). Here the
++// head {a, b, c} is reordered around `tail`, packing V to 32 bytes versus 48 in
++// declaration order, where `alignas(16) int b` after `char a` wastes 15 bytes.
++// `tail` remains the final member.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct V {
++  char a;
++  alignas(16) int b;
++  double c;
++  int tail[1];
++};
++V v;
++static_assert(sizeof(V) == 32, "head packs optimally (decl order is 48), tail stays last");
++
++// CHECK:      struct V
++// CHECK-NEXT: 0 |{{.*}}int b
++// CHECK-NEXT: 8 |{{.*}}double c
++// CHECK-NEXT: 16 |{{.*}}char a
++// CHECK-NEXT: 20 |{{.*}}int[1] tail
++// CHECK:      sizeof=32, align=16
+-- 
+2.54.0.windows.1
+

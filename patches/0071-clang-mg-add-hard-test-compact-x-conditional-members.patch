@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:16:42 -1000
+Subject: [PATCH] clang-mg: add hard test (compact x conditional-members x
+ template)
+
+Triple-feature interaction: a compact class template whose field set is determined by a C++MG  conditional member. The conditional resolves per instantiation, then compact reorders the resolved fields by alignment -- S<true> packs {big,c,a}=16, S<false> packs {c,a,small}=8. Verifies the reorderable field set is computed after conditional-member resolution and that the per-instantiation Sema::ActOnFields reorder (patch 0070) sees the resolved fields. Validated against real layout dumps.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-conditional-members-template.cpp b/clang/test/CXXMG/compact/compact-conditional-members-template.cpp
+new file mode 100644
+index 000000000..7026538ce
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-conditional-members-template.cpp
+@@ -0,0 +1,35 @@
++// HARD triple interaction: `compact` + a C++MG conditional `if constexpr` member
++// + class-template instantiation. The conditional resolves which fields exist
++// per instantiation, and ONLY THEN does compact reorder by alignment -- so
++// S<true> (which has the double) packs to {big, c, a} = 16, while S<false>
++// (which has the extra char) packs to {c, a, small} = 8. Exercises that the
++// reorderable field set is computed after conditional-member resolution and that
++// the per-instantiation reorder (Sema::ActOnFields) sees the resolved fields.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <bool B>
++compact struct S {
++  char a;
++  if constexpr (B) {
++    double big;
++  } else {
++    char small;
++  }
++  int c;
++};
++
++S<true> st;
++S<false> sf;
++
++static_assert(sizeof(S<true>) == 16, "{big(8), c(4), a(1)} padded to 16");
++static_assert(sizeof(S<false>) == 8, "{c(4), a(1), small(1)} padded to 8");
++
++// CHECK:      struct S<true>
++// CHECK-NEXT: double big
++// CHECK-NEXT: int c
++// CHECK-NEXT: char a
++// CHECK:      struct S<false>
++// CHECK-NEXT: int c
++// CHECK-NEXT: char a
++// CHECK-NEXT: char small
+-- 
+2.54.0.windows.1
+

@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:40:39 -1000
+Subject: [PATCH] clang-mg: add compact x type-expression interaction test
+
+A compact struct whose field type is a C++MG type-expression composed record (C = A + B). The composed type keeps its own source-order layout while the compact outer struct reorders its fields treating the composed field by its alignment and size. Ground truth from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-type-expression-field.cpp b/clang/test/CXXMG/compact/compact-type-expression-field.cpp
+new file mode 100644
+index 000000000..92a958aa2
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-type-expression-field.cpp
+@@ -0,0 +1,26 @@
++// HARD interaction: a compact struct whose field type is a C++MG type-EXPRESSION
++// composed record (C = A + B, which concatenates A's then B's fields). The
++// composed type C keeps its own source-order (non-compact) layout, and the outer
++// compact D reorders its own fields treating C by C's alignment (8) and size
++// (24): the field order becomes {inner(C), n, tag}.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++struct A { char a; double b; };
++struct B { char c; int d; };
++using C = A + B;
++
++compact struct D {
++  char tag;
++  C inner;
++  int n;
++};
++D d;
++
++static_assert(sizeof(C) == 24, "composed A+B keeps source order: char,double,char,int");
++static_assert(sizeof(D) == 32, "compact reorders to {inner(24), n(4), tag(1)} -> 32");
++
++// CHECK:      struct D
++// CHECK:      0 |{{.*}}struct C inner
++// CHECK:      24 |{{.*}}int n
++// CHECK:      28 |{{.*}}char tag
+-- 
+2.54.0.windows.1
+

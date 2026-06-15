@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 23:02:26 -1000
+Subject: [PATCH] clang-mg: add hard compact tests (lambda capture, deep
+ nesting)
+
+Two more verified hard-scenario tests: a lambda capturing a hot/cold-reordered compact struct by reference and reading several reordered members in constexpr; and four levels of nested compact structs where writing/taking-address of the deepest leaf must compose offsets through every reordered subobject. Both validated against the real binary. No compiler change.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-deeply-nested-reordered-access.cpp b/clang/test/CXXMG/compact/compact-deeply-nested-reordered-access.cpp
+new file mode 100644
+index 000000000..978562970
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-deeply-nested-reordered-access.cpp
+@@ -0,0 +1,20 @@
++// HARD: four levels of nested compact structs, each independently reordered.
++// Writing through and taking the address of the deepest leaf must compute the
++// offset correctly, composed through every reordered subobject at every level.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct L4 { char pad; int leaf; };
++compact struct L3 { char pad; L4 d; };
++compact struct L2 { char pad; L3 c; };
++compact struct L1 { char pad; L2 b; };
++
++constexpr int deep() {
++  L1 a{};
++  a.b.c.d.leaf = 42;      // offset composes through 4 reordered levels
++  int *p = &a.b.c.d.leaf; // address through the chain
++  return *p;
++}
++
++static_assert(deep() == 42, "deep nested reordered access is offset-correct");
+diff --git a/clang/test/CXXMG/compact/compact-lambda-over-reordered-members.cpp b/clang/test/CXXMG/compact/compact-lambda-over-reordered-members.cpp
+new file mode 100644
+index 000000000..7d5168af3
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-lambda-over-reordered-members.cpp
+@@ -0,0 +1,21 @@
++// HARD: a lambda captures a compact (hot/cold-reordered) struct by reference and
++// touches several of its reordered members inside a constexpr evaluation. Member
++// access by name must resolve to the correct field regardless of physical order,
++// and the closure must observe one consistent layout.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct V3 { hot double x; cold char tag; double y; double z; };
++
++constexpr double sum() {
++  V3 v{};
++  v.x = 1;
++  v.y = 2;
++  v.z = 3;
++  v.tag = 'a';
++  auto f = [&] { return v.x + v.y + v.z; }; // touches reordered members
++  return f();
++}
++
++static_assert(sum() == 6.0, "lambda reads the right reordered fields");
+-- 
+2.54.0.windows.1
+

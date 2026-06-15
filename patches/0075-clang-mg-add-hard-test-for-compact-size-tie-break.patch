@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:48:07 -1000
+Subject: [PATCH] clang-mg: add hard test for compact size tie-break
+
+Equal-alignment fields are ordered by descending size (then source order). A char array and a char share alignment 1 but the array, being larger, precedes the scalar. Full order by alignment: int, short, char[4], char. Ground truth from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-size-tiebreak.cpp b/clang/test/CXXMG/compact/compact-size-tiebreak.cpp
+new file mode 100644
+index 000000000..c49d56cab
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-size-tiebreak.cpp
+@@ -0,0 +1,22 @@
++// HARD: the compact comparator sorts by DESCENDING ALIGNMENT, then DESCENDING
++// SIZE as a tie-break (then source order). Here char[4] (big) and char (small)
++// share alignment 1 but differ in size, so big must precede small. The full
++// order by alignment is {int(4), short(2), char[4](1,sz4), char(1,sz1)}.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct S {
++  char small;
++  char big[4];
++  short s;
++  int x;
++};
++S v;
++
++static_assert(sizeof(S) == 12, "int(4)+short(2)+char[4]+char, padded to 12");
++
++// CHECK:      struct S
++// CHECK-NEXT: int x
++// CHECK-NEXT: short s
++// CHECK-NEXT: char[4] big
++// CHECK-NEXT: char small
+-- 
+2.54.0.windows.1
+

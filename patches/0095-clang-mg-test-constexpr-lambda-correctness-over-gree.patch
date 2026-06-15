@@ -1,0 +1,84 @@
+From 3c832ae0ace1514cbbe01376c87c31359bcb412d Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 04:25:41 -1000
+Subject: [PATCH] clang-mg: test constexpr + lambda correctness over
+ greedy-packed layout
+
+Reordering changes field offsets, never field identity, so values must
+read back unchanged through an optimized layout. This pins correctness
+(not just size) for a struct the greedy/exhaustive packer reorders
+non-trivially (P -> 16 bytes, order {hdr, s, a, b, payload}): constexpr
+field reads return the assigned values, a lambda capturing the struct by
+value computes correctly in a constant-expression context, and a
+by-reference lambda mutates the intended fields. Exercises the constant
+evaluator and lambda capture over the reordered layout -- the kind of
+combined hard/lambda scenario that must keep working. Full CXXMG suite
+green (compact 54, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 108).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ ...ct-constexpr-lambda-over-greedy-packed.cpp | 51 +++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-constexpr-lambda-over-greedy-packed.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-constexpr-lambda-over-greedy-packed.cpp b/clang/test/CXXMG/compact/compact-constexpr-lambda-over-greedy-packed.cpp
+new file mode 100644
+index 000000000..406bd83df
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-constexpr-lambda-over-greedy-packed.cpp
+@@ -0,0 +1,51 @@
++// Correctness (not just size) through a NON-TRIVIALLY reordered layout: P is
++// packed by the greedy/exhaustive optimizer to 16 bytes with field order
++// {hdr, s, a, b, payload} -- different from declaration order. Reordering only
++// changes offsets, never field identity, so constexpr field reads and a lambda
++// that captures the struct by value and reads its members must still evaluate
++// to exactly the assigned values. This exercises the constant evaluator and
++// lambda capture over the optimized layout.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct P {
++  alignas(16) int hdr;
++  double payload;
++  short s;
++  char a;
++  char b;
++};
++
++constexpr P make() {
++  P p{};
++  p.hdr = 10;
++  p.payload = 2.5;
++  p.s = 7;
++  p.a = 'x';
++  p.b = 'y';
++  return p;
++}
++constexpr P gp = make();
++
++static_assert(sizeof(P) == 16, "greedy hole-filling packs P to 16 (decl/descending give 32)");
++static_assert(gp.hdr == 10 && gp.payload == 2.5 && gp.s == 7 && gp.a == 'x' && gp.b == 'y',
++              "every field reads back correctly through the reordered layout");
++
++// A lambda capturing the reordered struct BY VALUE, read in a constexpr context.
++constexpr int viaLambda(P q) {
++  auto f = [q]() constexpr {
++    return q.hdr * 100 + q.s + (q.a - 'x') + (q.b - 'y');
++  };
++  return f();
++}
++static_assert(viaLambda(gp) == 1007, "lambda over reordered members evaluates correctly");
++
++// A lambda capturing BY REFERENCE and mutating through the reordered layout.
++constexpr int mutateViaLambda() {
++  P q = make();
++  auto bump = [&q]() constexpr { q.hdr += 5; q.b = 'z'; };
++  bump();
++  return q.hdr + (q.b - 'y');
++}
++static_assert(mutateViaLambda() == 16, "by-ref lambda mutates the right fields (15 + 1)");
+-- 
+2.54.0.windows.1
+

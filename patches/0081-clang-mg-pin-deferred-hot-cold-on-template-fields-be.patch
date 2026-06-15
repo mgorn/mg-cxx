@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:23:22 -1000
+Subject: [PATCH] clang-mg: pin deferred hot/cold-on-template-fields behavior
+
+Documents the current v1 limitation: hot/cold markers on a compact class template are ignored for instantiations (padding-min only), while atomic isolation still applies. Mega<int> places d first by alignment, not the hot value. Flip this test when hot/cold-on-template-fields is implemented. Ground truth from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp b/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp
+new file mode 100644
+index 000000000..b99cd7a67
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp
+@@ -0,0 +1,28 @@
++// DOCUMENTED LIMITATION (pins current behavior; flip when implemented): hot/cold
++// markers on a compact TEMPLATE's fields are currently IGNORED for instantiations
++// -- the per-instantiation reorder is padding-min only. Atomic isolation DOES
++// still apply. The non-template form honors hot/cold (compact-all-features-
++// torture.cpp), so here `value` is NOT pulled first despite being `hot`.
++//
++// Source {tag(cold), value(hot), refs(_Atomic), d}. Mega<int> reorders by
++// alignment only -> {d, value, refs, tag}, with refs isolated to its own line.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <class T> compact struct Mega {
++  cold char tag;
++  hot T value;
++  _Atomic int refs;
++  double d;
++};
++
++Mega<int> m;
++
++static_assert(sizeof(Mega<int>) == 192, "padding-min + atomic isolation");
++
++// d is first (alignment), NOT value -- confirming hot is ignored for templates:
++// CHECK:      struct Mega<int>
++// CHECK:      0 |{{.*}}double d
++// CHECK:      8 |{{.*}}int value
++// CHECK:      64 |{{.*}}refs
++// CHECK:      128 |{{.*}}char tag
+-- 
+2.54.0.windows.1
+

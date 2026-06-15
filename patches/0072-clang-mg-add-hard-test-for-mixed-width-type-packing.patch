@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:20:04 -1000
+Subject: [PATCH] clang-mg: add hard test for mixed-width type packing
+
+Compact packing across pointer, long long, int, short, bool and char (prior tests used only char/int/double). Verifies descending-alignment order with size and source-order tie-breaks: void-star, long long, int, short, bool, char. Ground truth read from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-mixed-int-widths-pointer.cpp b/clang/test/CXXMG/compact/compact-mixed-int-widths-pointer.cpp
+new file mode 100644
+index 000000000..4385f743d
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-mixed-int-widths-pointer.cpp
+@@ -0,0 +1,27 @@
++// HARD: compact packing across all integer widths plus pointer and bool. Prior
++// tests used only char/int/double; this exercises pointer (align 8), long long
++// (align 8), int (4), short (2), bool/char (1). Reorder is by descending
++// alignment, tie-broken by descending size then source order, giving
++// {void*, long long, int, short, bool, char}.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct M {
++  bool b;
++  void *p;
++  short s;
++  char c;
++  long long ll;
++  int i;
++};
++M m;
++
++static_assert(sizeof(M) == 24, "ptr(8)+ll(8)+int(4)+short(2)+bool(1)+char(1) => 24");
++
++// CHECK:      struct M
++// CHECK-NEXT: void * p
++// CHECK-NEXT: long long ll
++// CHECK-NEXT: int i
++// CHECK-NEXT: short s
++// CHECK-NEXT: _Bool b
++// CHECK-NEXT: char c
+-- 
+2.54.0.windows.1
+

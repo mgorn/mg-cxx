@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:12:57 -1000
+Subject: [PATCH] clang-mg: add test for atomic isolation in compact templates
+
+Combines per-instantiation reorder with atomic false-sharing isolation: a compact class template with an atomic field isolates that field onto its own cache line in every instantiation (Box<long> and Box<int> both place counter at offset 0, n at 64). Validated against layout dumps.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-atomic-isolation-template.cpp b/clang/test/CXXMG/compact/compact-atomic-isolation-template.cpp
+new file mode 100644
+index 000000000..16a1a37bd
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-atomic-isolation-template.cpp
+@@ -0,0 +1,28 @@
++// HARD interaction: atomic false-sharing isolation inside a compact CLASS
++// TEMPLATE. The per-instantiation Sema::ActOnFields hook runs applyCompactLayout,
++// which both permutes the fields by alignment AND stamps the cache-line
++// AlignedAttr on the atomic. So every instantiation places its _Atomic counter
++// alone on cache line 0, with n pushed to line 64 -- combining the template
++// reorder (per-instantiation) with the atomic isolation.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <class T> compact struct Box {
++  char tag;
++  _Atomic T counter;
++  int n;
++};
++
++Box<long> bl;
++Box<int> bi;
++
++static_assert(sizeof(Box<long>) == 128, "atomic isolated in the instantiation");
++static_assert(sizeof(Box<int>) == 128, "atomic isolated in the instantiation");
++static_assert(alignof(Box<long>) == 64, "record alignment raised to the line");
++
++// CHECK:      struct Box<long>
++// CHECK:      0 |{{.*}}counter
++// CHECK:      64 |{{.*}}int n
++// CHECK:      struct Box<int>
++// CHECK:      0 |{{.*}}counter
++// CHECK:      64 |{{.*}}int n
+-- 
+2.54.0.windows.1
+

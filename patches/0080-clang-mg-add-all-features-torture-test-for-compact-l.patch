@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:19:49 -1000
+Subject: [PATCH] clang-mg: add all-features torture test for compact layout
+
+One struct exercising every placement mechanism together from a scrambled source order: hot field pulled to offset 0, cold field pushed last, an atomic field isolated onto its own cache line, and the unmarked field padding-minimized in the middle. Result value@0, d@8, refs@64, tag@128, sizeof 192. Proves the rules compose; ground truth from the layout dump.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-all-features-torture.cpp b/clang/test/CXXMG/compact/compact-all-features-torture.cpp
+new file mode 100644
+index 000000000..ecabb22be
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-all-features-torture.cpp
+@@ -0,0 +1,29 @@
++// TORTURE TEST: every compact placement mechanism composing in ONE struct --
++// hot-first, cold-last, atomic false-sharing isolation, and padding-min in the
++// middle, from a deliberately scrambled source order.
++//
++// Source order {tag(cold), value(hot), refs(_Atomic), d}. The result:
++//   value @0   -- hot, pulled to the first cache line
++//   d     @8   -- unmarked middle, padding-minimized by alignment
++//   refs  @64  -- _Atomic, isolated onto its own cache line (no false sharing)
++//   tag   @128 -- cold, pushed last; also a fresh line as the field after refs
++// sizeof grows to 192: the deliberate cost of placement + isolation.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct Mega {
++  cold char tag;
++  hot int value;
++  _Atomic int refs;
++  double d;
++};
++Mega mm;
++
++static_assert(sizeof(Mega) == 192, "hot/cold + atomic isolation all compose");
++static_assert(alignof(Mega) == 64, "record alignment raised to the cache line");
++
++// CHECK:      struct Mega
++// CHECK:      0 |{{.*}}int value
++// CHECK:      8 |{{.*}}double d
++// CHECK:      64 |{{.*}}refs
++// CHECK:      128 |{{.*}}char tag
+-- 
+2.54.0.windows.1
+

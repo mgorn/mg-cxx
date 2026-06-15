@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 22:56:14 -1000
+Subject: [PATCH] clang-mg: add hard compact tests (nested, constexpr)
+
+Two verified hard-scenario tests: a compact struct nested inside another compact struct (outer uses the inner's already-reordered size/align), and a compact struct used in constexpr construction + by-name member reads (constant evaluator follows the reorder consistently). Ground-truth values read from actual layout dumps, not guessed. No compiler change.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-constexpr-evaluation.cpp b/clang/test/CXXMG/compact/compact-constexpr-evaluation.cpp
+new file mode 100644
+index 000000000..52cfacc86
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-constexpr-evaluation.cpp
+@@ -0,0 +1,23 @@
++// HARD: a compact struct used in constant evaluation. It reorders, yet
++// constexpr construction and by-name member reads still produce the right
++// values -- the constant evaluator follows the reordered decl order
++// consistently, and `.x`/`.n`/`.tag` resolve to the correct members regardless
++// of physical order.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct Pt { char tag; double x; int n; }; // -> {x, n, tag}, 16 bytes
++static_assert(sizeof(Pt) == 16, "");
++
++constexpr Pt make() {
++  Pt p{};
++  p.x = 1.0;
++  p.n = 7;
++  p.tag = 'z';
++  return p;
++}
++
++static_assert(make().x == 1.0, "");
++static_assert(make().n == 7, "");
++static_assert(make().tag == 'z', "");
+diff --git a/clang/test/CXXMG/compact/compact-nested-in-compact.cpp b/clang/test/CXXMG/compact/compact-nested-in-compact.cpp
+new file mode 100644
+index 000000000..004763c48
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-nested-in-compact.cpp
+@@ -0,0 +1,22 @@
++// HARD: a compact struct nested as a field of another compact struct. Each
++// reorders independently, and the outer must place the inner field using the
++// inner's ALREADY-reordered size (16) and alignment (8) -- inner-before-outer
++// completion, no stale size.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct Inner { char c; double d; };           // -> {d, c}, 16 bytes
++compact struct Outer { char a; Inner inner; long l; }; // -> {inner, l, a}, 24 bytes
++
++static_assert(sizeof(Inner) == 16, "inner packs char after double");
++static_assert(sizeof(Outer) == 24, "inner(16)+long(8)+char, padded to 24");
++
++// Inner reorders to {d, c}:
++// CHECK:      struct Inner
++// CHECK-NEXT: double d
++// CHECK-NEXT: char c
++// Outer reorders to {inner, l, a}; the nested inner is itself reordered:
++// CHECK:      struct Outer
++// CHECK-NEXT: struct Inner inner
++// CHECK:      long l
++// CHECK-NEXT: char a
+-- 
+2.54.0.windows.1
+

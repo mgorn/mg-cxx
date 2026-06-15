@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 00:11:41 -1000
+Subject: [PATCH] clang-mg: reorder compact template instantiations
+ (Sema::ActOnFields)
+
+A compact class template could not reorder its instantiations: the parser keyword hook bails on the dependent pattern, and DS.getRepAsDecl() for a template is a ClassTemplateDecl (not a RecordDecl), so the pattern was never recorded. Now the parser marks the compact pattern (the RecordDecl, or a ClassTemplateDecl's getTemplatedDecl()) in a per-ASTContext canonical-keyed set; a new sibling hook in Sema::ActOnFields -- beside randstruct, after completeDefinition/ProcessDeclAttributeList, before getASTRecordLayout -- reorders each concrete instantiation (padding-min) when its getTemplateInstantiationPattern() is marked. Box<double> now packs to 16 (was source-order 24). Determinism: each instantiation is ordered by its own field alignments, identical across TUs. Textual form's parser hook is untouched; lambdas/non-compact records are skipped by the guard. Hot/cold on template fields is a separate follow-up. All CXXMG suites pass.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
+index 4adfeac66..ce8145eae 100644
+--- a/clang/include/clang/AST/CXXMGLayout.h
++++ b/clang/include/clang/AST/CXXMGLayout.h
+@@ -55,6 +55,14 @@ bool applyCompactLayout(
+     const ASTContext &Context, RecordDecl *RD,
+     llvm::function_ref<CXXMGHotness(const FieldDecl *)> GetHotness);
+ 
++/// Record that \p RD is a dependent `compact` template pattern, so each of its
++/// instantiations is reordered at Sema::ActOnFields. State is keyed by \p Context
++/// (per translation unit / AST), so it never leaks across contexts.
++void markCompactPattern(const ASTContext &Context, const RecordDecl *RD);
++
++/// Whether \p RD was recorded as a `compact` template pattern in \p Context.
++bool isCompactPattern(const ASTContext &Context, const RecordDecl *RD);
++
+ } // namespace cxxmg
+ } // namespace clang
+ 
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 280cd3185..7a57642f8 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -21,6 +21,8 @@
+ #include "clang/AST/Decl.h"
+ #include "clang/AST/DeclCXX.h" // CXXRecordDecl, StaticAssertDecl
+ #include "clang/AST/Type.h"
++#include "llvm/ADT/DenseMap.h"
++#include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/SmallVector.h"
+ #include <algorithm>
+@@ -167,3 +169,28 @@ bool clang::cxxmg::applyCompactLayout(
+   RD->reorderDecls(NewOrdering);
+   return true;
+ }
++
++// `compact` template patterns are dependent at parse time, so they cannot be
++// reordered then; instead they are recorded here and each concrete instantiation
++// is reordered at Sema::ActOnFields. The set is keyed by ASTContext* so state
++// from one translation unit/AST never collides with another.
++// Keyed on the CANONICAL decl so the pattern marked at parse time matches what
++// CXXRecordDecl::getTemplateInstantiationPattern() returns (possibly a different
++// redeclaration) at instantiation time.
++static llvm::DenseMap<const ASTContext *, llvm::DenseSet<const Decl *>> &
++getCompactPatternMap() {
++  static llvm::DenseMap<const ASTContext *, llvm::DenseSet<const Decl *>> M;
++  return M;
++}
++
++void clang::cxxmg::markCompactPattern(const ASTContext &Context,
++                                      const RecordDecl *RD) {
++  getCompactPatternMap()[&Context].insert(RD->getCanonicalDecl());
++}
++
++bool clang::cxxmg::isCompactPattern(const ASTContext &Context,
++                                    const RecordDecl *RD) {
++  auto It = getCompactPatternMap().find(&Context);
++  return It != getCompactPatternMap().end() &&
++         It->second.count(RD->getCanonicalDecl());
++}
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index 5c528c18b..50413c03a 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -4614,7 +4614,19 @@ void Parser::ParseDeclarationSpecifiers(
+             // Record this compact struct so the end-of-TU pass can suggest a
+             // `hot` marker for its most-referenced field (-Rcxxmg-suggest-hot).
+             CXXMGCompactRecords.push_back(RD);
++            // Mark the record (canonical decl) so that if it is a `compact`
++            // template pattern, each instantiation is reordered later at
++            // Sema::ActOnFields. (Harmless for the textual form, which has no
++            // instantiation pattern and is reordered here at the keyword site.)
++            cxxmg::markCompactPattern(Ctx, RD);
+           }
++        } else if (auto *CTD = dyn_cast_or_null<ClassTemplateDecl>(
++                       DS.getRepAsDecl())) {
++          // A `compact` class template: DS.getRepAsDecl() is the
++          // ClassTemplateDecl, not a RecordDecl, so mark its templated pattern
++          // record. Each instantiation is then reordered at Sema::ActOnFields.
++          cxxmg::markCompactPattern(Actions.getASTContext(),
++                                    CTD->getTemplatedDecl());
+         }
+       }
+ 
+diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
+index 58b8e947e..78d7e3639 100644
+--- a/clang/lib/Sema/SemaDecl.cpp
++++ b/clang/lib/Sema/SemaDecl.cpp
+@@ -26,6 +26,7 @@
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/MangleNumberingContext.h"
+ #include "clang/AST/NonTrivialTypeVisitor.h"
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/Randstruct.h"
+ #include "clang/AST/StmtCXX.h"
+ #include "clang/AST/Type.h"
+@@ -20336,6 +20337,21 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
+         Record->reorderDecls(NewDeclOrdering);
+     }
+ 
++    // C++MG: reorder the fields of a `compact` template instantiation. The
++    // textual `compact struct` form is reordered at the parser keyword site;
++    // this covers instantiations, whose dependent pattern was marked `compact`.
++    // Fires only when the record is an instantiation of a marked pattern, so the
++    // textual form (no instantiation pattern) and non-compact types are skipped.
++    if (getLangOpts().CPlusPlusMG && Record && !Record->isRandomized() &&
++        CXXRecord) {
++      if (const CXXRecordDecl *Pattern =
++              CXXRecord->getTemplateInstantiationPattern())
++        if (cxxmg::isCompactPattern(Context, Pattern))
++          cxxmg::applyCompactLayout(
++              Context, Record,
++              [](const FieldDecl *) { return cxxmg::CXXMGHotness::None; });
++    }
++
+     // We may have deferred checking for a deleted destructor. Check now.
+     if (CXXRecord) {
+       auto *Dtor = CXXRecord->getDestructor();
+diff --git a/clang/test/CXXMG/compact/compact-template-instantiation.cpp b/clang/test/CXXMG/compact/compact-template-instantiation.cpp
+new file mode 100644
+index 000000000..e32af7cde
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-template-instantiation.cpp
+@@ -0,0 +1,22 @@
++// A `compact` class template reorders each concrete instantiation by ITS field
++// alignments. The dependent pattern is skipped (its alignments are unknown), and
++// the reorder happens at instantiation completion (Sema::ActOnFields), so
++// Box<double> packs to {payload, id, tag} = 16 bytes instead of source-order 24.
++// Padding-min only here; hot/cold on template fields is a separate feature.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <class T> compact struct Box {
++  char tag;
++  T payload;
++  int id;
++};
++
++Box<double> bd; // force instantiation + layout
++
++static_assert(sizeof(Box<double>) == 16, "double payload(8)+int(4)+char, packed to 16");
++
++// CHECK:      struct Box<double>
++// CHECK-NEXT: double payload
++// CHECK-NEXT: int id
++// CHECK-NEXT: char tag
+-- 
+2.54.0.windows.1
+

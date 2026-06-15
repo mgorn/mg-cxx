@@ -1,0 +1,147 @@
+From 2609cfeee5751419b097c27ac1116622fb80cf77 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 03:01:59 -1000
+Subject: [PATCH] clang-mg: guarantee compact never bloats past declaration
+ order
+
+A descending-alignment sort is not optimal when a field's size is smaller
+than its alignment: e.g. `alignas(16) int` (size 4, align 16) sorts to
+the front and leaves a 4-byte hole that a later small field (a float)
+would have filled in declaration order -- but that field gets sorted away
+to the tail, growing the struct. For `struct { alignas(16) int; float;
+double[2]; long double; }` the reordering produced sizeof 48 versus 32 in
+declaration order: compact made the struct BIGGER, the opposite of its
+purpose.
+
+Fix: for PLAIN compact (no hot/cold markers), simulate the resulting size
+of the proposed reordering and of declaration order; if the reordering is
+not strictly smaller, keep declaration order. This makes do-no-harm a
+hard guarantee -- compact never exceeds what the user wrote -- while
+leaving beneficial reorderings untouched. hot/cold deliberately trade
+size for cache locality and are exempt (the simulate-and-fallback runs
+only when both Hot and Cold partitions are empty).
+
+The size simulator mirrors the record layout for the non-bitfield case
+compact already restricts itself to (compact bails on bitfields, bases,
+polymorphism, indirect fields), using each field's EFFECTIVE alignment
+(max of type alignment and alignas).
+
+Found by a do-no-harm fuzzer that generates random plain-compact structs
+and asserts compact sizeof <= declaration-order sizeof: 5 violations
+before the fix, 0 across 800 structs after. Test
+compact-do-no-harm-fallback.cpp pins the alignas(16)-int+float case
+(stays declaration order, 32) plus a control that still reorders
+beneficially (24 -> 16). Full CXXMG suite green (compact 49, conditional-
+members 14, traits 16, type-expressions 23, regression 1 = 103).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/lib/AST/CXXMGLayout.cpp                 | 37 +++++++++++++++
+ .../compact/compact-do-no-harm-fallback.cpp   | 47 +++++++++++++++++++
+ 2 files changed, 84 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-do-no-harm-fallback.cpp
+
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 077597e7f..0bb7f7b35 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -158,6 +158,43 @@ bool computeCompactOrdering(
+   std::stable_sort(Middle.begin(), Middle.end(), ByDescendingAlignment);
+   std::stable_sort(Cold.begin(), Cold.end(), ByDescendingAlignment);
+ 
++  // Do-no-harm guarantee for PLAIN compact (no hot/cold markers): the
++  // descending-alignment heuristic is NOT optimal when a field's size is
++  // smaller than its alignment -- e.g. `alignas(16) int` (size 4, align 16)
++  // sorts to the front and leaves a 4-byte hole that a later small field (a
++  // float, say) could have filled, but that field got sorted away to the tail.
++  // In such cases the reordering can be LARGER than the original declaration
++  // order, defeating the entire purpose of `compact`. Simulate the resulting
++  // size of our reordering against declaration order and, if it is not smaller,
++  // keep declaration order so `compact` never bloats a struct past what the
++  // user wrote. `hot`/`cold` deliberately trade size for cache locality, so
++  // this only applies when the user wrote neither marker.
++  auto SimulateSize =
++      [&Context, &EffectiveAlign](llvm::ArrayRef<FieldDecl *> Order) -> uint64_t {
++    uint64_t Offset = 0, MaxAlign = 1;
++    for (const FieldDecl *FD : Order) {
++      uint64_t A = EffectiveAlign(FD);
++      if (A == 0)
++        A = 1;
++      uint64_t Sz = Context.getTypeSizeInChars(FD->getType()).getQuantity();
++      Offset = llvm::alignTo(Offset, A);
++      Offset += Sz;
++      if (A > MaxAlign)
++        MaxAlign = A;
++    }
++    return llvm::alignTo(Offset, MaxAlign);
++  };
++  if (Hot.empty() && Cold.empty()) {
++    llvm::SmallVector<FieldDecl *, 64> Reordered(Middle.begin(), Middle.end());
++    llvm::SmallVector<FieldDecl *, 64> Source(Fields.begin(), Fields.end());
++    if (TrailingArray) {
++      Reordered.push_back(TrailingArray);
++      Source.push_back(TrailingArray);
++    }
++    if (SimulateSize(Reordered) > SimulateSize(Source))
++      Middle.assign(Fields.begin(), Fields.end()); // keep declaration order
++  }
++
+   llvm::append_range(FinalOrdering, Hot);
+   llvm::append_range(FinalOrdering, Middle);
+   llvm::append_range(FinalOrdering, Cold);
+diff --git a/clang/test/CXXMG/compact/compact-do-no-harm-fallback.cpp b/clang/test/CXXMG/compact/compact-do-no-harm-fallback.cpp
+new file mode 100644
+index 000000000..fd537ef85
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-do-no-harm-fallback.cpp
+@@ -0,0 +1,47 @@
++// Do-no-harm guarantee: a descending-alignment sort is NOT optimal when a
++// field's size is smaller than its alignment, so it can produce a layout LARGER
++// than declaration order. For PLAIN compact (no hot/cold), compact simulates
++// both orderings and keeps declaration order whenever its reordering would not
++// shrink the struct -- so `compact` never bloats a struct past what the user
++// wrote. (hot/cold deliberately trade size for locality and are exempt.)
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++// S: `alignas(16) int` (size 4, align 16) would sort to the front and leave a
++// 4-byte hole; the float that fills it in declaration order would be pushed to
++// the tail, growing the struct to 48. Declaration order packs to 32, so compact
++// KEEPS declaration order (f0,f1,f2,f3) rather than bloating.
++compact struct S {
++  alignas(16) int f0;
++  float f1;
++  double f2[2];
++  long double f3;
++};
++S s;
++static_assert(sizeof(S) == 32, "compact must not exceed declaration order (would be 48 reordered)");
++
++// CHECK:      struct S
++// CHECK-NEXT: 0 |{{.*}}int f0
++// CHECK-NEXT: 4 |{{.*}}float f1
++// CHECK-NEXT: 8 |{{.*}}double[2] f2
++// CHECK-NEXT: 24 |{{.*}}long double f3
++// CHECK:      sizeof=32, align=16
++
++// Control G: here reordering genuinely helps (declaration order is 24, sorted is
++// 16), so compact DOES reorder. The fallback is targeted: it only suppresses
++// reordering that would do harm, never beneficial reordering.
++compact struct G {
++  char a;
++  double b;
++  char c;
++  int d;
++};
++G g;
++static_assert(sizeof(G) == 16, "beneficial reorder is still applied");
++
++// CHECK:      struct G
++// CHECK-NEXT: 0 |{{.*}}double b
++// CHECK-NEXT: 8 |{{.*}}int d
++// CHECK-NEXT: 12 |{{.*}}char a
++// CHECK-NEXT: 13 |{{.*}}char c
++// CHECK:      sizeof=16, align=8
+-- 
+2.54.0.windows.1
+

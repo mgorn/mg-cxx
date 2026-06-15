@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:09:43 -1000
+Subject: [PATCH] clang-mg: add end-to-end -S assembly test for compact reorder
+
+Verifies the reorder reaches machine code: a hot field declared last is reordered to offset 0, and the emitted load uses a zero displacement, while a field at offset 8 uses 8(reg). Proves codegen consumes the reordered AST layout and no later pass re-permutes it. Exact asm captured from -S output, not guessed.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/test/CXXMG/compact/compact-hot-field-asm.cpp b/clang/test/CXXMG/compact/compact-hot-field-asm.cpp
+new file mode 100644
+index 000000000..edd9965cc
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-hot-field-asm.cpp
+@@ -0,0 +1,23 @@
++// END-TO-END (-S assembly): the compact reorder reaches MACHINE CODE, not just
++// the AST. `position` is declared LAST but marked `hot`, so it is reordered to
++// offset 0 -- and the emitted load uses a zero displacement `(%rcx)`, while `id`
++// (offset 8) uses `8(%rcx)`. This proves codegen consumes the reordered layout
++// and that no later pass re-permutes it. (Windows x64 ABI: first arg in %rcx.)
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -triple x86_64-pc-windows-msvc -O2 -S -o - %s | FileCheck %s
++
++compact struct E {
++  cold char name[8];
++  int id;
++  hot double position;
++};
++
++extern "C" double load_pos(E *e) { return e->position; }
++extern "C" int load_id(E *e) { return e->id; }
++
++// position reordered to offset 0 -> load from (%rcx) with no displacement:
++// CHECK-LABEL: load_pos:
++// CHECK:       movsd (%rcx), %xmm0
++// id at offset 8 -> load from 8(%rcx):
++// CHECK-LABEL: load_id:
++// CHECK:       movl 8(%rcx), %eax
+-- 
+2.54.0.windows.1
+

@@ -1,0 +1,180 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:35:45 -1000
+Subject: [PATCH] clang-mg: honor hot/cold markers on compact template fields
+
+Previously hot/cold markers were ignored for compact template instantiations (padding-min only). Now the parser records each pattern field's hotness in a per-ASTContext map (cxxmg::markFieldHotness), and the Sema::ActOnFields instantiation hook maps each instantiated field to its pattern field positionally and looks up the marker (cxxmg::getFieldHotness), falling back to None if field counts differ (e.g. conditional members). Mega<int> now pulls its hot field to offset 0 like the non-template form, keeps cold last, and still isolates atomics. Replaces the deferred-limitation test with compact-template-hotcold-honored.cpp; non-template hot/cold and all other CXXMG suites unaffected.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/include/clang/AST/CXXMGLayout.h b/clang/include/clang/AST/CXXMGLayout.h
+index ce8145eae..74a50b2a1 100644
+--- a/clang/include/clang/AST/CXXMGLayout.h
++++ b/clang/include/clang/AST/CXXMGLayout.h
+@@ -63,6 +63,13 @@ void markCompactPattern(const ASTContext &Context, const RecordDecl *RD);
+ /// Whether \p RD was recorded as a `compact` template pattern in \p Context.
+ bool isCompactPattern(const ASTContext &Context, const RecordDecl *RD);
+ 
++/// Record/query the source-level `hot`/`cold` marker for a field, keyed by
++/// \p Context. Used so a `compact` template pattern's markers can be applied to
++/// each instantiation (which has distinct FieldDecls) at Sema::ActOnFields.
++void markFieldHotness(const ASTContext &Context, const FieldDecl *FD,
++                      CXXMGHotness Hotness);
++CXXMGHotness getFieldHotness(const ASTContext &Context, const FieldDecl *FD);
++
+ } // namespace cxxmg
+ } // namespace clang
+ 
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index b6237a824..3e99c23ea 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -242,3 +242,29 @@ bool clang::cxxmg::isCompactPattern(const ASTContext &Context,
+   return It != getCompactPatternMap().end() &&
+          It->second.count(RD->getCanonicalDecl());
+ }
++
++// Source-level hot/cold markers, keyed by ASTContext* then FieldDecl. Populated
++// at the parser hot/cold site; read at Sema::ActOnFields to apply a `compact`
++// template pattern's markers to each instantiation's (distinct) fields.
++static llvm::DenseMap<const ASTContext *,
++                      llvm::DenseMap<const FieldDecl *, CXXMGHotness>> &
++getFieldHotnessMap() {
++  static llvm::DenseMap<const ASTContext *,
++                        llvm::DenseMap<const FieldDecl *, CXXMGHotness>>
++      M;
++  return M;
++}
++
++void clang::cxxmg::markFieldHotness(const ASTContext &Context,
++                                    const FieldDecl *FD, CXXMGHotness Hotness) {
++  getFieldHotnessMap()[&Context][FD] = Hotness;
++}
++
++CXXMGHotness clang::cxxmg::getFieldHotness(const ASTContext &Context,
++                                           const FieldDecl *FD) {
++  auto It = getFieldHotnessMap().find(&Context);
++  if (It == getFieldHotnessMap().end())
++    return CXXMGHotness::None;
++  auto J = It->second.find(FD);
++  return J == It->second.end() ? CXXMGHotness::None : J->second;
++}
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index cb2d03f6e..46cad9cad 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -2734,8 +2734,12 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
+ 
+   if (Hotness != cxxmg::CXXMGHotness::None && DG) {
+     for (Decl *D : DG.get())
+-      if (auto *FD = dyn_cast<FieldDecl>(D))
++      if (auto *FD = dyn_cast<FieldDecl>(D)) {
+         CXXMGFieldHotness[FD] = Hotness;
++        // Also record on the ASTContext so a `compact` template pattern's marker
++        // can be applied to each instantiation's fields at Sema::ActOnFields.
++        cxxmg::markFieldHotness(Actions.getASTContext(), FD, Hotness);
++      }
+   }
+   return DG;
+ }
+diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
+index 78d7e3639..a03853742 100644
+--- a/clang/lib/Sema/SemaDecl.cpp
++++ b/clang/lib/Sema/SemaDecl.cpp
+@@ -20346,10 +20346,24 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
+         CXXRecord) {
+       if (const CXXRecordDecl *Pattern =
+               CXXRecord->getTemplateInstantiationPattern())
+-        if (cxxmg::isCompactPattern(Context, Pattern))
++        if (cxxmg::isCompactPattern(Context, Pattern)) {
++          // Map each instantiated field to its pattern field positionally, so the
++          // pattern's hot/cold markers apply to this instantiation's fields.
++          llvm::DenseMap<const FieldDecl *, const FieldDecl *> Inst2Pat;
++          auto PI = Pattern->field_begin(), PE = Pattern->field_end();
++          auto II = Record->field_begin(), IE = Record->field_end();
++          for (; PI != PE && II != IE; ++PI, ++II)
++            Inst2Pat[*II] = *PI;
++          if (PI != PE || II != IE)
++            Inst2Pat.clear(); // field counts differ -> skip hotness mapping
+           cxxmg::applyCompactLayout(
+-              Context, Record,
+-              [](const FieldDecl *) { return cxxmg::CXXMGHotness::None; });
++              Context, Record, [&](const FieldDecl *FD) {
++                auto It = Inst2Pat.find(FD);
++                return It == Inst2Pat.end()
++                           ? cxxmg::CXXMGHotness::None
++                           : cxxmg::getFieldHotness(Context, It->second);
++              });
++        }
+     }
+ 
+     // We may have deferred checking for a deleted destructor. Check now.
+diff --git a/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp b/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp
+deleted file mode 100644
+index b99cd7a67..000000000
+--- a/clang/test/CXXMG/compact/compact-template-hotcold-deferred.cpp
++++ /dev/null
+@@ -1,28 +0,0 @@
+-// DOCUMENTED LIMITATION (pins current behavior; flip when implemented): hot/cold
+-// markers on a compact TEMPLATE's fields are currently IGNORED for instantiations
+-// -- the per-instantiation reorder is padding-min only. Atomic isolation DOES
+-// still apply. The non-template form honors hot/cold (compact-all-features-
+-// torture.cpp), so here `value` is NOT pulled first despite being `hot`.
+-//
+-// Source {tag(cold), value(hot), refs(_Atomic), d}. Mega<int> reorders by
+-// alignment only -> {d, value, refs, tag}, with refs isolated to its own line.
+-//
+-// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
+-
+-template <class T> compact struct Mega {
+-  cold char tag;
+-  hot T value;
+-  _Atomic int refs;
+-  double d;
+-};
+-
+-Mega<int> m;
+-
+-static_assert(sizeof(Mega<int>) == 192, "padding-min + atomic isolation");
+-
+-// d is first (alignment), NOT value -- confirming hot is ignored for templates:
+-// CHECK:      struct Mega<int>
+-// CHECK:      0 |{{.*}}double d
+-// CHECK:      8 |{{.*}}int value
+-// CHECK:      64 |{{.*}}refs
+-// CHECK:      128 |{{.*}}char tag
+diff --git a/clang/test/CXXMG/compact/compact-template-hotcold-honored.cpp b/clang/test/CXXMG/compact/compact-template-hotcold-honored.cpp
+new file mode 100644
+index 000000000..015dd6b67
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-template-hotcold-honored.cpp
+@@ -0,0 +1,26 @@
++// A compact CLASS TEMPLATE now HONORS hot/cold markers on its fields for every
++// instantiation: the pattern's markers are mapped positionally onto each
++// instantiation's (distinct) FieldDecls at Sema::ActOnFields. So Mega<int> pulls
++// the hot `value` to offset 0 (matching the non-template form in
++// compact-all-features-torture.cpp), keeps the cold `tag` last, and still
++// isolates the atomic `refs` onto its own cache line.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++template <class T> compact struct Mega {
++  cold char tag;
++  hot T value;
++  _Atomic int refs;
++  double d;
++};
++
++Mega<int> m;
++
++static_assert(sizeof(Mega<int>) == 192, "hot/cold + atomic isolation compose");
++
++// hot value is now FIRST (offset 0), not d -- the template honors hot/cold:
++// CHECK:      struct Mega<int>
++// CHECK:      0 |{{.*}}int value
++// CHECK:      8 |{{.*}}double d
++// CHECK:      64 |{{.*}}refs
++// CHECK:      128 |{{.*}}char tag
+-- 
+2.54.0.windows.1
+

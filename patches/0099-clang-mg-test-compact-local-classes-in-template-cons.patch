@@ -1,0 +1,87 @@
+From cae32281f85fc05ad102924e129a3e5aa72d2ad2 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 05:56:56 -1000
+Subject: [PATCH] clang-mg: test compact local classes in
+ template/constexpr/generic-lambda
+
+Exercises the block-scope compact parse plus the layout optimizer across
+the hardest local-class contexts: a compact struct local to a TEMPLATE
+function (instantiated and reordered per specialization, so sizeof tracks
+the template argument: double=16, int=12, char=8), one local to a
+CONSTEXPR function (reordered, fields read in a constant expression), and
+one local to a generic lambda using decltype(auto-param) as a field type.
+All parse, reorder, and evaluate at compile time. No code change beyond
+the prior block-scope fix. Full CXXMG suite green (compact 58,
+conditional-members 14, traits 16, type-expressions 23, regression 1 =
+112).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ ...act-template-and-constexpr-local-class.cpp | 55 +++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-template-and-constexpr-local-class.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-template-and-constexpr-local-class.cpp b/clang/test/CXXMG/compact/compact-template-and-constexpr-local-class.cpp
+new file mode 100644
+index 000000000..a869be4a2
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-template-and-constexpr-local-class.cpp
+@@ -0,0 +1,55 @@
++// VERY hard combination: a `compact` struct declared local to a TEMPLATE
++// function and to a CONSTEXPR function. The template-local class is instantiated
++// (and reordered) per specialization, so its size tracks the template argument;
++// the constexpr-local class is reordered and its fields are read in a constant
++// expression. Both rely on the block-scope parse of `compact` and on the layout
++// optimizer running during instantiation / for the local class.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++// Template-function-local compact struct: TL = {char a; T b; int c;} reorders by
++// descending alignment per instantiation, so sizeof depends on T.
++template <class T> constexpr unsigned tlSize() {
++  compact struct TL {
++    char a;
++    T b;
++    int c;
++  };
++  return sizeof(TL);
++}
++static_assert(tlSize<double>() == 16, "{a,b=double,c} -> {b,c,a} = 16");
++static_assert(tlSize<int>() == 12, "{a,b=int,c} -> {b,c,a} = 12");
++static_assert(tlSize<char>() == 8, "{a,b=char,c} -> {c,a,b} = 8");
++
++// Constexpr-function-local compact struct: reordered, and every field reads back
++// correctly inside a constant expression.
++constexpr int clEval() {
++  compact struct CL {
++    char a;
++    double b;
++    int c;
++  };
++  CL x{};
++  x.a = 2;
++  x.b = 4.0;
++  x.c = 9;
++  return x.a + x.c + (int)x.b; // 2 + 9 + 4
++}
++static_assert(clEval() == 15, "constexpr reads through the reordered local layout");
++
++// And the same constexpr-local pattern exercised through a generic lambda.
++constexpr int viaGenericLambda() {
++  auto mk = [](auto seed) constexpr {
++    compact struct K {
++      char a;
++      decltype(seed) b;
++      int c;
++    };
++    K k{};
++    k.c = 6;
++    return k.c + (int)sizeof(K);
++  };
++  return mk(3.0); // c(6) + sizeof(K with b=double)=16 -> 22
++}
++static_assert(viaGenericLambda() == 22, "generic-lambda-local compact reorders and evaluates");
+-- 
+2.54.0.windows.1
+

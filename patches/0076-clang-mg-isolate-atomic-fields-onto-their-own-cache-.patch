@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 01:02:47 -1000
+Subject: [PATCH] clang-mg: isolate atomic fields onto their own cache line
+ (false sharing)
+
+In a compact struct, packing concurrently-written atomic fields tightly causes false sharing. After the reorder, synthesize a 64-byte cache-line AlignedAttr on each atomic field and on the field immediately following it, so no two atomics (and no neighbor) share a cache line. RecordLayoutBuilder honors the field AlignedAttr via getMaxAlignment, so no layout-builder change is needed, and reorderDecls leaves attributes intact. Detects C11 _Atomic (isAtomicType) and std::atomic/std::atomic_ref/std::atomic_flag (template name in std namespace). Do-no-harm: never lowers a field that already has alignas >= the line. Cache line is fixed at 64 (x86-64); a -fcxxmg-cache-line flag is a future refinement. Isolation grows sizeof (e.g. 16 to 128), the deliberate cost. Test covers _Atomic and std::atomic.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 7a57642f8..b6237a824 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -19,7 +19,10 @@
+ #include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/Decl.h"
+-#include "clang/AST/DeclCXX.h" // CXXRecordDecl, StaticAssertDecl
++#include "clang/AST/Attr.h"        // AlignedAttr
++#include "clang/AST/DeclCXX.h"     // CXXRecordDecl, StaticAssertDecl
++#include "clang/AST/DeclTemplate.h" // ClassTemplateSpecializationDecl
++#include "clang/AST/Expr.h"        // IntegerLiteral
+ #include "clang/AST/Type.h"
+ #include "llvm/ADT/DenseMap.h"
+ #include "llvm/ADT/DenseSet.h"
+@@ -154,6 +157,26 @@ bool computeCompactOrdering(
+   return true;
+ }
+ 
++/// Whether \p FD is an atomic (concurrently-written) field that should be
++/// isolated onto its own cache line to avoid false sharing: C11 `_Atomic`, a
++/// std::atomic / std::atomic_ref specialization, or std::atomic_flag.
++bool isAtomicField(const FieldDecl *FD) {
++  QualType T = FD->getType();
++  if (T->isAtomicType())
++    return true; // _Atomic(T)
++  if (const CXXRecordDecl *RD = T->getAsCXXRecordDecl()) {
++    if (const auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
++      llvm::StringRef N = CTSD->getSpecializedTemplate()->getName();
++      if ((N == "atomic" || N == "atomic_ref") && CTSD->isInStdNamespace())
++        return true;
++    }
++    if (RD->isInStdNamespace() && RD->getIdentifier() &&
++        RD->getName() == "atomic_flag")
++      return true;
++  }
++  return false;
++}
++
+ } // namespace
+ 
+ bool clang::cxxmg::applyCompactLayout(
+@@ -167,6 +190,31 @@ bool clang::cxxmg::applyCompactLayout(
+     return false;
+ 
+   RD->reorderDecls(NewOrdering);
++
++  // C++MG: isolate atomic (concurrently-written) fields onto their own cache
++  // line to avoid false sharing. Synthesize a cache-line AlignedAttr on each
++  // atomic field AND on the field immediately after it, so neither shares the
++  // atomic's line. RecordLayoutBuilder honors a field's AlignedAttr via
++  // getMaxAlignment(); reorderDecls left the attributes intact. The cache-line
++  // size is fixed at 64 here (correct for x86-64); a -fcxxmg-cache-line flag is
++  // a future refinement. Do-no-harm: never lower a field's existing alignment.
++  const unsigned LineBytes = 64;
++  const unsigned LineBits = LineBytes * Context.getCharWidth();
++  ASTContext &Ctx = const_cast<ASTContext &>(Context);
++  bool PrevAtomic = false;
++  for (FieldDecl *FD : RD->fields()) {
++    bool ThisAtomic = isAtomicField(FD);
++    if ((ThisAtomic || PrevAtomic) && FD->getMaxAlignment() < LineBits) {
++      llvm::APInt Align(32, LineBytes);
++      FD->addAttr(AlignedAttr::CreateImplicit(
++          Ctx, /*IsAlignmentExpr=*/true,
++          IntegerLiteral::Create(
++              Ctx, Align, Ctx.getIntTypeForBitwidth(32, /*Signed=*/0),
++              SourceLocation()),
++          {}, AlignedAttr::GNU_aligned));
++    }
++    PrevAtomic = ThisAtomic;
++  }
+   return true;
+ }
+ 
+diff --git a/clang/test/CXXMG/compact/compact-atomic-isolation.cpp b/clang/test/CXXMG/compact/compact-atomic-isolation.cpp
+new file mode 100644
+index 000000000..257706854
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-atomic-isolation.cpp
+@@ -0,0 +1,43 @@
++// Atomic false-sharing isolation: in a compact struct, each atomic field (and
++// the field immediately after it) is forced onto its own 64-byte cache line, so
++// two concurrently-written atomics can never share a line. Covers both C11
++// _Atomic and std::atomic<>. The isolation grows sizeof to 128 and raises the
++// record alignment to 64 -- the deliberate cost of avoiding false sharing.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++// --- C11 _Atomic: counter is isolated, and n is pushed to the next line ---
++compact struct C {
++  char tag;
++  _Atomic int counter;
++  int n;
++};
++C c;
++static_assert(sizeof(C) == 128, "atomic counter isolated to its own cache line");
++static_assert(alignof(C) == 64, "record alignment raised to the cache line");
++
++// CHECK:      struct C
++// CHECK:      0 |{{.*}}counter
++// CHECK:      64 |{{.*}}int n
++// CHECK:      68 |{{.*}}char tag
++
++// --- std::atomic<> (self-contained fake; no <atomic> header needed) ---
++namespace std {
++template <class T> struct atomic {
++  T v;
++};
++} // namespace std
++
++compact struct D {
++  char a;
++  std::atomic<int> ai;
++  int b;
++};
++D d;
++static_assert(sizeof(D) == 128, "std::atomic isolated to its own cache line");
++static_assert(alignof(D) == 64, "record alignment raised to the cache line");
++
++// CHECK:      struct D
++// CHECK:      0 |{{.*}}ai
++// CHECK:      64 |{{.*}}int b
++// CHECK:      68 |{{.*}}char a
+-- 
+2.54.0.windows.1
+

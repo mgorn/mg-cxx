@@ -1,0 +1,224 @@
+From c8f7a8ea595defbed4a8c47271ef461df6434928 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 03:13:17 -1000
+Subject: [PATCH] clang-mg: add greedy hole-filling packer for near-optimal
+ compact layout
+
+A descending-alignment sort is optimal only when every field's size is a
+multiple of its alignment. When a field's size is smaller than its
+alignment (e.g. alignas(16) int, or alignas(N) on a small type), the sort
+leaves a hole that smaller fields could fill but were sorted away from --
+leaving real bytes on the table. A brute-force study over random structs
+showed the true optimum beats min(descending, declaration order) in ~15%
+of cases.
+
+This adds greedy hole-filling as a third candidate ordering: repeatedly
+pick the remaining field needing the least padding at the current offset
+(tie-broken by larger alignment, then larger size), so small fields drop
+into the gaps. For PLAIN compact (no hot/cold) the layout engine now
+simulates all three candidates -- {descending-alignment, declaration
+order, greedy} -- and picks the smallest, preferring descending alignment
+on ties for predictability. Adding greedy cuts the optimality gap from
+~15% to ~1% (measured), while:
+  - do-no-harm stays a hard guarantee: declaration order is always a
+    candidate, so the result is never larger than the user wrote;
+  - the common case is untouched: for "nice" structs (size a multiple of
+    alignment) greedy never beats descending alignment, so existing
+    layouts and tests are byte-for-byte stable (verified over 20k random
+    nice structs);
+  - hot/cold are exempt: they deliberately trade size for locality, so the
+    search runs only when both partitions are empty.
+
+Effect: for `struct { alignas(16) int hdr; double payload; short s; char
+a; char b; }` compact now packs to 16 bytes, half the 32 a descending
+sort (or declaration order) gives. Do-no-harm fuzzer: 0 violations and 746
+of 1200 random structs strictly smaller than declaration order. New test
+compact-greedy-hole-filling.cpp; compact-alignas-field-effective-alignment
+updated to the improved 16-byte layout. Full CXXMG suite green (compact
+50, conditional-members 14, traits 16, type-expressions 23, regression 1 =
+104).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/lib/AST/CXXMGLayout.cpp                 | 87 +++++++++++++++----
+ ...pact-alignas-field-effective-alignment.cpp | 13 +--
+ .../compact/compact-greedy-hole-filling.cpp   | 28 ++++++
+ 3 files changed, 105 insertions(+), 23 deletions(-)
+ create mode 100644 clang/test/CXXMG/compact/compact-greedy-hole-filling.cpp
+
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 0bb7f7b35..a63c4e112 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -158,17 +158,11 @@ bool computeCompactOrdering(
+   std::stable_sort(Middle.begin(), Middle.end(), ByDescendingAlignment);
+   std::stable_sort(Cold.begin(), Cold.end(), ByDescendingAlignment);
+ 
+-  // Do-no-harm guarantee for PLAIN compact (no hot/cold markers): the
+-  // descending-alignment heuristic is NOT optimal when a field's size is
+-  // smaller than its alignment -- e.g. `alignas(16) int` (size 4, align 16)
+-  // sorts to the front and leaves a 4-byte hole that a later small field (a
+-  // float, say) could have filled, but that field got sorted away to the tail.
+-  // In such cases the reordering can be LARGER than the original declaration
+-  // order, defeating the entire purpose of `compact`. Simulate the resulting
+-  // size of our reordering against declaration order and, if it is not smaller,
+-  // keep declaration order so `compact` never bloats a struct past what the
+-  // user wrote. `hot`/`cold` deliberately trade size for cache locality, so
+-  // this only applies when the user wrote neither marker.
++  // Simulate the size a given field ordering would produce, mirroring the
++  // record layout for the simple, non-bitfield case compact restricts itself to
++  // (it bails on bitfields, bases, polymorphism and indirect fields). Each
++  // field is placed at the next offset aligned to its EFFECTIVE alignment; the
++  // result is rounded up to the largest field alignment.
+   auto SimulateSize =
+       [&Context, &EffectiveAlign](llvm::ArrayRef<FieldDecl *> Order) -> uint64_t {
+     uint64_t Offset = 0, MaxAlign = 1;
+@@ -184,15 +178,72 @@ bool computeCompactOrdering(
+     }
+     return llvm::alignTo(Offset, MaxAlign);
+   };
++
++  // Greedy hole-filling order: repeatedly pick the remaining field that needs
++  // the LEAST padding at the current running offset (tie-broken by larger
++  // alignment, then larger size). This recovers the cases where a pure
++  // descending-alignment sort is suboptimal because a field's size is smaller
++  // than its alignment (e.g. `alignas(16) int`): the small fields that would
++  // fill the resulting holes are chosen exactly when they fit, instead of being
++  // pushed to the tail. O(n^2), negligible for real structs.
++  auto GreedyOrder = [&Context, &EffectiveAlign](
++                         llvm::ArrayRef<FieldDecl *> In) {
++    llvm::SmallVector<FieldDecl *, 64> Rem(In.begin(), In.end());
++    llvm::SmallVector<FieldDecl *, 64> Out;
++    uint64_t Off = 0;
++    while (!Rem.empty()) {
++      unsigned BestI = 0;
++      uint64_t BestPad = ~0ULL, BestAlign = 0, BestSize = 0;
++      for (unsigned I = 0; I < Rem.size(); ++I) {
++        uint64_t A = EffectiveAlign(Rem[I]);
++        if (A == 0)
++          A = 1;
++        uint64_t Sz = Context.getTypeSizeInChars(Rem[I]->getType()).getQuantity();
++        uint64_t Pad = (A - (Off % A)) % A;
++        if (Pad < BestPad ||
++            (Pad == BestPad &&
++             (A > BestAlign || (A == BestAlign && Sz > BestSize)))) {
++          BestPad = Pad;
++          BestAlign = A;
++          BestSize = Sz;
++          BestI = I;
++        }
++      }
++      Off = llvm::alignTo(Off, BestAlign) + BestSize;
++      Out.push_back(Rem[BestI]);
++      Rem.erase(Rem.begin() + BestI);
++    }
++    return Out;
++  };
++
++  // For PLAIN compact (no hot/cold markers), pick the candidate ordering that
++  // packs smallest among {descending-alignment, declaration order, greedy
++  // hole-filling}, PREFERRING descending alignment on ties so the common case
++  // (and existing layouts) stay predictable. Because declaration order is
++  // always a candidate, the result is never larger than what the user wrote --
++  // do-no-harm is a hard guarantee. `hot`/`cold` deliberately trade size for
++  // cache locality, so this packing search only runs when the user wrote
++  // neither marker; within hot/cold groups the descending-alignment sort stands.
+   if (Hot.empty() && Cold.empty()) {
+-    llvm::SmallVector<FieldDecl *, 64> Reordered(Middle.begin(), Middle.end());
+-    llvm::SmallVector<FieldDecl *, 64> Source(Fields.begin(), Fields.end());
+-    if (TrailingArray) {
+-      Reordered.push_back(TrailingArray);
+-      Source.push_back(TrailingArray);
++    auto SimWithTail = [&](llvm::ArrayRef<FieldDecl *> Cand) -> uint64_t {
++      llvm::SmallVector<FieldDecl *, 64> Tmp(Cand.begin(), Cand.end());
++      if (TrailingArray)
++        Tmp.push_back(TrailingArray);
++      return SimulateSize(Tmp);
++    };
++    llvm::SmallVector<FieldDecl *, 64> Descending(Middle.begin(), Middle.end());
++    llvm::SmallVector<FieldDecl *, 64> Greedy = GreedyOrder(Fields);
++
++    const llvm::SmallVectorImpl<FieldDecl *> *Best = &Descending;
++    uint64_t BestSize = SimWithTail(Descending);
++    if (uint64_t GS = SimWithTail(Greedy); GS < BestSize) {
++      Best = &Greedy;
++      BestSize = GS;
+     }
+-    if (SimulateSize(Reordered) > SimulateSize(Source))
+-      Middle.assign(Fields.begin(), Fields.end()); // keep declaration order
++    if (SimWithTail(Fields) < BestSize)
++      Best = &Fields; // declaration order packs smallest -> keep it
++    if (Best != &Descending)
++      Middle.assign(Best->begin(), Best->end());
+   }
+ 
+   llvm::append_range(FinalOrdering, Hot);
+diff --git a/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp b/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
+index 538e75a9c..080da9b0d 100644
+--- a/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
++++ b/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
+@@ -24,7 +24,10 @@ static_assert(sizeof(T) == 64, "compact must not bloat past source order");
+ // CHECK-NEXT: 16 |{{.*}}double c
+ // CHECK:      sizeof=64, align=64
+ 
+-// alignas(16) on an int outranks a double (align 8): it sorts ahead of c.
++// alignas(16) int b (align 16, size 4) is placed first, and the greedy packer
++// then fills the 4-byte hole after it with the two chars before laying down the
++// double -- yielding sizeof 16 rather than the 32 a pure descending-alignment
++// sort would give ({b, c, a, d}). Both honor b's effective alignment of 16.
+ compact struct S {
+   char a;
+   alignas(16) int b;
+@@ -32,11 +35,11 @@ compact struct S {
+   char d;
+ };
+ S s;
+-static_assert(sizeof(S) == 32, "");
++static_assert(sizeof(S) == 16, "greedy hole-filling beats descending sort (32)");
+ 
+ // CHECK:      struct S
+ // CHECK-NEXT: 0 |{{.*}}int b
++// CHECK-NEXT: 4 |{{.*}}char a
++// CHECK-NEXT: 5 |{{.*}}char d
+ // CHECK-NEXT: 8 |{{.*}}double c
+-// CHECK-NEXT: 16 |{{.*}}char a
+-// CHECK-NEXT: 17 |{{.*}}char d
+-// CHECK:      sizeof=32, align=16
++// CHECK:      sizeof=16, align=16
+diff --git a/clang/test/CXXMG/compact/compact-greedy-hole-filling.cpp b/clang/test/CXXMG/compact/compact-greedy-hole-filling.cpp
+new file mode 100644
+index 000000000..5285e5da1
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-greedy-hole-filling.cpp
+@@ -0,0 +1,28 @@
++// Greedy hole-filling: when a field's size is smaller than its alignment, a
++// pure descending-alignment sort leaves a hole. compact instead searches among
++// {descending-alignment, declaration order, greedy hole-filling} and picks the
++// smallest, so the small fields land in the hole. Here `alignas(16) int hdr`
++// ends at offset 4; the greedy order then drops `short s` + two chars into
++// offsets 4..8 before the double, packing P to 16 bytes -- half the 32 that
++// both declaration order AND a descending-alignment sort ({hdr, payload, s, a,
++// b}) would produce.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct P {
++  alignas(16) int hdr;
++  double payload;
++  short s;
++  char a;
++  char b;
++};
++P p;
++static_assert(sizeof(P) == 16, "greedy fills the post-hdr hole (vs 32 unpacked)");
++
++// CHECK:      struct P
++// CHECK-NEXT: 0 |{{.*}}int hdr
++// CHECK-NEXT: 4 |{{.*}}short s
++// CHECK-NEXT: 6 |{{.*}}char a
++// CHECK-NEXT: 7 |{{.*}}char b
++// CHECK-NEXT: 8 |{{.*}}double payload
++// CHECK:      sizeof=16, align=16
+-- 
+2.54.0.windows.1
+

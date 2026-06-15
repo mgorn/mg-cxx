@@ -1,0 +1,56 @@
+From 194f7d2c34276d5aa65863bc0b7905def482719c Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 02:54:00 -1000
+Subject: [PATCH] clang-mg: test nested compact-with-atomic composition
+ (do-no-harm)
+
+Adds a torture test for a compact struct whose field is itself a compact
+struct containing an atomic. The inner atomic isolation grows Inner to
+128 bytes / align 64, and that alignment makes the OUTER compact sort
+place Inner first (offset 0), so the small trailing char funnels into the
+tail: sizeof(Outer) == 192, versus 256 for the non-compact outer layout
+where the char forces the 64-aligned Inner out to offset 64. Confirms the
+isolation composes through nesting and the outer reorder still satisfies
+do-no-harm. Surfaced while adversarially stress-testing weird field
+combinations; no code change needed -- behavior was already correct.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ ...pact-nested-compact-atomic-composition.cpp | 25 +++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-nested-compact-atomic-composition.cpp
+
+diff --git a/clang/test/CXXMG/compact/compact-nested-compact-atomic-composition.cpp b/clang/test/CXXMG/compact/compact-nested-compact-atomic-composition.cpp
+new file mode 100644
+index 000000000..61c769efe
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-nested-compact-atomic-composition.cpp
+@@ -0,0 +1,25 @@
++// Hard/weird scenario: a compact struct whose field is ITSELF a compact struct
++// that contains an atomic. The inner atomic isolation (Inner -> 128B/align64)
++// composes through the outer compact reorder: because Inner now has alignment
++// 64, the outer compact sort places it FIRST (offset 0), funneling the small
++// `char a` into the tail. The result (192) is smaller than the non-compact
++// outer layout (256), where `a` forces the 64-aligned Inner to offset 64. So
++// nesting an isolated atomic still satisfies do-no-harm at the outer level.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++compact struct Inner { char x; _Atomic int ctr; int y; };
++compact struct Outer { char a; Inner in; double d; };
++Outer o;
++
++// Inner is isolated to its own cache line: ctr@0, y pushed to 64, sizeof 128.
++static_assert(sizeof(Inner) == 128, "inner atomic isolated");
++// Outer compact sorts the align-64 Inner first, then the double, then the char.
++static_assert(sizeof(Outer) == 192, "outer reorder keeps it tight (vs 256 unsorted)");
++static_assert(alignof(Outer) == 64, "outer inherits the cache-line alignment");
++
++// CHECK:      struct Outer
++// CHECK-NEXT: 0 |{{.*}}struct Inner in
++// CHECK:      128 |{{.*}}double d
++// CHECK-NEXT: 136 |{{.*}}char a
++// CHECK:      sizeof=192, align=64
+-- 
+2.54.0.windows.1
+

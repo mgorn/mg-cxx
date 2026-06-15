@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 23:45:29 -1000
+Subject: [PATCH] clang-mg: fix segfault on '<' comparison under -fcxxmg (lex
+ past EOF)
+
+hasTopLevelCXXMGImplementsKeyword does a 128-token lookahead to detect an 'implements' expression, but only treats eof/semi/'}' as scan terminators when AngleDepth==0. An ordinary comparison like 'a < b' (no matching '>') pushes AngleDepth to 1 and never returns to 0, so the scan runs PAST the eof token; GetLookAheadToken then Lex()es a torn-down lexer and segfaults (0xC0000005). Make tok::eof and tok::r_brace unconditional terminators that return false (fall back to normal parsing). Conservative: real 'implements' exprs are recognized by kw_implements at AngleDepth 0 before any eof/'}'. Pre-existing crash, latent because no test used a '<' comparison. Validated: '<' comparisons, for/while loops, and the implements/type-expression suites all pass.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index 1aa595761..04498141b 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -17,10 +17,17 @@ static bool hasTopLevelCXXMGImplementsKeyword(Parser &P) {
+   unsigned ParenDepth = 0;
+   for (unsigned I = 0; I != 128; ++I) {
+     tok::TokenKind K = P.GetLookAheadToken(I).getKind();
++    // The token stream must never be scanned past end-of-file: the lookahead
++    // machinery Lexes on demand, and lexing beyond the EOF token is undefined
++    // and crashes. A stray '<' (e.g. an ordinary `a < b` comparison with no
++    // matching '>') leaves AngleDepth > 0 forever, so EOF (and the closing
++    // '}' of the enclosing block) must terminate the scan unconditionally.
++    if (K == tok::eof || K == tok::r_brace)
++      return false;
+     if (AngleDepth == 0) {
+       if (K == tok::kw_implements)
+         return true;
+-      if (K == tok::eof || K == tok::semi || K == tok::comma ||
++      if (K == tok::semi || K == tok::comma ||
+           K == tok::l_brace || K == tok::l_square ||
+           K == tok::pipepipe || K == tok::ampamp || K == tok::question)
+         return false;
+-- 
+2.54.0.windows.1
+

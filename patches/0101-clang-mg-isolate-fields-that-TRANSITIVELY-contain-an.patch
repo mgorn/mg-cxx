@@ -1,0 +1,141 @@
+From cbfadbcb0ba69b8cdc2706bc9f9a8fdaecc0df23 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 06:59:17 -1000
+Subject: [PATCH] clang-mg: isolate fields that TRANSITIVELY contain an atomic
+
+Atomic false-sharing isolation previously only fired for a field whose
+own type was atomic (_Atomic / std::atomic / atomic_ref / atomic_flag). A
+field whose type EMBEDS an atomic by value -- e.g. a plain struct with an
+_Atomic member, or an array of atomics -- is equally concurrently written,
+but shared a cache line with its neighbours, reintroducing the false
+sharing the feature exists to prevent.
+
+Generalize isAtomicField to typeContainsAtomic, which recurses through
+value members, base classes, and array elements, returning true if any is
+atomic. It deliberately does NOT follow pointers or references: a pointer
+to an atomic does not make the pointing field concurrently written, so
+such fields stay compact. Value-member recursion terminates because a
+complete record cannot contain itself by value; std::atomic specializations
+short-circuit before recursing into their own storage.
+
+Effect: `struct HasAtomic { _Atomic int counter; }; compact struct Outer {
+char a; HasAtomic h; int b; }` now isolates h to its own cache line (Outer
+grows to 128/align 64, b pushed to offset 64), while a HasAtomic* member
+is left untouched (16 bytes). Found by adversarially probing nested-atomic
+false-sharing vectors. Test compact-transitive-atomic-isolation.cpp. Full
+CXXMG suite green (compact 60, conditional-members 14, traits 16,
+type-expressions 23, regression 1 = 114).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/lib/AST/CXXMGLayout.cpp                 | 46 +++++++++++++------
+ .../compact-transitive-atomic-isolation.cpp   | 33 +++++++++++++
+ 2 files changed, 66 insertions(+), 13 deletions(-)
+ create mode 100644 clang/test/CXXMG/compact/compact-transitive-atomic-isolation.cpp
+
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 5c225eee4..b1d7d522a 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -278,26 +278,46 @@ bool computeCompactOrdering(
+   return true;
+ }
+ 
+-/// Whether \p FD is an atomic (concurrently-written) field that should be
++/// Whether \p T is, or transitively contains BY VALUE, an atomic that should be
+ /// isolated onto its own cache line to avoid false sharing: C11 `_Atomic`, a
+-/// std::atomic / std::atomic_ref specialization, or std::atomic_flag.
+-bool isAtomicField(const FieldDecl *FD) {
+-  QualType T = FD->getType();
++/// std::atomic / std::atomic_ref specialization, or std::atomic_flag. Recurses
++/// through value members, base classes, and array elements -- a field whose
++/// type embeds an atomic is itself concurrently written -- but NOT through
++/// pointers or references, since a pointer to an atomic does not make the
++/// pointing field concurrently written. Value-member recursion terminates
++/// because a complete record cannot contain itself by value.
++bool typeContainsAtomic(QualType T) {
++  T = T.getCanonicalType();
+   if (T->isAtomicType())
+     return true; // _Atomic(T)
+-  if (const CXXRecordDecl *RD = T->getAsCXXRecordDecl()) {
+-    if (const auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+-      llvm::StringRef N = CTSD->getSpecializedTemplate()->getName();
+-      if ((N == "atomic" || N == "atomic_ref") && CTSD->isInStdNamespace())
+-        return true;
+-    }
+-    if (RD->isInStdNamespace() && RD->getIdentifier() &&
+-        RD->getName() == "atomic_flag")
+-      return true;
++  if (const ArrayType *AT = T->getAsArrayTypeUnsafe())
++    return typeContainsAtomic(AT->getElementType());
++  const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
++  if (!RD || !RD->isCompleteDefinition())
++    return false;
++  if (const auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
++    llvm::StringRef N = CTSD->getSpecializedTemplate()->getName();
++    if ((N == "atomic" || N == "atomic_ref") && CTSD->isInStdNamespace())
++      return true; // do not recurse into the atomic's own storage
+   }
++  if (RD->isInStdNamespace() && RD->getIdentifier() &&
++      RD->getName() == "atomic_flag")
++    return true;
++  for (const FieldDecl *F : RD->fields())
++    if (typeContainsAtomic(F->getType()))
++      return true;
++  for (const CXXBaseSpecifier &B : RD->bases())
++    if (typeContainsAtomic(B.getType()))
++      return true;
+   return false;
+ }
+ 
++/// Whether \p FD is an atomic (concurrently-written) field that should be
++/// isolated onto its own cache line to avoid false sharing.
++bool isAtomicField(const FieldDecl *FD) {
++  return typeContainsAtomic(FD->getType());
++}
++
+ } // namespace
+ 
+ bool clang::cxxmg::applyCompactLayout(
+diff --git a/clang/test/CXXMG/compact/compact-transitive-atomic-isolation.cpp b/clang/test/CXXMG/compact/compact-transitive-atomic-isolation.cpp
+new file mode 100644
+index 000000000..15c1120f9
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-transitive-atomic-isolation.cpp
+@@ -0,0 +1,33 @@
++// False-sharing safety, transitive case: a field whose TYPE embeds an atomic by
++// value (here a plain struct with an _Atomic member, or an array of atomics) is
++// itself concurrently written, so it is isolated onto its own cache line just
++// like a direct atomic field. Detection recurses through value members, bases,
++// and array elements -- but not through pointers (a pointer to an atomic does
++// not make the pointing field concurrently written).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++struct HasAtomic { _Atomic int counter; };
++
++// h embeds an atomic -> isolated to its own cache line; b is pushed to the next.
++compact struct Outer {
++  char a;
++  HasAtomic h;
++  int b;
++};
++Outer o;
++static_assert(sizeof(Outer) == 128, "nested-atomic field isolated like a direct atomic");
++
++// CHECK:      struct Outer
++// CHECK:      0 |{{.*}}struct HasAtomic h
++// CHECK:      64 |{{.*}}int b
++
++// A POINTER to an atomic-containing struct is NOT isolated (not concurrently
++// written through this field): P stays compact with no cache-line blowup.
++compact struct P {
++  char a;
++  HasAtomic *ptr;
++  int b;
++};
++P p;
++static_assert(sizeof(P) == 16, "pointer to atomic-containing type is not isolated");
+-- 
+2.54.0.windows.1
+

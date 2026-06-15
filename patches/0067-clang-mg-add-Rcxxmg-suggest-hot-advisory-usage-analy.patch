@@ -1,0 +1,201 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Sun, 14 Jun 2026 23:26:28 -1000
+Subject: [PATCH] clang-mg: add -Rcxxmg-suggest-hot advisory usage analysis
+
+After a TU is parsed, a Parser-hosted RecursiveASTVisitor counts per-field member references (loop-depth weighted) and emits an opt-in remark naming each compact struct's most-referenced field, suggesting a 'hot' marker. ABI-safe: advisory only, never changes layout. Hosted entirely on the Parser (CXXMGCompactRecords + CXXMGEmitFieldUsageRemarks, called at eof) so no Sema.h/AST-bit changes. Off by default (DefaultIgnore); enable with -Rcxxmg-suggest-hot. Tests cover the basic suggestion and the off-by-default behavior. NOTE: loop-depth weighting is implemented but its test is deferred -- C++MG has a pre-existing crash on for-loops (unrelated to this change) that blocks exercising the loop path.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
+index 851626f4b..77495eab0 100644
+--- a/clang/include/clang/Basic/DiagnosticParseKinds.td
++++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
+@@ -1893,6 +1893,9 @@ def warn_cxxmg_compact_grows : Warning<
+   "'hot'/'cold' markers make this 'compact' record %0 bytes, larger than the "
+   "%1-byte padding-minimized layout">,
+   InGroup<DiagGroup<"cxxmg-compact-grows">>, DefaultIgnore;
++def remark_cxxmg_compact_hot_field : Remark<
++  "field %0 is the most-referenced member (%1 uses); consider marking it 'hot'">,
++  InGroup<DiagGroup<"cxxmg-suggest-hot">>, DefaultIgnore;
+ }
+ 
+ def warn_max_tokens : Warning<
+diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
+index 585796977..d814eb430 100644
+--- a/clang/include/clang/Parse/Parser.h
++++ b/clang/include/clang/Parse/Parser.h
+@@ -3887,6 +3887,15 @@ private:
+   /// complete definition.
+   llvm::DenseMap<const FieldDecl *, cxxmg::CXXMGHotness> CXXMGFieldHotness;
+ 
++  /// C++MG: records declared `compact` in this TU, scanned at end of translation
++  /// unit to suggest a `hot` marker for each one's most-referenced field
++  /// (advisory only, -Rcxxmg-suggest-hot; never changes layout).
++  llvm::SmallVector<RecordDecl *, 8> CXXMGCompactRecords;
++
++  /// Emit -Rcxxmg-suggest-hot remarks naming the most-referenced field of each
++  /// `compact` record. Runs once at end of TU, when all field uses are parsed.
++  void CXXMGEmitFieldUsageRemarks();
++
+   OffsetOfKind OffsetOfState = OffsetOfKind::Outside;
+ 
+   /// The location of the expression statement that is being parsed right now.
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index cc45db8dd..5c528c18b 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/CXXMGLayout.h"
++#include "clang/AST/RecursiveASTVisitor.h"
+ #include "clang/AST/DeclTemplate.h"
+ #include "clang/AST/PrettyDeclStackTrace.h"
+ #include "clang/Basic/AddressSpaces.h"
+@@ -4610,6 +4611,9 @@ void Parser::ParseDeclarationSpecifiers(
+                         << (unsigned)*MarkedSz << (unsigned)*MinSz;
+               }
+             }
++            // Record this compact struct so the end-of-TU pass can suggest a
++            // `hot` marker for its most-referenced field (-Rcxxmg-suggest-hot).
++            CXXMGCompactRecords.push_back(RD);
+           }
+         }
+       }
+@@ -8444,3 +8448,75 @@ void Parser::DiagnoseBitIntUse(const Token &Tok) {
+       Diag(Loc, diag::ext_bit_int) << getLangOpts().CPlusPlus;
+   }
+ }
++
++//===----------------------------------------------------------------------===//
++// C++MG: advisory `hot` suggestion for compact records (-Rcxxmg-suggest-hot)
++//===----------------------------------------------------------------------===//
++
++namespace {
++/// Counts per-field member references across the TU, weighting uses inside loops
++/// by lexical nesting depth, to suggest which field of a `compact` record is the
++/// hottest. Static lexical heuristic only -- advisory, never drives layout.
++class CXXMGFieldUseCounter : public RecursiveASTVisitor<CXXMGFieldUseCounter> {
++public:
++  llvm::DenseMap<const FieldDecl *, uint64_t> Counts;
++  unsigned Depth = 0;
++
++  bool VisitMemberExpr(MemberExpr *ME) {
++    if (const auto *FD = dyn_cast<FieldDecl>(ME->getMemberDecl()))
++      Counts[FD] += (uint64_t(1) << std::min<unsigned>(Depth, 16u));
++    return true;
++  }
++  bool TraverseForStmt(ForStmt *S) {
++    ++Depth;
++    bool R = RecursiveASTVisitor::TraverseForStmt(S);
++    --Depth;
++    return R;
++  }
++  bool TraverseWhileStmt(WhileStmt *S) {
++    ++Depth;
++    bool R = RecursiveASTVisitor::TraverseWhileStmt(S);
++    --Depth;
++    return R;
++  }
++  bool TraverseDoStmt(DoStmt *S) {
++    ++Depth;
++    bool R = RecursiveASTVisitor::TraverseDoStmt(S);
++    --Depth;
++    return R;
++  }
++  bool TraverseCXXForRangeStmt(CXXForRangeStmt *S) {
++    ++Depth;
++    bool R = RecursiveASTVisitor::TraverseCXXForRangeStmt(S);
++    --Depth;
++    return R;
++  }
++};
++} // namespace
++
++void Parser::CXXMGEmitFieldUsageRemarks() {
++  if (CXXMGCompactRecords.empty())
++    return;
++  DiagnosticsEngine &Diags = Actions.getDiagnostics();
++  if (Diags.isIgnored(diag::remark_cxxmg_compact_hot_field, SourceLocation()))
++    return;
++
++  CXXMGFieldUseCounter Counter;
++  Counter.TraverseDecl(Actions.getASTContext().getTranslationUnitDecl());
++
++  for (RecordDecl *RD : CXXMGCompactRecords) {
++    const FieldDecl *Best = nullptr;
++    uint64_t BestCount = 0;
++    for (const FieldDecl *FD : RD->fields()) {
++      auto It = Counter.Counts.find(FD);
++      uint64_t C = (It == Counter.Counts.end()) ? 0 : It->second;
++      if (C > BestCount) {
++        BestCount = C;
++        Best = FD;
++      }
++    }
++    if (Best && BestCount > 0)
++      Diag(Best->getLocation(), diag::remark_cxxmg_compact_hot_field)
++          << Best << (unsigned)BestCount;
++  }
++}
+diff --git a/clang/lib/Parse/Parser.cpp b/clang/lib/Parse/Parser.cpp
+index 37f37ced1..ffd82e37d 100644
+--- a/clang/lib/Parse/Parser.cpp
++++ b/clang/lib/Parse/Parser.cpp
+@@ -691,6 +691,8 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
+ 
+     // Late template parsing can begin.
+     Actions.SetLateTemplateParser(LateTemplateParserCallback, this);
++    // C++MG: emit -Rcxxmg-suggest-hot remarks now that the whole TU is parsed.
++    CXXMGEmitFieldUsageRemarks();
+     Actions.ActOnEndOfTranslationUnit();
+     //else don't tell Sema that we ended parsing: more input might come.
+     return true;
+diff --git a/clang/test/CXXMG/compact/compact-suggest-hot-off-by-default.cpp b/clang/test/CXXMG/compact/compact-suggest-hot-off-by-default.cpp
+new file mode 100644
+index 000000000..7a281e7a9
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-suggest-hot-off-by-default.cpp
+@@ -0,0 +1,13 @@
++// The usage-analysis suggestion is OPT-IN: without -Rcxxmg-suggest-hot the
++// compiler stays silent even though fields are referenced. (DefaultIgnore.)
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++compact struct S {
++  int a;
++  double b;
++  char c;
++};
++
++int use(S &s) { return (int)(s.b + s.b + s.b) + s.a; }
+diff --git a/clang/test/CXXMG/compact/compact-suggest-hot-remark.cpp b/clang/test/CXXMG/compact/compact-suggest-hot-remark.cpp
+new file mode 100644
+index 000000000..caa15119b
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-suggest-hot-remark.cpp
+@@ -0,0 +1,19 @@
++// -Rcxxmg-suggest-hot (opt-in, off by default) counts how often each field of a
++// compact struct is referenced across the translation unit and emits a remark
++// naming the most-referenced field, suggesting it be marked `hot`. Advisory
++// ONLY -- it does not change layout.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -Rcxxmg-suggest-hot -fsyntax-only -verify %s
++
++compact struct S {
++  int a;
++  double b; // expected-remark {{field 'b' is the most-referenced member (3 uses); consider marking it 'hot'}}
++  char c;
++};
++
++int use(S &s) {
++  s.b = 1.0;  // b: 1
++  s.b += s.b; // b: 2, 3
++  s.a = 2;    // a: 1
++  return s.c; // c: 1
++}
+-- 
+2.54.0.windows.1
+

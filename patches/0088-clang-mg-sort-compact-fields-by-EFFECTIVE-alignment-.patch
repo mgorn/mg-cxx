@@ -1,0 +1,124 @@
+From 87a63213b757aa903714592fdf023c1359d4844e Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 02:51:28 -1000
+Subject: [PATCH] clang-mg: sort compact fields by EFFECTIVE alignment (fix
+ alignas bloat)
+
+computeCompactOrdering sorted fields by their type's natural alignment
+(getTypeAlignInChars) alone, ignoring any `alignas`/aligned attribute on
+the field itself. That is a do-no-harm violation: a small type carrying a
+large alignas -- e.g. `alignas(64) char a` -- sorted as align-1 and
+landed LAST, forcing the field to a 64-byte boundary with tens of bytes
+of padding in front. For `struct { alignas(64) char a; double b; double
+c; }` the compact layout came out at sizeof 128 versus the source-order
+64 -- compact made the struct TWICE AS BIG, the exact opposite of its
+purpose.
+
+Fix: sort by each field's EFFECTIVE alignment = max(type alignment,
+FieldDecl::getMaxAlignment() from align attributes). Now the alignas(64)
+char sorts first and the struct is 64 bytes, matching source order (no
+bloat). This is the same effective-alignment RecordLayoutBuilder itself
+uses to honor field alignas, so the heuristic is now consistent with the
+actual layout engine.
+
+Found by adversarial stress-testing the descending-alignment sort against
+field-level alignas. Test compact-alignas-field-effective-alignment.cpp
+covers the alignas(64)-char no-bloat guarantee and an alignas(16)-int
+outranking a double. Full CXXMG suite green (compact 47, conditional-
+members 14, traits 16, type-expressions 23, regression 1 = 101); no
+existing layout test regressed.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/lib/AST/CXXMGLayout.cpp                 | 21 ++++++++--
+ ...pact-alignas-field-effective-alignment.cpp | 42 +++++++++++++++++++
+ 2 files changed, 59 insertions(+), 4 deletions(-)
+ create mode 100644 clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
+
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 12631b783..077597e7f 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -108,14 +108,27 @@ bool computeCompactOrdering(
+     return false;
+   }
+ 
++  // A field's EFFECTIVE alignment is the larger of its type's natural alignment
++  // and any explicit `alignas`/__attribute__((aligned)) on the field itself
++  // (FieldDecl::getMaxAlignment(), in bits). Sorting by type alignment alone is
++  // a do-no-harm bug: e.g. `alignas(64) char a` would sort as align-1 and land
++  // last, forcing tens of bytes of padding and making the compact struct LARGER
++  // than source order. Using the effective alignment keeps the heuristic sound.
++  auto EffectiveAlign = [&Context](const FieldDecl *FD) -> uint64_t {
++    uint64_t TypeAlign = Context.getTypeAlignInChars(FD->getType()).getQuantity();
++    unsigned AttrAlignBits = FD->getMaxAlignment(); // 0 when no align attribute
++    uint64_t AttrAlign = AttrAlignBits / Context.getCharWidth();
++    return TypeAlign > AttrAlign ? TypeAlign : AttrAlign;
++  };
++
+   // Within a hotness group, sort by descending alignment, tie-broken by
+   // descending size. The largest-aligned fields go first, funneling inter-field
+   // slack into a single pad. stable_sort keeps declaration order for equal
+   // keys, so the result is deterministic and source-order-stable.
+-  auto ByDescendingAlignment = [&Context](const FieldDecl *A,
+-                                          const FieldDecl *B) {
+-    uint64_t AAlign = Context.getTypeAlignInChars(A->getType()).getQuantity();
+-    uint64_t BAlign = Context.getTypeAlignInChars(B->getType()).getQuantity();
++  auto ByDescendingAlignment = [&Context, &EffectiveAlign](const FieldDecl *A,
++                                                           const FieldDecl *B) {
++    uint64_t AAlign = EffectiveAlign(A);
++    uint64_t BAlign = EffectiveAlign(B);
+     if (AAlign != BAlign)
+       return AAlign > BAlign;
+     uint64_t ASize = Context.getTypeSizeInChars(A->getType()).getQuantity();
+diff --git a/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp b/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
+new file mode 100644
+index 000000000..538e75a9c
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-alignas-field-effective-alignment.cpp
+@@ -0,0 +1,42 @@
++// Do-no-harm with field-level `alignas`: a field's place in the descending-
++// alignment sort is decided by its EFFECTIVE alignment -- the larger of its
++// type's natural alignment and any `alignas` on the field -- not the type
++// alignment alone. Otherwise `alignas(64) char` would sort as align-1, land
++// last, and force tens of bytes of padding, making the compact struct LARGER
++// than source order (a regression the whole feature exists to prevent).
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s | FileCheck %s
++
++// alignas(64) on a char: must sort FIRST by effective align 64, so the struct
++// is no larger than the source-order layout (also 64). Before the fix this was
++// laid out as {b,c,a} with a@64 -> sizeof 128 (twice as big).
++compact struct T {
++  alignas(64) char a;
++  double b;
++  double c;
++};
++T t;
++static_assert(sizeof(T) == 64, "compact must not bloat past source order");
++
++// CHECK:      struct T
++// CHECK-NEXT: 0 |{{.*}}char a
++// CHECK-NEXT: 8 |{{.*}}double b
++// CHECK-NEXT: 16 |{{.*}}double c
++// CHECK:      sizeof=64, align=64
++
++// alignas(16) on an int outranks a double (align 8): it sorts ahead of c.
++compact struct S {
++  char a;
++  alignas(16) int b;
++  double c;
++  char d;
++};
++S s;
++static_assert(sizeof(S) == 32, "");
++
++// CHECK:      struct S
++// CHECK-NEXT: 0 |{{.*}}int b
++// CHECK-NEXT: 8 |{{.*}}double c
++// CHECK-NEXT: 16 |{{.*}}char a
++// CHECK-NEXT: 17 |{{.*}}char d
++// CHECK:      sizeof=32, align=16
+-- 
+2.54.0.windows.1
+

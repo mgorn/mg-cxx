@@ -1,0 +1,204 @@
+From c666d3b25a91631e5fd8e1c1c4a787cb470dfa0c Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 02:47:15 -1000
+Subject: [PATCH] clang-mg: add -fcxxmg-cache-line=N to configure compact
+ atomic isolation
+
+The atomic false-sharing isolation in compact structs previously hard-
+coded a 64-byte cache line. -fcxxmg-cache-line=N makes it configurable:
+64 (default) suits x86-64, 128 suits Apple silicon, and 0 disables
+isolation entirely (opt-out). A non-power-of-two N is rounded UP to the
+next power of two so the synthesized alignment is always valid and never
+under-separates.
+
+Wiring:
+- LangOptions.def: VALUE_LANGOPT(CXXMGCacheLine, 32, 64, ...) -- default
+  64 preserves exact prior behavior.
+- Options.td: fcxxmg_cache_line_EQ Joined option, ClangOption+CC1Option
+  visibility, MarshallingInfoInt<LangOpts<"CXXMGCacheLine">, "64"> so the
+  cc1 parse/generate is auto-marshalled.
+- Clang.cpp: Args.AddLastArg(OPT_fcxxmg_cache_line_EQ) next to the
+  constexpr-depth forwards -- without this the driver accepts the flag
+  but silently drops it instead of forwarding to cc1 (a footgun; these
+  LangOpt flags are forwarded explicitly, not automatically).
+- CXXMGLayout.cpp: read Context.getLangOpts().CXXMGCacheLine; skip the
+  isolation loop when 0; round non-powers-of-two up via PowerOf2Ceil.
+
+Test compact-cache-line-flag.cpp lays out the same atomic struct four
+ways (default 64 -> 128B, =128 -> 256B/align128, =0 -> packed 12B, =100
+-> rounded to 128) and verifies the flag is forwarded through the
+clang-mg++ driver, not only accepted at -cc1. Existing atomic-isolation
+tests are unchanged (default is still 64). Full CXXMG suite green
+(compact 46, conditional-members 14, traits 16, type-expressions 23,
+regression 1 = 100).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ clang/include/clang/Basic/LangOptions.def     |  4 ++
+ clang/include/clang/Options/Options.td        |  5 ++
+ clang/lib/AST/CXXMGLayout.cpp                 | 42 ++++++++++-------
+ clang/lib/Driver/ToolChains/Clang.cpp         |  1 +
+ .../CXXMG/compact/compact-cache-line-flag.cpp | 47 +++++++++++++++++++
+ 5 files changed, 82 insertions(+), 17 deletions(-)
+ create mode 100644 clang/test/CXXMG/compact/compact-cache-line-flag.cpp
+
+diff --git a/clang/include/clang/Basic/LangOptions.def b/clang/include/clang/Basic/LangOptions.def
+index d5f737c60..29cdd6a45 100644
+--- a/clang/include/clang/Basic/LangOptions.def
++++ b/clang/include/clang/Basic/LangOptions.def
+@@ -174,6 +174,10 @@ VALUE_LANGOPT(PackStruct  , 32, 0, NotCompatible,
+               "default struct packing maximum alignment")
+ VALUE_LANGOPT(MaxTypeAlign  , 32, 0, NotCompatible,
+               "default maximum alignment for types")
++VALUE_LANGOPT(CXXMGCacheLine, 32, 64, NotCompatible,
++              "C++MG cache-line size in bytes for isolating atomic fields in "
++              "'compact' structs (0 disables isolation; non-powers-of-two are "
++              "rounded up)")
+ VALUE_LANGOPT(AlignDouble            , 1, 0, NotCompatible, "Controls if doubles should be aligned to 8 bytes (x86 only)")
+ VALUE_LANGOPT(DoubleSize            , 32, 0, NotCompatible, "width of double")
+ VALUE_LANGOPT(LongDoubleSize        , 32, 0, NotCompatible, "width of long double")
+diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
+index d79dda5dc..23ba3d052 100644
+--- a/clang/include/clang/Options/Options.td
++++ b/clang/include/clang/Options/Options.td
+@@ -3390,6 +3390,11 @@ defm cxxmg : BoolFOption<"cxxmg", LangOpts<"CPlusPlusMG">, DefaultTrue,
+           "Enable C++MG language extensions">,
+   NegFlag<SetFalse, [], [ClangOption, CC1Option],
+           "Disable C++MG language extensions">>;
++def fcxxmg_cache_line_EQ : Joined<["-"], "fcxxmg-cache-line=">, Group<f_Group>,
++  Visibility<[ClangOption, CC1Option]>,
++  HelpText<"Cache-line size in bytes used to isolate atomic fields in 'compact' "
++           "structs against false sharing (0 disables isolation; default 64)">,
++  MarshallingInfoInt<LangOpts<"CXXMGCacheLine">, "64">;
+ 
+ def flat__namespace : Flag<["-"], "flat_namespace">;
+ def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
+diff --git a/clang/lib/AST/CXXMGLayout.cpp b/clang/lib/AST/CXXMGLayout.cpp
+index 3e99c23ea..12631b783 100644
+--- a/clang/lib/AST/CXXMGLayout.cpp
++++ b/clang/lib/AST/CXXMGLayout.cpp
+@@ -27,6 +27,7 @@
+ #include "llvm/ADT/DenseMap.h"
+ #include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/STLExtras.h"
++#include "llvm/Support/MathExtras.h"
+ #include "llvm/ADT/SmallVector.h"
+ #include <algorithm>
+ 
+@@ -196,24 +197,31 @@ bool clang::cxxmg::applyCompactLayout(
+   // atomic field AND on the field immediately after it, so neither shares the
+   // atomic's line. RecordLayoutBuilder honors a field's AlignedAttr via
+   // getMaxAlignment(); reorderDecls left the attributes intact. The cache-line
+-  // size is fixed at 64 here (correct for x86-64); a -fcxxmg-cache-line flag is
+-  // a future refinement. Do-no-harm: never lower a field's existing alignment.
+-  const unsigned LineBytes = 64;
+-  const unsigned LineBits = LineBytes * Context.getCharWidth();
+-  ASTContext &Ctx = const_cast<ASTContext &>(Context);
+-  bool PrevAtomic = false;
+-  for (FieldDecl *FD : RD->fields()) {
+-    bool ThisAtomic = isAtomicField(FD);
+-    if ((ThisAtomic || PrevAtomic) && FD->getMaxAlignment() < LineBits) {
+-      llvm::APInt Align(32, LineBytes);
+-      FD->addAttr(AlignedAttr::CreateImplicit(
+-          Ctx, /*IsAlignmentExpr=*/true,
+-          IntegerLiteral::Create(
+-              Ctx, Align, Ctx.getIntTypeForBitwidth(32, /*Signed=*/0),
+-              SourceLocation()),
+-          {}, AlignedAttr::GNU_aligned));
++  // size is configurable via -fcxxmg-cache-line=N (default 64, correct for
++  // x86-64; e.g. 128 for Apple silicon). A value of 0 disables isolation
++  // entirely (opt-out); a non-power-of-two N is rounded up so the synthesized
++  // alignment is always valid and never under-separates. Do-no-harm: never
++  // lower a field's existing alignment.
++  unsigned LineBytes = Context.getLangOpts().CXXMGCacheLine;
++  if (LineBytes != 0) {
++    if (!llvm::isPowerOf2_32(LineBytes))
++      LineBytes = llvm::PowerOf2Ceil(LineBytes);
++    const unsigned LineBits = LineBytes * Context.getCharWidth();
++    ASTContext &Ctx = const_cast<ASTContext &>(Context);
++    bool PrevAtomic = false;
++    for (FieldDecl *FD : RD->fields()) {
++      bool ThisAtomic = isAtomicField(FD);
++      if ((ThisAtomic || PrevAtomic) && FD->getMaxAlignment() < LineBits) {
++        llvm::APInt Align(32, LineBytes);
++        FD->addAttr(AlignedAttr::CreateImplicit(
++            Ctx, /*IsAlignmentExpr=*/true,
++            IntegerLiteral::Create(
++                Ctx, Align, Ctx.getIntTypeForBitwidth(32, /*Signed=*/0),
++                SourceLocation()),
++            {}, AlignedAttr::GNU_aligned));
++      }
++      PrevAtomic = ThisAtomic;
+     }
+-    PrevAtomic = ThisAtomic;
+   }
+   return true;
+ }
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index c4ff3e110..9099b3791 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -6678,6 +6678,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+   Args.AddLastArg(CmdArgs, options::OPT_foperator_arrow_depth_EQ);
+   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_depth_EQ);
+   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_steps_EQ);
++  Args.AddLastArg(CmdArgs, options::OPT_fcxxmg_cache_line_EQ);
+ 
+   Args.AddLastArg(CmdArgs, options::OPT_fexperimental_library);
+ 
+diff --git a/clang/test/CXXMG/compact/compact-cache-line-flag.cpp b/clang/test/CXXMG/compact/compact-cache-line-flag.cpp
+new file mode 100644
+index 000000000..d7a834113
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-cache-line-flag.cpp
+@@ -0,0 +1,47 @@
++// -fcxxmg-cache-line=N controls the cache-line size used to isolate atomic
++// fields in a compact struct against false sharing. Default is 64 (x86-64);
++// 128 suits Apple silicon; 0 disables isolation entirely (opt-out). The same
++// source is laid out three ways depending on the flag.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -fdump-record-layouts %s \
++// RUN:   | FileCheck %s --check-prefix=DEF
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fcxxmg-cache-line=128 -fsyntax-only \
++// RUN:   -fdump-record-layouts %s | FileCheck %s --check-prefix=CL128
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fcxxmg-cache-line=0 -fsyntax-only \
++// RUN:   -fdump-record-layouts %s | FileCheck %s --check-prefix=CL0
++// A non-power-of-two N rounds UP to the next power of two (100 -> 128), so it
++// never under-separates; the layout is identical to -fcxxmg-cache-line=128.
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fcxxmg-cache-line=100 -fsyntax-only \
++// RUN:   -fdump-record-layouts %s | FileCheck %s --check-prefix=CL128
++// The flag is forwarded by the driver (not just accepted at -cc1), so the same
++// layout change is observable through the clang-mg++ driver.
++// RUN: clang-mg++ -std=c++20 -fcxxmg-cache-line=128 -fsyntax-only \
++// RUN:   -Xclang -fdump-record-layouts %s | FileCheck %s --check-prefix=CL128
++
++compact struct C {
++  char tag;
++  _Atomic int counter;
++  int n;
++};
++C c;
++
++// Default 64-byte line: counter isolated at 0, n pushed to the next line at 64.
++// DEF:      struct C
++// DEF:      0 |{{.*}}counter
++// DEF:      64 |{{.*}}int n
++// DEF:      68 |{{.*}}char tag
++// DEF:      sizeof=128, align=64
++
++// 128-byte line: n pushed to offset 128, record grows to 256 / align 128.
++// CL128:      struct C
++// CL128:      0 |{{.*}}counter
++// CL128:      128 |{{.*}}int n
++// CL128:      132 |{{.*}}char tag
++// CL128:      sizeof=256, align=128
++
++// Isolation disabled: plain descending-alignment compaction, no padding blowup.
++// CL0:      struct C
++// CL0:      0 |{{.*}}counter
++// CL0:      4 |{{.*}}int n
++// CL0:      8 |{{.*}}char tag
++// CL0:      sizeof=12, align=4
+-- 
+2.54.0.windows.1
+

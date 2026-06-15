@@ -1,0 +1,178 @@
+From f41f946574e9f9a5753f6fc0bf2847e90a261a43 Mon Sep 17 00:00:00 2001
+From: tonytranrp <100391458+tonytranrp@users.noreply.github.com>
+Date: Mon, 15 Jun 2026 02:13:48 -1000
+Subject: [PATCH] clang-mg: warn on pointer cast away from a compact struct
+
+Reinterpreting a pointer to a `compact` record as a pointer to an
+unrelated record exposes the field-reordered layout: the destination
+type reads members at their source-declaration offsets, which no longer
+hold after the compact reorder. This is the cast escape-hatch
+counterpart to warn_cxxmg_offsetof_compact.
+
+The earlier attempt placed the check in CastOperation::CheckCStyleCast,
+which asserts !CPlusPlus and is never reached for C++ casts -- so it was
+dead. The correct convergence point is TryReinterpretCast, which both
+reinterpret_cast<B*>(a) and the C-style (B*)a resolve through for two
+unrelated object-pointer types. The warning is emitted just before the
+final `return SuccessResult;`, gated on
+SrcRD->isRandomized() && (isCompactPattern(SrcRD) ||
+isCompactPattern(SrcRD's template instantiation pattern)), so it covers
+compact class-template instantiations as well and never fires for plain
+randstruct, same-type casts, non-record pointees, or un-instantiated
+specializations (which have no determined layout).
+
+New diagnostic warn_cxxmg_cast_from_compact lives in the existing
+-Wcxxmg-compact group. Test compact-cast-warning.cpp covers both cast
+forms, the template instantiation, and the silent cases. Full CXXMG
+suite green (compact 44, conditional-members 14, traits 16,
+type-expressions 23, regression 1).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+---
+ .../clang/Basic/DiagnosticSemaKinds.td        |  5 ++
+ clang/lib/Sema/SemaCast.cpp                   | 23 ++++++
+ .../CXXMG/compact/compact-cast-warning.cpp    | 75 +++++++++++++++++++
+ 3 files changed, 103 insertions(+)
+ create mode 100644 clang/test/CXXMG/compact/compact-cast-warning.cpp
+
+diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+index da1ae3b82..1d8bff21f 100644
+--- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -7519,6 +7519,11 @@ def warn_cxxmg_offsetof_compact : Warning<
+   "'offsetof' on 'compact' type %0 uses the reordered layout; the field offset "
+   "differs from source declaration order">,
+   InGroup<DiagGroup<"cxxmg-compact">>;
++def warn_cxxmg_cast_from_compact : Warning<
++  "cast from 'compact' type %0 to unrelated type %1 exposes the reordered "
++  "layout; field offsets in the destination type will not match source "
++  "declaration order">,
++  InGroup<DiagGroup<"cxxmg-compact">>;
+ def err_offsetof_bitfield : Error<"cannot compute offset of bit-field %0">;
+ def err_offsetof_field_of_virtual_base : Error<
+   "invalid application of 'offsetof' to a field of a virtual base">;
+diff --git a/clang/lib/Sema/SemaCast.cpp b/clang/lib/Sema/SemaCast.cpp
+index 133837623..67a588080 100644
+--- a/clang/lib/Sema/SemaCast.cpp
++++ b/clang/lib/Sema/SemaCast.cpp
+@@ -16,6 +16,7 @@
+ #include "clang/AST/ASTContext.h"
+ #include "clang/AST/ASTStructuralEquivalence.h"
+ #include "clang/AST/CXXInheritance.h"
++#include "clang/AST/CXXMGLayout.h"
+ #include "clang/AST/ExprCXX.h"
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/RecordLayout.h"
+@@ -2644,6 +2645,28 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
+   // Void pointers are not specified, but supported by every compiler out there.
+   // So we finish by allowing everything that remains - it's got to be two
+   // object pointers.
++  //
++  // C++MG: warn when reinterpreting a pointer to a 'compact' record as a
++  // pointer to an unrelated record. The 'compact' source type was field-
++  // reordered at layout time, so the destination type's field offsets will
++  // not match source declaration order -- a silent aliasing hazard. This
++  // mirrors warn_cxxmg_offsetof_compact for the cast escape hatch and covers
++  // both reinterpret_cast<B*>(a) and the C-style (B*)a that resolves here.
++  if (const PointerType *SrcPtrTy = SrcType->getAs<PointerType>()) {
++    if (const PointerType *DestPtrTy = DestType->getAs<PointerType>()) {
++      const RecordDecl *SrcRD = SrcPtrTy->getPointeeType()->getAsRecordDecl();
++      const RecordDecl *DestRD = DestPtrTy->getPointeeType()->getAsRecordDecl();
++      if (SrcRD && DestRD && SrcRD != DestRD && SrcRD->isRandomized()) {
++        const CXXRecordDecl *Pattern = nullptr;
++        if (const auto *SrcCXX = dyn_cast<CXXRecordDecl>(SrcRD))
++          Pattern = SrcCXX->getTemplateInstantiationPattern();
++        if (cxxmg::isCompactPattern(Self.Context, SrcRD) ||
++            (Pattern && cxxmg::isCompactPattern(Self.Context, Pattern)))
++          Self.Diag(OpRange.getBegin(), diag::warn_cxxmg_cast_from_compact)
++              << SrcType << DestType << SrcExpr.get()->getSourceRange();
++      }
++    }
++  }
+   return SuccessResult;
+ }
+ 
+diff --git a/clang/test/CXXMG/compact/compact-cast-warning.cpp b/clang/test/CXXMG/compact/compact-cast-warning.cpp
+new file mode 100644
+index 000000000..61b2aaa79
+--- /dev/null
++++ b/clang/test/CXXMG/compact/compact-cast-warning.cpp
+@@ -0,0 +1,75 @@
++// Safety: reinterpreting a pointer to a `compact` record as a pointer to an
++// UNRELATED record exposes the reordered layout -- the destination type reads
++// fields at source-declaration offsets that no longer hold. Warn at the cast
++// site (-Wcxxmg-compact), covering both reinterpret_cast<B*> and the C-style
++// (B*) form that resolves through the same TryReinterpretCast path. This is the
++// cast escape hatch counterpart to warn_cxxmg_offsetof_compact.
++//
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++// A is compact: {a,b,c} reorders to {c,b,a}. Reading it as B (source order)
++// would see b/c at the wrong offsets.
++compact struct A {
++  char a;
++  int b;
++  double c;
++};
++
++struct B {
++  char a;
++  int b;
++  double c;
++};
++
++void f(A *pa) {
++  // reinterpret_cast to an unrelated record type: warns.
++  B *b1 = reinterpret_cast<B *>(pa); // expected-warning {{cast from 'compact' type 'A *' to unrelated type 'B *' exposes the reordered layout}}
++  (void)b1;
++
++  // C-style cast resolving to a reinterpret_cast: warns too.
++  B *b2 = (B *)pa; // expected-warning {{cast from 'compact' type 'A *' to unrelated type 'B *' exposes the reordered layout}}
++  (void)b2;
++
++  // Same-type cast: SrcRD == DestRD, no warning.
++  A *a1 = reinterpret_cast<A *>(pa);
++  (void)a1;
++
++  // Cast to a non-record pointer (char*, void*): no warning -- no destination
++  // record whose offsets could be misread.
++  char *c1 = reinterpret_cast<char *>(pa);
++  (void)c1;
++  void *v1 = reinterpret_cast<void *>(pa);
++  (void)v1;
++}
++
++// A plain (non-compact) struct keeps source order; reinterpreting it is the
++// programmer's normal business -- no compact warning.
++struct PlainSrc {
++  char a;
++  int b;
++  double c;
++};
++
++void g(PlainSrc *ps) {
++  B *b = reinterpret_cast<B *>(ps); // no warning: PlainSrc is not compact
++  (void)b;
++}
++
++// Compact class template: each instantiation is reordered and inherits the
++// compact-pattern mark, so casting away from it warns as well. The
++// specialization must be instantiated (it has a determined, reordered layout)
++// for the cast to be meaningful -- a bare pointer to an un-instantiated
++// specialization has no laid-out fields and correctly does not warn.
++template <class T> compact struct Box {
++  char tag;
++  T payload;
++};
++
++Box<double> g_box; // force instantiation -> Box<double> is reordered here
++
++struct Other { int x; };
++
++void h(Box<double> *pb) {
++  Other *o = reinterpret_cast<Other *>(pb); // expected-warning {{cast from 'compact' type 'Box<double> *' to unrelated type 'Other *' exposes the reordered layout}}
++  (void)o;
++}
+-- 
+2.54.0.windows.1
+
