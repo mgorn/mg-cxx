@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 20:34:12 -0400
-Subject: [PATCH 44/56] More missing switch cases
+Subject: [PATCH 44/58] More missing switch cases
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -18,7 +18,7 @@ Adds recognition for specific new expression types in the cursor system (CX[3D
 (CXCursor.cpp).
 
 diff --git a/clang/lib/Index/IndexSymbol.cpp b/clang/lib/Index/IndexSymbol.cpp
-index 9b7fee421bdf..84834302cc98 100644
+index 9b7fee421..84834302c 100644
 --- a/clang/lib/Index/IndexSymbol.cpp
 +++ b/clang/lib/Index/IndexSymbol.cpp
 @@ -134,6 +134,10 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
@@ -33,7 +33,7 @@ index 9b7fee421bdf..84834302cc98 100644
        Info.Kind = SymbolKind::Protocol;
        Info.Lang = SymbolLanguage::CXX;
 diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
-index ac2fad38a134..e29bf4b13621 100644
+index ac2fad38a..e29bf4b13 100644
 --- a/clang/tools/libclang/CIndex.cpp
 +++ b/clang/tools/libclang/CIndex.cpp
 @@ -7237,6 +7237,8 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
@@ -46,7 +46,7 @@ index ac2fad38a134..e29bf4b13621 100644
    case Decl::MSProperty:
    case Decl::MSGuid:
 diff --git a/clang/tools/libclang/CIndexCXX.cpp b/clang/tools/libclang/CIndexCXX.cpp
-index 605f3ef9a4a6..8d09283e778e 100644
+index 605f3ef9a..8d09283e7 100644
 --- a/clang/tools/libclang/CIndexCXX.cpp
 +++ b/clang/tools/libclang/CIndexCXX.cpp
 @@ -118,6 +118,7 @@ enum CXCursorKind clang_getTemplateCursorKind(CXCursor C) {
@@ -58,7 +58,7 @@ index 605f3ef9a4a6..8d09283e778e 100644
        case TagTypeKind::Class:
          return CXCursor_ClassDecl;
 diff --git a/clang/tools/libclang/CXCursor.cpp b/clang/tools/libclang/CXCursor.cpp
-index b2feed578fc0..4fa0b8b76640 100644
+index b2feed578..4fa0b8b76 100644
 --- a/clang/tools/libclang/CXCursor.cpp
 +++ b/clang/tools/libclang/CXCursor.cpp
 @@ -303,6 +303,8 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
@@ -71,5 +71,5 @@ index b2feed578fc0..4fa0b8b76640 100644
    case Stmt::DependentCoawaitExprClass:
    case Stmt::CoyieldExprClass:
 -- 
-2.54.0
+2.54.0.windows.1
 

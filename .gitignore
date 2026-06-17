@@ -3,3 +3,5 @@ work/
 *.backup.*
 /.cxxmg-cache
 __pycache__
+
+research/

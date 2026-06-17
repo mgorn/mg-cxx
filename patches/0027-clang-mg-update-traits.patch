@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 22:46:03 -0400
-Subject: [PATCH 27/56] clang-mg: update traits
+Subject: [PATCH 27/58] clang-mg: update traits
 
 
 diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
-index 883df3239e37..92a89ed93020 100644
+index 883df3239..92a89ed93 100644
 --- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 @@ -24,6 +24,23 @@ static bool mayStartQualifiedCXXMGImplementsExpression(Parser &P) {
@@ -33,7 +33,7 @@ index 883df3239e37..92a89ed93020 100644
           P.GetLookAheadToken(I + 1).is(tok::identifier))
      I += 2;
 diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
-index cfba2c41a15d..d02e55e9e452 100644
+index cfba2c41a..d02e55e9e 100644
 --- a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 @@ -134,6 +134,20 @@ resolveImplementsOperand(Sema &S, TypeSourceInfo *TSI, SourceLocation Loc,
@@ -59,7 +59,7 @@ index cfba2c41a15d..d02e55e9e452 100644
        S.Diag(Loc, diag::err_cxxmg_implements_incomplete_operand) << QT;
 diff --git a/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
 new file mode 100644
-index 000000000000..f89901e2cd37
+index 000000000..f89901e2c
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
 @@ -0,0 +1,27 @@
@@ -92,7 +92,7 @@ index 000000000000..f89901e2cd37
 +static_assert(has_v_angle<false>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
 new file mode 100644
-index 000000000000..3e3090beafc7
+index 000000000..3e3090bea
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
 @@ -0,0 +1,11 @@
@@ -109,7 +109,7 @@ index 000000000000..3e3090beafc7
 +// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
 diff --git a/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
 new file mode 100644
-index 000000000000..b66a717b64ce
+index 000000000..b66a717b6
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
 @@ -0,0 +1,39 @@
@@ -153,5 +153,5 @@ index 000000000000..b66a717b64ce
 +static_assert(!(Box<int> <> BoolValueTrait));
 +static_assert(Box<bool> <> BoolValueTrait);
 -- 
-2.54.0
+2.54.0.windows.1
 

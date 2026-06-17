@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 20:51:32 -0400
-Subject: [PATCH 45/56] Add missing visitor funcs
+Subject: [PATCH 45/58] Add missing visitor funcs
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -16,7 +16,7 @@ libclang tooling can accurately traverse and understand modern C++ syntax i[1D
 involving traits and requirements.
 
 diff --git a/clang/lib/Sema/SemaCodeComplete.cpp b/clang/lib/Sema/SemaCodeComplete.cpp
-index c8177e027a3a..862fa75f6af0 100644
+index c8177e027..862fa75f6 100644
 --- a/clang/lib/Sema/SemaCodeComplete.cpp
 +++ b/clang/lib/Sema/SemaCodeComplete.cpp
 @@ -4409,6 +4409,9 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
@@ -30,7 +30,7 @@ index c8177e027a3a..862fa75f6af0 100644
      return CXCursor_FunctionDecl;
    case Decl::ObjCCategory:
 diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
-index e29bf4b13621..d80d53b34f06 100644
+index e29bf4b13..d80d53b34 100644
 --- a/clang/tools/libclang/CIndex.cpp
 +++ b/clang/tools/libclang/CIndex.cpp
 @@ -24,9 +24,12 @@
@@ -165,7 +165,7 @@ index e29bf4b13621..d80d53b34f06 100644
    case Decl::ClassTemplatePartialSpecialization:
    case Decl::ClassTemplateSpecialization:
 diff --git a/clang/tools/libclang/CXCursor.cpp b/clang/tools/libclang/CXCursor.cpp
-index 4fa0b8b76640..7b2f2d6c0e35 100644
+index 4fa0b8b76..7b2f2d6c0 100644
 --- a/clang/tools/libclang/CXCursor.cpp
 +++ b/clang/tools/libclang/CXCursor.cpp
 @@ -20,10 +20,12 @@
@@ -182,7 +182,7 @@ index 4fa0b8b76640..7b2f2d6c0e35 100644
  #include "clang/Frontend/ASTUnit.h"
  #include "llvm/Support/ErrorHandling.h"
 diff --git a/clang/tools/libclang/CXType.cpp b/clang/tools/libclang/CXType.cpp
-index 0063939dec42..cdc6f4d39adb 100644
+index 0063939de..cdc6f4d39 100644
 --- a/clang/tools/libclang/CXType.cpp
 +++ b/clang/tools/libclang/CXType.cpp
 @@ -123,6 +123,8 @@ static CXTypeKind GetTypeKind(QualType T) {
@@ -195,7 +195,7 @@ index 0063939dec42..cdc6f4d39adb 100644
        return CXType_Unexposed;
    }
 diff --git a/clang/tools/libclang/CursorVisitor.h b/clang/tools/libclang/CursorVisitor.h
-index d5ab69975698..6f1668c61249 100644
+index d5ab69975..6f1668c61 100644
 --- a/clang/tools/libclang/CursorVisitor.h
 +++ b/clang/tools/libclang/CursorVisitor.h
 @@ -19,6 +19,9 @@
@@ -226,5 +226,5 @@ index d5ab69975698..6f1668c61249 100644
  #define TYPELOC(CLASS, PARENT) bool Visit##CLASS##TypeLoc(CLASS##TypeLoc TyLoc);
  #include "clang/AST/TypeLocNodes.def"
 -- 
-2.54.0
+2.54.0.windows.1
 

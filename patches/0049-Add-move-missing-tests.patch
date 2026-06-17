@@ -1,12 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 23:02:46 -0400
-Subject: [PATCH 49/56] Add/move missing tests
+Subject: [PATCH 49/58] Add/move missing tests
 
 This adds (or moves) the missing conditional-member and urlinclude tests, and changes what's required to make them pass.
 
 diff --git a/clang/include/clang/AST/DeclCXXMG.h b/clang/include/clang/AST/DeclCXXMG.h
-index 3092e259deaa..1bd6a5538a0f 100644
+index 3092e259d..1bd6a5538 100644
 --- a/clang/include/clang/AST/DeclCXXMG.h
 +++ b/clang/include/clang/AST/DeclCXXMG.h
 @@ -122,6 +122,12 @@ public:
@@ -30,7 +30,7 @@ index 3092e259deaa..1bd6a5538a0f 100644
 \ No newline at end of file
 +#endif // LLVM_CLANG_AST_DECLCXXMG_H
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index 354f5843e1af..84e057bd685d 100644
+index 354f5843e..84e057bd6 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
 @@ -1549,7 +1549,10 @@ enum DeclCode {
@@ -46,7 +46,7 @@ index 354f5843e1af..84e057bd685d 100644
  
  /// Record codes for each kind of statement or expression.
 diff --git a/clang/lib/AST/DeclCXXMG.cpp b/clang/lib/AST/DeclCXXMG.cpp
-index 7b4450f48b5e..a097e4dfe7e5 100644
+index 7b4450f48..a097e4dfe 100644
 --- a/clang/lib/AST/DeclCXXMG.cpp
 +++ b/clang/lib/AST/DeclCXXMG.cpp
 @@ -45,4 +45,23 @@ CXXMGConditionalMemberDecl::Create(
@@ -76,7 +76,7 @@ index 7b4450f48b5e..a097e4dfe7e5 100644
 +                 Ctx);
 +}
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index c2a789471adf..432cacef0e09 100644
+index c2a789471..432cacef0 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3508,6 +3508,10 @@ Decl *Sema::ActOnCXXMGConditionalMember(
@@ -91,7 +91,7 @@ index c2a789471adf..432cacef0e09 100644
  
    for (const CXXMGConditionalMemberArm &Arm : D->arms()) {
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index 2b4ccdb6bb54..3e5689a9567f 100644
+index 2b4ccdb6b..3e5689a95 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -21,6 +21,7 @@
@@ -148,7 +148,7 @@ index 2b4ccdb6bb54..3e5689a9567f 100644
      D = StaticAssertDecl::CreateDeserialized(Context, ID);
      break;
 diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
-index 2c1bfcc8ae0f..85b8dfc2ce13 100644
+index 2c1bfcc8a..85b8dfc2c 100644
 --- a/clang/lib/Serialization/ASTWriterDecl.cpp
 +++ b/clang/lib/Serialization/ASTWriterDecl.cpp
 @@ -13,6 +13,7 @@
@@ -192,7 +192,7 @@ index 2c1bfcc8ae0f..85b8dfc2ce13 100644
  
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-access.cpp b/clang/test/CXXMG/conditional-members/conditional-member-access.cpp
 new file mode 100644
-index 000000000000..e192474ae79e
+index 000000000..e192474ae
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-access.cpp
 @@ -0,0 +1,36 @@
@@ -234,7 +234,7 @@ index 000000000000..e192474ae79e
 +}
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-ast-dump.cpp b/clang/test/CXXMG/conditional-members/conditional-member-ast-dump.cpp
 new file mode 100644
-index 000000000000..7c8b276b3dad
+index 000000000..7c8b276b3
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-ast-dump.cpp
 @@ -0,0 +1,18 @@
@@ -258,7 +258,7 @@ index 000000000000..7c8b276b3dad
 +// CHECK: FieldDecl {{.*}} no 'long'
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-conflicts.cpp b/clang/test/CXXMG/conditional-members/conditional-member-conflicts.cpp
 new file mode 100644
-index 000000000000..125c7d781a4e
+index 000000000..125c7d781
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-conflicts.cpp
 @@ -0,0 +1,36 @@
@@ -300,7 +300,7 @@ index 000000000000..125c7d781a4e
 +static_assert(__is_same(typename AliasExclusive<false>::type, char));
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp b/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp
 new file mode 100644
-index 000000000000..8de0f09ac6f3
+index 000000000..8de0f09ac
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp
 @@ -0,0 +1,64 @@
@@ -372,7 +372,7 @@ diff --git a/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
 similarity index 60%
 rename from clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
 rename to clang/test/CXXMG/conditional-members/conditional-member-feature-test.cpp
-index d24454db9942..4c862b8c23f7 100644
+index d24454db9..4c862b8c2 100644
 --- a/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-feature-test.cpp
 @@ -1,15 +1,14 @@
@@ -436,7 +436,7 @@ index d24454db9942..4c862b8c23f7 100644
  #endif
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-interactions.cpp b/clang/test/CXXMG/conditional-members/conditional-member-interactions.cpp
 new file mode 100644
-index 000000000000..3a384abc00a6
+index 000000000..3a384abc0
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-interactions.cpp
 @@ -0,0 +1,14 @@
@@ -456,7 +456,7 @@ index 000000000000..3a384abc00a6
 +static_assert((MaybeValue<false> implements HasValue) == false);
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-member-kinds.cpp b/clang/test/CXXMG/conditional-members/conditional-member-member-kinds.cpp
 new file mode 100644
-index 000000000000..29fa959b8f38
+index 000000000..29fa959b8
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-member-kinds.cpp
 @@ -0,0 +1,43 @@
@@ -505,7 +505,7 @@ index 000000000000..29fa959b8f38
 +using DisabledType = typename Kinds<false>::type; // expected-error {{no type named 'type'}}
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-nontemplate.cpp b/clang/test/CXXMG/conditional-members/conditional-member-nontemplate.cpp
 new file mode 100644
-index 000000000000..b3709e860596
+index 000000000..b3709e860
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-nontemplate.cpp
 @@ -0,0 +1,29 @@
@@ -540,7 +540,7 @@ index 000000000000..b3709e860596
 +};
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-parser-invalid.cpp b/clang/test/CXXMG/conditional-members/conditional-member-parser-invalid.cpp
 new file mode 100644
-index 000000000000..fd0efb1ca871
+index 000000000..fd0efb1ca
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-parser-invalid.cpp
 @@ -0,0 +1,51 @@
@@ -597,7 +597,7 @@ index 000000000000..fd0efb1ca871
 +}
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-parser.cpp b/clang/test/CXXMG/conditional-members/conditional-member-parser.cpp
 new file mode 100644
-index 000000000000..863f219ef65a
+index 000000000..863f219ef
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-parser.cpp
 @@ -0,0 +1,99 @@
@@ -702,7 +702,7 @@ index 000000000000..863f219ef65a
 +}
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-pch.cpp b/clang/test/CXXMG/conditional-members/conditional-member-pch.cpp
 new file mode 100644
-index 000000000000..1983b3daa2ee
+index 000000000..1983b3daa
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-pch.cpp
 @@ -0,0 +1,29 @@
@@ -737,7 +737,7 @@ index 000000000000..1983b3daa2ee
 +#endif
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-recovery.cpp b/clang/test/CXXMG/conditional-members/conditional-member-recovery.cpp
 new file mode 100644
-index 000000000000..04a9216d5cba
+index 000000000..04a9216d5
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-recovery.cpp
 @@ -0,0 +1,33 @@
@@ -778,7 +778,7 @@ diff --git a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp b/clang/test/CXXM
 similarity index 72%
 rename from clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
 rename to clang/test/CXXMG/conditional-members/conditional-member-selection.cpp
-index d30fa7112a00..dd86813cd7c4 100644
+index d30fa7112..dd86813cd 100644
 --- a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-selection.cpp
 @@ -1,4 +1,4 @@
@@ -852,7 +852,7 @@ index d30fa7112a00..dd86813cd7c4 100644
  template <class T>
 diff --git a/clang/test/CXXMG/conditional-members/conditional-member-special-members.cpp b/clang/test/CXXMG/conditional-members/conditional-member-special-members.cpp
 new file mode 100644
-index 000000000000..44b65506a7fe
+index 000000000..44b65506a
 --- /dev/null
 +++ b/clang/test/CXXMG/conditional-members/conditional-member-special-members.cpp
 @@ -0,0 +1,57 @@
@@ -915,7 +915,7 @@ index 000000000000..44b65506a7fe
 +}
 diff --git a/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fail.py b/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fail.py
 new file mode 100644
-index 000000000000..d3c37eed08fb
+index 000000000..d3c37eed0
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fail.py
 @@ -0,0 +1,5 @@
@@ -926,7 +926,7 @@ index 000000000000..d3c37eed08fb
 +sys.exit(7)
 diff --git a/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fetch.py b/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fetch.py
 new file mode 100644
-index 000000000000..7fa437e06253
+index 000000000..7fa437e06
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/Inputs/urlinclude_fetch.py
 @@ -0,0 +1,31 @@
@@ -963,7 +963,7 @@ index 000000000000..7fa437e06253
 +pathlib.Path(args.output).write_text(headers[key], encoding="utf-8")
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-angle-and-quote.cpp b/clang/test/CXXMG/urlinclude/urlinclude-angle-and-quote.cpp
 new file mode 100644
-index 000000000000..36b62173b7a3
+index 000000000..36b62173b
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-angle-and-quote.cpp
 @@ -0,0 +1,13 @@
@@ -982,7 +982,7 @@ index 000000000000..36b62173b7a3
 +UrlQueryFragment f;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-basic.cpp b/clang/test/CXXMG/urlinclude/urlinclude-basic.cpp
 new file mode 100644
-index 000000000000..18c3abf4c496
+index 000000000..18c3abf4c
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-basic.cpp
 @@ -0,0 +1,10 @@
@@ -998,7 +998,7 @@ index 000000000000..18c3abf4c496
 +UrlBasic make_basic() { return UrlBasic{1}; }
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-cache-collision.cpp b/clang/test/CXXMG/urlinclude/urlinclude-cache-collision.cpp
 new file mode 100644
-index 000000000000..49cb55ac8050
+index 000000000..49cb55ac8
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-cache-collision.cpp
 @@ -0,0 +1,11 @@
@@ -1015,7 +1015,7 @@ index 000000000000..49cb55ac8050
 +UrlSameNameTwo two;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
 new file mode 100644
-index 000000000000..4dc9161da038
+index 000000000..4dc9161da
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
 @@ -0,0 +1,19 @@
@@ -1040,7 +1040,7 @@ index 000000000000..4dc9161da038
 +// MISS: #urlinclude cache miss for https://cxxmg.test/basic.hpp in offline mode
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
 new file mode 100644
-index 000000000000..5ef447b75ebc
+index 000000000..5ef447b75
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
 @@ -0,0 +1,34 @@
@@ -1080,7 +1080,7 @@ index 000000000000..5ef447b75ebc
 +// FAIL: #urlinclude download failed for https://cxxmg.test/basic.hpp
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-disabled.cpp b/clang/test/CXXMG/urlinclude/urlinclude-disabled.cpp
 new file mode 100644
-index 000000000000..d8a9b4549b1e
+index 000000000..d8a9b4549
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-disabled.cpp
 @@ -0,0 +1,12 @@
@@ -1098,7 +1098,7 @@ index 000000000000..d8a9b4549b1e
 +// DISABLED: #urlinclude is disabled; enable it with -furlinclude
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-driver.cpp b/clang/test/CXXMG/urlinclude/urlinclude-driver.cpp
 new file mode 100644
-index 000000000000..bf4ccd8e7c88
+index 000000000..bf4ccd8e7
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-driver.cpp
 @@ -0,0 +1,7 @@
@@ -1111,7 +1111,7 @@ index 000000000000..bf4ccd8e7c88
 +UrlBasic value;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-feature-test.cpp b/clang/test/CXXMG/urlinclude/urlinclude-feature-test.cpp
 new file mode 100644
-index 000000000000..3970dd183ec5
+index 000000000..3970dd183
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-feature-test.cpp
 @@ -0,0 +1,19 @@
@@ -1136,7 +1136,7 @@ index 000000000000..3970dd183ec5
 +#endif
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-http.cpp b/clang/test/CXXMG/urlinclude/urlinclude-http.cpp
 new file mode 100644
-index 000000000000..210815542264
+index 000000000..210815542
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-http.cpp
 @@ -0,0 +1,16 @@
@@ -1158,7 +1158,7 @@ index 000000000000..210815542264
 +// NOHTTP: insecure http:// URL in #urlinclude requires -furlinclude-allow-http
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-include-semantics.cpp b/clang/test/CXXMG/urlinclude/urlinclude-include-semantics.cpp
 new file mode 100644
-index 000000000000..cd406dc05b35
+index 000000000..cd406dc05
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-include-semantics.cpp
 @@ -0,0 +1,9 @@
@@ -1173,7 +1173,7 @@ index 000000000000..cd406dc05b35
 +UrlBasic value;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-options.cpp b/clang/test/CXXMG/urlinclude/urlinclude-options.cpp
 new file mode 100644
-index 000000000000..ff02412c5724
+index 000000000..ff02412c5
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-options.cpp
 @@ -0,0 +1,10 @@
@@ -1189,7 +1189,7 @@ index 000000000000..ff02412c5724
 +UrlBasic value;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-pch.cpp b/clang/test/CXXMG/urlinclude/urlinclude-pch.cpp
 new file mode 100644
-index 000000000000..0b2eb16f58f6
+index 000000000..0b2eb16f5
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-pch.cpp
 @@ -0,0 +1,14 @@
@@ -1209,7 +1209,7 @@ index 000000000000..0b2eb16f58f6
 +#endif
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-preprocess.cpp b/clang/test/CXXMG/urlinclude/urlinclude-preprocess.cpp
 new file mode 100644
-index 000000000000..05d1dc086b97
+index 000000000..05d1dc086
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-preprocess.cpp
 @@ -0,0 +1,9 @@
@@ -1224,7 +1224,7 @@ index 000000000000..05d1dc086b97
 +// CHECK: int value = 123;
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 new file mode 100644
-index 000000000000..63cc343cf08b
+index 000000000..63cc343cf
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 @@ -0,0 +1,7 @@
@@ -1237,7 +1237,7 @@ index 000000000000..63cc343cf08b
 +// CHECK: #urlinclude cache miss for https://<redacted>@cxxmg.test/basic.hpp in offline mode
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-refresh.cpp b/clang/test/CXXMG/urlinclude/urlinclude-refresh.cpp
 new file mode 100644
-index 000000000000..3ad0c9a66462
+index 000000000..3ad0c9a66
 --- /dev/null
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-refresh.cpp
 @@ -0,0 +1,20 @@
@@ -1263,7 +1263,7 @@ index 000000000000..3ad0c9a66462
 +static_assert(urlinclude_refresh_value == EXPECT);
 diff --git a/clang/test/Parser/cxxmg-if-constexpr-members.cpp b/clang/test/Parser/cxxmg-if-constexpr-members.cpp
 deleted file mode 100644
-index fc213b1ee0a3..000000000000
+index fc213b1ee..000000000
 --- a/clang/test/Parser/cxxmg-if-constexpr-members.cpp
 +++ /dev/null
 @@ -1,35 +0,0 @@
@@ -1303,5 +1303,5 @@ index fc213b1ee0a3..000000000000
 -  }
 -};
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 22:17:00 -0400
-Subject: [PATCH 29/56] clang-mg: update type-expressions
+Subject: [PATCH 29/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/ASTContext.h b/clang/include/clang/AST/ASTContext.h
-index a4ed852d3644..bf012198c8f7 100644
+index a4ed852d3..bf012198c 100644
 --- a/clang/include/clang/AST/ASTContext.h
 +++ b/clang/include/clang/AST/ASTContext.h
 @@ -258,6 +258,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
@@ -26,7 +26,7 @@ index a4ed852d3644..bf012198c8f7 100644
    QualType getUnaryTransformType(QualType BaseType, QualType UnderlyingType,
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
 new file mode 100644
-index 000000000000..018c9c7e4c4b
+index 000000000..018c9c7e4
 --- /dev/null
 +++ b/clang/include/clang/AST/CXXMGTypeExpr.h
 @@ -0,0 +1,113 @@
@@ -144,7 +144,7 @@ index 000000000000..018c9c7e4c4b
 +
 +#endif
 diff --git a/clang/include/clang/AST/PropertiesBase.td b/clang/include/clang/AST/PropertiesBase.td
-index fd3cce10be30..f397142a57fa 100644
+index fd3cce10b..f397142a5 100644
 --- a/clang/include/clang/AST/PropertiesBase.td
 +++ b/clang/include/clang/AST/PropertiesBase.td
 @@ -152,6 +152,7 @@ def UnaryTypeTransformKind : EnumPropertyType<"UnaryTransformType::UTTKind">;
@@ -156,7 +156,7 @@ index fd3cce10be30..f397142a57fa 100644
  def ExceptionSpecInfo : PropertyType<"FunctionProtoType::ExceptionSpecInfo"> {
    let BufferElementTypes = [ QualType ];
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 3d3dd3de9849..ea2ebc8e08e1 100644
+index 3d3dd3de9..ea2ebc8e0 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -225,6 +225,7 @@ public:
@@ -198,7 +198,7 @@ index 3d3dd3de9849..ea2ebc8e08e1 100644
    TRY_TO(TraverseTypeLoc(TL.getUnderlyingTInfo()->getTypeLoc()));
  })
 diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
-index a521b991440f..bb9e3d626bfa 100644
+index a521b9914..bb9e3d626 100644
 --- a/clang/include/clang/AST/TextNodeDumper.h
 +++ b/clang/include/clang/AST/TextNodeDumper.h
 @@ -342,6 +342,7 @@ public:
@@ -210,7 +210,7 @@ index a521b991440f..bb9e3d626bfa 100644
    void VisitTemplateTypeParmType(const TemplateTypeParmType *T);
    void VisitSubstTemplateTypeParmType(const SubstTemplateTypeParmType *T);
 diff --git a/clang/include/clang/AST/TypeBase.h b/clang/include/clang/AST/TypeBase.h
-index 45e74017f3c1..1544b49718c9 100644
+index 3edfe5a4c..9ac362c72 100644
 --- a/clang/include/clang/AST/TypeBase.h
 +++ b/clang/include/clang/AST/TypeBase.h
 @@ -69,6 +69,7 @@ class ValueDecl;
@@ -221,7 +221,7 @@ index 45e74017f3c1..1544b49718c9 100644
  class Attr;
  
  enum {
-@@ -6464,6 +6465,30 @@ private:
+@@ -6466,6 +6467,30 @@ private:
                                            ArrayRef<QualType> Expansions = {});
  };
  
@@ -253,7 +253,7 @@ index 45e74017f3c1..1544b49718c9 100644
  class UnaryTransformType : public Type, public llvm::FoldingSetNode {
  public:
 diff --git a/clang/include/clang/AST/TypeLoc.h b/clang/include/clang/AST/TypeLoc.h
-index 24df18dbaace..714651f1b2e8 100644
+index 24df18dba..714651f1b 100644
 --- a/clang/include/clang/AST/TypeLoc.h
 +++ b/clang/include/clang/AST/TypeLoc.h
 @@ -2328,6 +2328,17 @@ public:
@@ -275,7 +275,7 @@ index 24df18dbaace..714651f1b2e8 100644
    // FIXME: While there's only one unary transform right now, future ones may
    // need different representations
 diff --git a/clang/include/clang/AST/TypeProperties.td b/clang/include/clang/AST/TypeProperties.td
-index 0f3722b36774..21e5c1849fa4 100644
+index f16c10da4..5c0e8935e 100644
 --- a/clang/include/clang/AST/TypeProperties.td
 +++ b/clang/include/clang/AST/TypeProperties.td
 @@ -495,6 +495,15 @@ let Class = PackIndexingType in {
@@ -295,7 +295,7 @@ index 0f3722b36774..21e5c1849fa4 100644
  let Class = UnaryTransformType in {
    def : Property<"baseType", QualType> {
 diff --git a/clang/include/clang/Basic/StmtNodes.td b/clang/include/clang/Basic/StmtNodes.td
-index dad01ceadf0b..beee2e7afd2c 100644
+index dad01cead..beee2e7af 100644
 --- a/clang/include/clang/Basic/StmtNodes.td
 +++ b/clang/include/clang/Basic/StmtNodes.td
 @@ -184,6 +184,7 @@ def RequiresExpr : StmtNode<Expr>;
@@ -307,7 +307,7 @@ index dad01ceadf0b..beee2e7afd2c 100644
  // Obj-C Expressions.
  def ObjCObjectLiteral : StmtNode<Expr, 1>;
 diff --git a/clang/include/clang/Basic/TypeNodes.td b/clang/include/clang/Basic/TypeNodes.td
-index a9965a4a89aa..95a16bc29fa4 100644
+index a9965a4a8..95a16bc29 100644
 --- a/clang/include/clang/Basic/TypeNodes.td
 +++ b/clang/include/clang/Basic/TypeNodes.td
 @@ -99,6 +99,7 @@ def DeducedTemplateSpecializationType : TypeNode<DeducedType>;
@@ -319,7 +319,7 @@ index a9965a4a89aa..95a16bc29fa4 100644
  def ObjCObjectType : TypeNode<Type>;
  def ObjCInterfaceType : TypeNode<ObjCObjectType>, AlwaysCanonical;
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 627f75ebc2aa..e8e498cdf9ae 100644
+index 627f75ebc..e8e498cdf 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -26,6 +26,7 @@
@@ -352,7 +352,7 @@ index 627f75ebc2aa..e8e498cdf9ae 100644
    ExprResult ActOnCXXMGImplementsExpression(
        Scope *S, TypeSourceInfo *CandidateTSI, SourceLocation OpLoc,
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index ad0dfd4eef77..354f5843e1af 100644
+index ad0dfd4ee..354f5843e 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
 @@ -1943,6 +1943,7 @@ enum StmtCode {
@@ -364,7 +364,7 @@ index ad0dfd4eef77..354f5843e1af 100644
    // Reflection
    EXPR_REFLECT,
 diff --git a/clang/include/clang/Serialization/ASTRecordReader.h b/clang/include/clang/Serialization/ASTRecordReader.h
-index aed1b7d30900..ef1be34d1dcc 100644
+index aed1b7d30..ef1be34d1 100644
 --- a/clang/include/clang/Serialization/ASTRecordReader.h
 +++ b/clang/include/clang/Serialization/ASTRecordReader.h
 @@ -16,6 +16,7 @@
@@ -384,7 +384,7 @@ index aed1b7d30900..ef1be34d1dcc 100644
    /// Reads the location information for a type.
    void readTypeLoc(TypeLoc TL);
 diff --git a/clang/include/clang/Serialization/ASTRecordWriter.h b/clang/include/clang/Serialization/ASTRecordWriter.h
-index 9849ea6b395a..2c42e626cc27 100644
+index 9849ea6b3..2c42e626c 100644
 --- a/clang/include/clang/Serialization/ASTRecordWriter.h
 +++ b/clang/include/clang/Serialization/ASTRecordWriter.h
 @@ -15,6 +15,7 @@
@@ -408,7 +408,7 @@ index 9849ea6b395a..2c42e626cc27 100644
    void AddSourceRange(SourceRange Range) {
      return Writer->AddSourceRange(Range, *Record);
 diff --git a/clang/include/clang/Serialization/TypeBitCodes.def b/clang/include/clang/Serialization/TypeBitCodes.def
-index 9f1da65e0f94..5eec26d430ab 100644
+index 9f1da65e0..5eec26d43 100644
 --- a/clang/include/clang/Serialization/TypeBitCodes.def
 +++ b/clang/include/clang/Serialization/TypeBitCodes.def
 @@ -70,5 +70,6 @@ TYPE_BIT_CODE(HLSLInlineSpirv, HLSL_INLINE_SPIRV, 60)
@@ -419,7 +419,7 @@ index 9f1da65e0f94..5eec26d430ab 100644
  
  #undef TYPE_BIT_CODE
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index abf0cd5e18c2..3bd795f9e7b9 100644
+index abf0cd5e1..3bd795f9e 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
 @@ -21,6 +21,7 @@
@@ -458,7 +458,7 @@ index abf0cd5e18c2..3bd795f9e7b9 100644
  /// savings are minimal and these are rare.
  QualType
 diff --git a/clang/lib/AST/CMakeLists.txt b/clang/lib/AST/CMakeLists.txt
-index 93f8705dc7a1..fee588260393 100644
+index 93f8705dc..fee588260 100644
 --- a/clang/lib/AST/CMakeLists.txt
 +++ b/clang/lib/AST/CMakeLists.txt
 @@ -43,6 +43,7 @@ add_clang_library(clangAST
@@ -471,7 +471,7 @@ index 93f8705dc7a1..fee588260393 100644
    DeclarationName.cpp
 diff --git a/clang/lib/AST/CXXMGTypeExpr.cpp b/clang/lib/AST/CXXMGTypeExpr.cpp
 new file mode 100644
-index 000000000000..40f58e08e61e
+index 000000000..40f58e08e
 --- /dev/null
 +++ b/clang/lib/AST/CXXMGTypeExpr.cpp
 @@ -0,0 +1,84 @@
@@ -560,7 +560,7 @@ index 000000000000..40f58e08e61e
 +  RHS->Profile(ID);
 +}
 diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
-index 8e7a53375f7a..c4d8822bdcba 100644
+index 8e7a53375..c4d8822bd 100644
 --- a/clang/lib/AST/StmtPrinter.cpp
 +++ b/clang/lib/AST/StmtPrinter.cpp
 @@ -59,6 +59,22 @@
@@ -587,7 +587,7 @@ index 8e7a53375f7a..c4d8822bdcba 100644
  // StmtPrinter Visitor
  //===----------------------------------------------------------------------===//
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 994dcb6957ab..14d3af0696a2 100644
+index 994dcb695..14d3af069 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -82,6 +82,8 @@ namespace {
@@ -600,7 +600,7 @@ index 994dcb6957ab..14d3af0696a2 100644
  
    class StmtProfilerWithPointers : public StmtProfiler {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index fd503f866569..f957db9d6b54 100644
+index fd503f866..f957db9d6 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -2231,6 +2231,12 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
@@ -617,7 +617,7 @@ index fd503f866569..f957db9d6b54 100644
    if (T->isCanonicalUnqualified())
      OS << " canonical";
 diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
-index 2c2ad0ed613f..cedda36ade27 100644
+index c72083219..187dab1a2 100644
 --- a/clang/lib/AST/Type.cpp
 +++ b/clang/lib/AST/Type.cpp
 @@ -56,6 +56,13 @@
@@ -635,7 +635,7 @@ index 2c2ad0ed613f..cedda36ade27 100644
    return (*this != Other) &&
           // CVR qualifiers superset
 diff --git a/clang/lib/AST/TypePrinter.cpp b/clang/lib/AST/TypePrinter.cpp
-index d85ed244f643..2646d0ee9abe 100644
+index 53b869e01..c04d2813e 100644
 --- a/clang/lib/AST/TypePrinter.cpp
 +++ b/clang/lib/AST/TypePrinter.cpp
 @@ -12,6 +12,7 @@
@@ -686,7 +686,7 @@ index d85ed244f643..2646d0ee9abe 100644
  
  void TypePrinter::printUnaryTransformBefore(const UnaryTransformType *T,
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index b87cf3a38595..b628f353e1ce 100644
+index b87cf3a38..b628f353e 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -1,15 +1,17 @@
@@ -919,7 +919,7 @@ index b87cf3a38595..b628f353e1ce 100644
 +  RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index f11c1981b3ac..f732d5b6e1af 100644
+index f11c1981b..f732d5b6e 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -1617,6 +1617,10 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
@@ -934,7 +934,7 @@ index f11c1981b3ac..f732d5b6e1af 100644
    Typedef->setReferenced(D->isReferenced());
  
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 3fc0e0e1dfe5..b0652f58e6aa 100644
+index 3fc0e0e1d..b0652f58e 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -859,6 +859,7 @@ public:
@@ -1034,7 +1034,7 @@ index 3fc0e0e1dfe5..b0652f58e6aa 100644
  ExprResult
  TreeTransform<Derived>::TransformCXXNullPtrLiteralExpr(
 diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
-index f8a6a38bb9b5..65874047f157 100644
+index f8a6a38bb..65874047f 100644
 --- a/clang/lib/Serialization/ASTReader.cpp
 +++ b/clang/lib/Serialization/ASTReader.cpp
 @@ -7837,6 +7837,25 @@ TypeSourceInfo *ASTRecordReader::readTypeSourceInfo() {
@@ -1064,7 +1064,7 @@ index f8a6a38bb9b5..65874047f157 100644
    return (ID & llvm::maskTrailingOnes<TypeID>(32)) >> Qualifiers::FastWidth;
  }
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index 691543924495..a5c567e91f21 100644
+index 691543924..a5c567e91 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -4431,6 +4431,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
@@ -1079,7 +1079,7 @@ index 691543924495..a5c567e91f21 100644
        S = new (Context) ExpressionTraitExpr(Empty);
        break;
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 21dda6f3733e..e8684e31bed9 100644
+index 21dda6f37..e8684e31b 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -6974,6 +6974,25 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
@@ -1110,7 +1110,7 @@ index 21dda6f3733e..e8684e31bed9 100644
    for (; !TL.isNull(); TL = TL.getNextTypeLoc())
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
 new file mode 100644
-index 000000000000..d3529fcbf9c1
+index 000000000..d3529fcbf
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
 @@ -0,0 +1,11 @@
@@ -1127,7 +1127,7 @@ index 000000000000..d3529fcbf9c1
 +// CHECK: CXXMGTypeExprType
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 new file mode 100644
-index 000000000000..3bb2ca5c67ac
+index 000000000..3bb2ca5c6
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 @@ -0,0 +1,11 @@
@@ -1144,7 +1144,7 @@ index 000000000000..3bb2ca5c67ac
 +// CHECK-SAME: value-dependent
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-alias-subtract.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-alias-subtract.cpp
 new file mode 100644
-index 000000000000..89246abde1ad
+index 000000000..89246abde
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-alias-subtract.cpp
 @@ -0,0 +1,22 @@
@@ -1172,7 +1172,7 @@ index 000000000000..89246abde1ad
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-alias.cpp
 new file mode 100644
-index 000000000000..bd5bee83819a
+index 000000000..bd5bee838
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-alias.cpp
 @@ -0,0 +1,18 @@
@@ -1196,7 +1196,7 @@ index 000000000000..bd5bee83819a
 +static_assert(__is_same(decltype(C{}.other), bool));
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp
 new file mode 100644
-index 000000000000..af7075700673
+index 000000000..af7075700
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp
 @@ -0,0 +1,21 @@
@@ -1223,7 +1223,7 @@ index 000000000000..af7075700673
 +static_assert(!hasAny<B>);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 new file mode 100644
-index 000000000000..7aa4d978f0f4
+index 000000000..7aa4d978f
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 @@ -0,0 +1,11 @@
@@ -1240,7 +1240,7 @@ index 000000000000..7aa4d978f0f4
 +// expected-error@-1 {{type expression operand 'int' is not a struct, class, or trait}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp
 new file mode 100644
-index 000000000000..212c661ffb1e
+index 000000000..212c661ff
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp
 @@ -0,0 +1,20 @@
@@ -1266,7 +1266,7 @@ index 000000000000..212c661ffb1e
 +static_assert(!hasValue<B>);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
 new file mode 100644
-index 000000000000..8efae3030634
+index 000000000..8efae3030
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
 @@ -0,0 +1,22 @@
@@ -1294,7 +1294,7 @@ index 000000000000..8efae3030634
 +static_assert(Combined && C);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
 new file mode 100644
-index 000000000000..3bd6e44588da
+index 000000000..3bd6e4458
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
 @@ -0,0 +1,24 @@
@@ -1324,7 +1324,7 @@ index 000000000000..3bd6e44588da
 +#endif
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 new file mode 100644
-index 000000000000..7b592899e15e
+index 000000000..7b592899e
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 @@ -0,0 +1,21 @@
@@ -1350,5 +1350,5 @@ index 000000000000..7b592899e15e
 +
 +#endif
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:32:16 -0400
-Subject: [PATCH 16/56] clang-mg: update conditional-members
+Subject: [PATCH 16/58] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index d4b85b508141..f56118352096 100644
+index d4b85b508..f56118352 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3551,10 +3551,11 @@ private:
@@ -24,7 +24,7 @@ index d4b85b508141..f56118352096 100644
    /// ParseConstructorInitializer - Parse a C++ constructor initializer,
    /// which explicitly initializes the members or base classes of a
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index b8d760e7e097..eb9dc371a3be 100644
+index b8d760e7e..eb9dc371a 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -3909,6 +3909,17 @@ public:
@@ -65,7 +65,7 @@ index b8d760e7e097..eb9dc371a3be 100644
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
    /// parsing or instantiating the initializer failed.
 diff --git a/clang/lib/AST/DeclBase.cpp b/clang/lib/AST/DeclBase.cpp
-index ea01e3263896..8a96f3ab6453 100644
+index ea01e3263..8a96f3ab6 100644
 --- a/clang/lib/AST/DeclBase.cpp
 +++ b/clang/lib/AST/DeclBase.cpp
 @@ -1023,6 +1023,7 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
@@ -77,7 +77,7 @@ index ea01e3263896..8a96f3ab6453 100644
        return 0;
    }
 diff --git a/clang/lib/CodeGen/CGDecl.cpp b/clang/lib/CodeGen/CGDecl.cpp
-index 7608f8cb6fc7..473740d751ee 100644
+index 7608f8cb6..473740d75 100644
 --- a/clang/lib/CodeGen/CGDecl.cpp
 +++ b/clang/lib/CodeGen/CGDecl.cpp
 @@ -108,6 +108,7 @@ void CodeGenFunction::EmitDecl(const Decl &D, bool EvaluateConditionDecl) {
@@ -89,7 +89,7 @@ index 7608f8cb6fc7..473740d751ee 100644
    case Decl::Record:    // struct/union/class X;
    case Decl::CXXRecord: // struct/union/class X; [C++]
 diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
-index b2d281464004..20cd1d4a1d42 100644
+index b2d281464..20cd1d4a1 100644
 --- a/clang/lib/Parse/ParseDeclCXXMG.cpp
 +++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
 @@ -5,55 +5,130 @@
@@ -257,7 +257,7 @@ index b2d281464004..20cd1d4a1d42 100644
 +  return SourceRange(LBraceLoc, RBraceLoc);
 +}
 diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
-index cddcf3a01027..44723750bccf 100644
+index cddcf3a01..44723750b 100644
 --- a/clang/lib/Sema/SemaDecl.cpp
 +++ b/clang/lib/Sema/SemaDecl.cpp
 @@ -6693,7 +6693,8 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
@@ -282,7 +282,7 @@ index cddcf3a01027..44723750bccf 100644
      // with the same name in the same scope.
    } else if (II) {
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 418ff01f3d98..f1c494552f91 100644
+index 418ff01f3..f1c494552 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3464,6 +3464,79 @@ static bool IsUnusedPrivateField(const FieldDecl *FD) {
@@ -378,7 +378,7 @@ index 418ff01f3d98..f1c494552f91 100644
  
    if (isInstField) {
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 5309ec4430e9..96561efc5050 100644
+index 427b634a9..aa2fe6588 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
 @@ -3590,7 +3590,47 @@ bool Sema::InstantiateClassImpl(
@@ -504,7 +504,7 @@ index 5309ec4430e9..96561efc5050 100644
        // FIXME: Eventually, a NULL return will mean that one of the
        // instantiations was a semantic disaster, and we'll want to mark the
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 7563e00c0e8b..699b080e9751 100644
+index 7563e00c0..699b080e9 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -1905,9 +1905,28 @@ Decl *TemplateDeclInstantiator::VisitFieldDecl(FieldDecl *D) {
@@ -537,5 +537,5 @@ index 7563e00c0e8b..699b080e9751 100644
    if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
      if (Parent->isAnonymousStructOrUnion() &&
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 25 May 2026 22:36:41 -0400
-Subject: [PATCH 06/56] clang-mg: update language-option
+Subject: [PATCH 06/58] clang-mg: update language-option
 
 
 diff --git a/clang/lib/Basic/LangStandards.cpp b/clang/lib/Basic/LangStandards.cpp
-index 01c524b7220f..9005b30c838b 100644
+index 01c524b72..9005b30c8 100644
 --- a/clang/lib/Basic/LangStandards.cpp
 +++ b/clang/lib/Basic/LangStandards.cpp
 @@ -114,7 +114,7 @@ LangStandard::Kind clang::getDefaultLanguageStandard(clang::Language Lang,
@@ -18,5 +18,5 @@ index 01c524b7220f..9005b30c838b 100644
      return LangStandard::lang_hlsl202x;
    }
 -- 
-2.54.0
+2.54.0.windows.1
 

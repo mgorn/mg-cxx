@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 21:36:02 -0400
-Subject: [PATCH 46/56] Fixes for tests
+Subject: [PATCH 46/58] Fixes for tests
 
 
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 947dfced7c34..a55be54a0d3c 100644
+index 1e7c3cfcd..d79dda5dc 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
-@@ -3375,6 +3375,11 @@ defm experimental_pointer_field_protection_tagged
+@@ -3385,6 +3385,11 @@ defm experimental_pointer_field_protection_tagged
  def fcxx_abi_EQ : Joined<["-"], "fc++-abi=">,
                    Group<f_clang_Group>, Visibility<[ClangOption, CC1Option]>,
                    HelpText<"C++ ABI to use. This will override the target C++ ABI.">;
@@ -21,7 +21,7 @@ index 947dfced7c34..a55be54a0d3c 100644
  def flat__namespace : Flag<["-"], "flat_namespace">;
  def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 1bb8efa14721..fff42d0c9f29 100644
+index 1bb8efa14..fff42d0c9 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -200,7 +200,8 @@ class VisibleDeclConsumer;
@@ -35,7 +35,7 @@ index 1bb8efa14721..fff42d0c9f29 100644
  
  struct ParsedCXXMGTypeExpr {
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index 24be122c587a..3f54838b5b34 100644
+index 24be122c5..3f54838b5 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -17,6 +17,31 @@ static bool isCXXMGTypeExprPrimaryFollowOperator(Parser &P) {
@@ -155,7 +155,7 @@ index 24be122c587a..3f54838b5b34 100644
 +  return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), *Node);
  }
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 60d60f8d3ccf..500b8bacdf4d 100644
+index 60d60f8d3..500b8bacd 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -88,8 +88,10 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -212,7 +212,7 @@ index 60d60f8d3ccf..500b8bacdf4d 100644
      ExprResult TE = TryParseCXXMGImplementsExpression();
      if (TE.isInvalid())
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index 1c21f5ab52e0..d5492a934d10 100644
+index 1c21f5ab5..d5492a934 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -71,6 +71,8 @@ translateParsedCXXMGOpcode(ParsedCXXMGTypeExprOpcode Op) {
@@ -225,7 +225,7 @@ index 1c21f5ab52e0..d5492a934d10 100644
    llvm_unreachable("not a C++MG type-expression operator");
  }
 diff --git a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
-index 3e3090beafc7..4f072692e054 100644
+index 3e3090bea..4f072692e 100644
 --- a/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-incomplete.cpp
 @@ -8,4 +8,4 @@ trait ValTrait {
@@ -235,7 +235,7 @@ index 3e3090beafc7..4f072692e054 100644
 -// expected-error@-1 {{C++MG 'implements' operand 'Incomplete' is incomplete}}
 +// expected-error@-1 {{type expression operand 'Incomplete' is incomplete}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
-index d3529fcbf9c1..9e10601572da 100644
+index d3529fcbf..9e1060157 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-alias.cpp
 @@ -7,5 +7,5 @@ struct Extra {
@@ -247,7 +247,7 @@ index d3529fcbf9c1..9e10601572da 100644
 +// CHECK: ClassTemplateDecl
 +// CHECK: cxxmg_type_expr_pattern
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
-index 87062b0228ee..7e05d6392159 100644
+index 87062b022..7e05d6392 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 @@ -6,6 +6,7 @@ trait ValueTrait {
@@ -260,7 +260,7 @@ index 87062b0228ee..7e05d6392159 100644
 -// expected-error@-1 {{type expression operand 'int' is not a struct, class, or trait}}
 +// expected-note@-1 {{in instantiation of variable template specialization 'hasValue<int>' requested here}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
-index 3bd6e44588da..f9e8f91dfaf4 100644
+index 3bd6e4458..f9e8f91df 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-alias.cpp
 @@ -1,7 +1,8 @@
@@ -275,7 +275,7 @@ index 3bd6e44588da..f9e8f91dfaf4 100644
  struct Extra {
    bool other;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
-index 4a3545d013ab..6f9502bdda05 100644
+index 4a3545d01..6f9502bdd 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 @@ -1,7 +1,8 @@
@@ -290,7 +290,7 @@ index 4a3545d013ab..6f9502bdda05 100644
  trait ValueTrait {
    int value;
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
-index d6a1b55e3de7..2a7034965770 100644
+index d6a1b55e3..2a7034965 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 @@ -28,7 +28,7 @@ static_assert(check_with_alias<with_value>());
@@ -303,7 +303,7 @@ index d6a1b55e3de7..2a7034965770 100644
    constexpr bool is_gen = backend_t implements has_value;
  
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
-index 44760138b0fc..23a3fff6872a 100644
+index 44760138b..23a3fff68 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 @@ -9,10 +9,10 @@ struct S {
@@ -320,7 +320,7 @@ index 44760138b0fc..23a3fff6872a 100644
  using Bad = S implements HasValue;
  // expected-error@-1 {{C++MG 'implements' predicate produces 'bool' and cannot be used as a type expression}}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
-index a6834ccac2f0..a4df2ae8a965 100644
+index a6834ccac..a4df2ae8a 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 @@ -1,4 +1,4 @@
@@ -330,5 +330,5 @@ index a6834ccac2f0..a4df2ae8a965 100644
  
  trait generator {
 -- 
-2.54.0
+2.54.0.windows.1
 

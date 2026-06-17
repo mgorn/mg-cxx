@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 18:51:39 -0400
-Subject: [PATCH 41/56] Remove "implements" from type expression parsing, keep
+Subject: [PATCH 41/58] Remove "implements" from type expression parsing, keep
  only in traits
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -15,7 +15,7 @@ The semantic information for the `Implements` opcode is also removed from S[1D
 Sema, as its usage was superseded by new predicate logic.
 
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index f02ff4e7ad3b..1d20df1a8b8c 100644
+index f02ff4e7a..1d20df1a8 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
 @@ -1878,10 +1878,6 @@ def err_cxxmg_type_expr_invalid_operator_alias :
@@ -30,7 +30,7 @@ index f02ff4e7ad3b..1d20df1a8b8c 100644
    Error<"C++MG 'implements' predicate produces 'bool' and cannot be used as a type expression">;
  }
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index 8cd42a81c8fc..acd45a016768 100644
+index 8cd42a81c..acd45a016 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3362,7 +3362,6 @@ private:
@@ -51,7 +51,7 @@ index 8cd42a81c8fc..acd45a016768 100644
    /// which explicitly initializes the members or base classes of a
    /// class (C++ [class.base.init]). For example, the three initializers
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 97e971891fbd..1bb8efa14721 100644
+index 97e971891..1bb8efa14 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -200,8 +200,7 @@ class VisibleDeclConsumer;
@@ -65,7 +65,7 @@ index 97e971891fbd..1bb8efa14721 100644
  
  struct ParsedCXXMGTypeExpr {
 diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
-index 92a89ed93020..d6ddab35f7b5 100644
+index 92a89ed93..d6ddab35f 100644
 --- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 @@ -17,6 +17,10 @@ static bool isCXXMGImplementsFollowOperator(Parser &P) {
@@ -80,7 +80,7 @@ index 92a89ed93020..d6ddab35f7b5 100644
    unsigned I = 0;
    if (P.GetLookAheadToken(I).is(tok::coloncolon))
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index e4ed42e2b5f1..261d516b409b 100644
+index e4ed42e2b..261d516b4 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -11,12 +11,28 @@
@@ -257,7 +257,7 @@ index e4ed42e2b5f1..261d516b409b 100644
 +  return ExprEmpty();
  }
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index d5492a934d10..1c21f5ab52e0 100644
+index d5492a934..1c21f5ab5 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -71,8 +71,6 @@ translateParsedCXXMGOpcode(ParsedCXXMGTypeExprOpcode Op) {
@@ -270,5 +270,5 @@ index d5492a934d10..1c21f5ab52e0 100644
    llvm_unreachable("not a C++MG type-expression operator");
  }
 -- 
-2.54.0
+2.54.0.windows.1
 

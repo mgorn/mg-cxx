@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 25 May 2026 20:01:14 -0400
-Subject: [PATCH 35/56] clang-mg: update type-expressions
+Subject: [PATCH 35/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
-index 036886d51ae7..b0736d85c6d7 100644
+index c4bc3d59d..99d4386ac 100644
 --- a/clang/include/clang/AST/DeclCXX.h
 +++ b/clang/include/clang/AST/DeclCXX.h
 @@ -64,6 +64,7 @@ class CXXConstructorDecl;
@@ -26,7 +26,7 @@ index 036886d51ae7..b0736d85c6d7 100644
      DefinitionData(CXXRecordDecl *D);
  
      /// Retrieve the set of direct base classes.
-@@ -1243,6 +1247,20 @@ public:
+@@ -1248,6 +1252,20 @@ public:
    /// from a base or member with PFP.
    bool isPFPType() const { return data().IsPFPType; }
  
@@ -48,10 +48,10 @@ index 036886d51ae7..b0736d85c6d7 100644
    /// (C++11 [class.ctor]p5).
    bool hasTrivialDefaultConstructor() const {
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index a0ab08615d54..7d282afda821 100644
+index 7e73fb48a..7f5653bdc 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -14311,6 +14311,10 @@ def err_cxxmg_type_expr_invalid_operand :
+@@ -14317,6 +14317,10 @@ def err_cxxmg_type_expr_invalid_operand :
    Error<"type expression operand %0 is not a struct, class, or trait">;
  def err_cxxmg_type_expr_incomplete_operand :
    Error<"type expression operand %0 is incomplete">;
@@ -63,7 +63,7 @@ index a0ab08615d54..7d282afda821 100644
    Error<"union type %0 cannot be used in a type expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate_sema :
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index e8e498cdf9ae..a23e9d3608d7 100644
+index e8e498cdf..a23e9d360 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5526,10 +5526,23 @@ public:
@@ -91,7 +91,7 @@ index e8e498cdf9ae..a23e9d3608d7 100644
    /// BuildCXXConstructExpr - Creates a complete call to a constructor,
    /// including handling of its default argument expressions.
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index f957db9d6b54..e69a2c70d418 100644
+index f957db9d6..e69a2c70d 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -2739,6 +2739,10 @@ void TextNodeDumper::VisitTypeAliasTemplateDecl(
@@ -106,7 +106,7 @@ index f957db9d6b54..e69a2c70d418 100644
      OS << " instantiated_from";
      dumpPointer(Instance);
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 12480e41a7ba..8872ceda305d 100644
+index 12480e41a..8872ceda3 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -934,15 +934,22 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -137,7 +137,7 @@ index 12480e41a7ba..8872ceda305d 100644
      }
    }
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index 876cb5dce8a1..9f5c0e899b9f 100644
+index 876cb5dce..9f5c0e899 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -10,11 +10,14 @@
@@ -450,10 +450,10 @@ index 876cb5dce8a1..9f5c0e899b9f 100644
    if (!TE)
      return ExprError();
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 96561efc5050..90aa0f32606a 100644
+index aa2fe6588..7b02155b9 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-@@ -4157,9 +4157,15 @@ bool Sema::InstantiateClassTemplateSpecialization(
+@@ -4159,9 +4159,15 @@ bool Sema::InstantiateClassTemplateSpecialization(
    if (!Pattern.isUsable())
      return Pattern.isInvalid();
  
@@ -471,7 +471,7 @@ index 96561efc5050..90aa0f32606a 100644
  
    // If we haven't already warn on avaibility, consider the avaibility
    // attributes of the partial specialization.
-@@ -4173,6 +4179,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
+@@ -4175,6 +4181,17 @@ bool Sema::InstantiateClassTemplateSpecialization(
    return Err;
  }
  
@@ -490,7 +490,7 @@ index 96561efc5050..90aa0f32606a 100644
  Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
                                CXXRecordDecl *Instantiation,
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index c7dd9087a555..2b4ccdb6bb54 100644
+index c7dd9087a..2b4ccdb6b 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -2027,6 +2027,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
@@ -502,7 +502,7 @@ index c7dd9087a555..2b4ccdb6bb54 100644
      using Capture = LambdaCapture;
  
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index b1ddbe5fbd14..6639ebe2d5a6 100644
+index b1ddbe5fb..6639ebe2d 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -7491,6 +7491,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
@@ -515,7 +515,7 @@ index b1ddbe5fbd14..6639ebe2d5a6 100644
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp b/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp
 new file mode 100644
-index 000000000000..c24f805c9ec6
+index 000000000..c24f805c9
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp
 @@ -0,0 +1,7 @@
@@ -528,7 +528,7 @@ index 000000000000..c24f805c9ec6
 +using C = A + B; // expected-error {{redefinition}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp b/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp
 new file mode 100644
-index 000000000000..921557ff1ec2
+index 000000000..921557ff1
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp
 @@ -0,0 +1,12 @@
@@ -546,7 +546,7 @@ index 000000000000..921557ff1ec2
 +using C = A<T> + B; // expected-error {{redefinition}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp
 new file mode 100644
-index 000000000000..246effa57d22
+index 000000000..246effa57
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp
 @@ -0,0 +1,16 @@
@@ -568,7 +568,7 @@ index 000000000000..246effa57d22
 +// CHECK-NOT: TypeAliasDecl {{.*}} C
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp
 new file mode 100644
-index 000000000000..16238064dbc7
+index 000000000..16238064d
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp
 @@ -0,0 +1,18 @@
@@ -592,7 +592,7 @@ index 000000000000..16238064dbc7
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp
 new file mode 100644
-index 000000000000..fa6c6719b50b
+index 000000000..fa6c6719b
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp
 @@ -0,0 +1,20 @@
@@ -618,7 +618,7 @@ index 000000000000..fa6c6719b50b
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp
 new file mode 100644
-index 000000000000..117f4486a819
+index 000000000..117f4486a
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp
 @@ -0,0 +1,10 @@
@@ -634,7 +634,7 @@ index 000000000000..117f4486a819
 +Y<X> value;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp
 new file mode 100644
-index 000000000000..a2c0fdce2991
+index 000000000..a2c0fdce2
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp
 @@ -0,0 +1,23 @@
@@ -663,7 +663,7 @@ index 000000000000..a2c0fdce2991
 +// CHECK: FieldDecl {{.*}} cond 'bool'
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp
 new file mode 100644
-index 000000000000..2b8a017e4e96
+index 000000000..2b8a017e4
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp
 @@ -0,0 +1,21 @@
@@ -690,7 +690,7 @@ index 000000000000..2b8a017e4e96
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp
 new file mode 100644
-index 000000000000..08eba9d982e3
+index 000000000..08eba9d98
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp
 @@ -0,0 +1,17 @@
@@ -713,7 +713,7 @@ index 000000000000..08eba9d982e3
 +C<int> c;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp
 new file mode 100644
-index 000000000000..7ecec34a1ead
+index 000000000..7ecec34a1
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp
 @@ -0,0 +1,19 @@
@@ -737,5 +737,5 @@ index 000000000000..7ecec34a1ead
 +static_assert(__is_same(decltype(C<float>{}.value), float));
 +static_assert(__is_same(decltype(C<int>{}.extra), int));
 -- 
-2.54.0
+2.54.0.windows.1
 
