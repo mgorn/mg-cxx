@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 11 May 2026 17:50:26 -0400
-Subject: [PATCH 01/56] clang-mg: add change-bin-name
+Subject: [PATCH 01/58] clang-mg: add change-bin-name
 
 
 diff --git a/clang/CMakeLists.txt b/clang/CMakeLists.txt
-index db79131af9c1..8e40651b15bc 100644
+index db79131af..8e40651b1 100644
 --- a/clang/CMakeLists.txt
 +++ b/clang/CMakeLists.txt
 @@ -1,6 +1,10 @@
@@ -20,7 +20,7 @@ index db79131af9c1..8e40651b15bc 100644
    set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
  endif()
 diff --git a/clang/tools/driver/CMakeLists.txt b/clang/tools/driver/CMakeLists.txt
-index 002aaef00525..0ca3b7dc194c 100644
+index 002aaef00..0ca3b7dc1 100644
 --- a/clang/tools/driver/CMakeLists.txt
 +++ b/clang/tools/driver/CMakeLists.txt
 @@ -72,6 +72,7 @@ if(WIN32 AND NOT CYGWIN)
@@ -49,5 +49,5 @@ index 002aaef00525..0ca3b7dc194c 100644
  
  if (CLANG_ENABLE_HLSL)
 -- 
-2.54.0
+2.54.0.windows.1
 

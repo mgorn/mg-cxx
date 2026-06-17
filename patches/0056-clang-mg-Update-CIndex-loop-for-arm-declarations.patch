@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 11 Jun 2026 20:06:22 -0400
-Subject: [PATCH 56/56] clang-mg: Update CIndex loop for arm declarations
+Subject: [PATCH 56/58] clang-mg: Update CIndex loop for arm declarations
 
 
 diff --git a/clang/tools/libclang/CIndex.cpp b/clang/tools/libclang/CIndex.cpp
-index d80d53b34f06..74fb2921f88c 100644
+index d80d53b34..74fb2921f 100644
 --- a/clang/tools/libclang/CIndex.cpp
 +++ b/clang/tools/libclang/CIndex.cpp
 @@ -1347,7 +1347,7 @@ bool CursorVisitor::VisitCXXMGConditionalMemberDecl(
@@ -18,5 +18,5 @@ index d80d53b34f06..74fb2921f88c 100644
          continue;
        if (Visit(MakeCXCursor(SubD, TU, RegionOfInterest)))
 -- 
-2.54.0
+2.54.0.windows.1
 

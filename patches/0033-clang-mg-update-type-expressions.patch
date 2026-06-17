@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 01:25:15 -0400
-Subject: [PATCH 33/56] clang-mg: update type-expressions
+Subject: [PATCH 33/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index ee1cf38cb29c..876cb5dce8a1 100644
+index ee1cf38cb..876cb5dce 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -654,5 +654,17 @@ void Sema::MaybeBindCXXMGTypeExprGeneratedRecordToAlias(TypeAliasDecl *Alias,
@@ -27,7 +27,7 @@ index ee1cf38cb29c..876cb5dce8a1 100644
    RD->setTypedefNameForAnonDecl(Alias);
  }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index f732d5b6e1af..68ed2113e67e 100644
+index f732d5b6e..68ed2113e 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -1617,7 +1617,7 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
@@ -41,7 +41,7 @@ index f732d5b6e1af..68ed2113e67e 100644
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp
 new file mode 100644
-index 000000000000..6816448f3576
+index 000000000..6816448f3
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp
 @@ -0,0 +1,40 @@
@@ -86,5 +86,5 @@ index 000000000000..6816448f3576
 +  f(c);
 +}
 -- 
-2.54.0
+2.54.0.windows.1
 

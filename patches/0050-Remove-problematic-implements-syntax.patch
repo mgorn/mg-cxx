@@ -1,12 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 23:48:11 -0400
-Subject: [PATCH 50/56] Remove problematic implements syntax
+Subject: [PATCH 50/58] Remove problematic implements syntax
 
 Removes the problematic <> shorthand for the 'implements' keyword.
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
-index 11bebd4173f4..983c167037cf 100644
+index 11bebd417..983c16703 100644
 --- a/clang/include/clang/AST/ExprCXXMG.h
 +++ b/clang/include/clang/AST/ExprCXXMG.h
 @@ -14,17 +14,15 @@ class CXXMGImplementsExpr final : public Expr {
@@ -50,7 +50,7 @@ index 11bebd4173f4..983c167037cf 100644
    SourceLocation getBeginLoc() const LLVM_READONLY { return Range.getBegin(); }
    SourceLocation getEndLoc() const LLVM_READONLY { return Range.getEnd(); }
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 8313d22a8853..821b333df6c6 100644
+index 8313d22a8..821b333df 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5932,12 +5932,12 @@ public:
@@ -71,7 +71,7 @@ index 8313d22a8853..821b333df6c6 100644
    /// Enter a new C++ default initializer scope. After calling this, the
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index 30cef70871bb..ade4eb8bd3e0 100644
+index 66a454a13..e01e7f993 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -106,10 +106,9 @@ CXXMGImplementsExpr *
@@ -87,7 +87,7 @@ index 30cef70871bb..ade4eb8bd3e0 100644
  }
  
 diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
-index c4d8822bdcba..ad17bfbee944 100644
+index c4d8822bd..ad17bfbee 100644
 --- a/clang/lib/AST/StmtPrinter.cpp
 +++ b/clang/lib/AST/StmtPrinter.cpp
 @@ -2657,7 +2657,7 @@ void StmtPrinter::VisitTypeTraitExpr(TypeTraitExpr *E) {
@@ -100,7 +100,7 @@ index c4d8822bdcba..ad17bfbee944 100644
      TSI->getType().print(OS, Policy);
  }
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 328b0f9cca8e..af25ff40c5cf 100644
+index 328b0f9cc..af25ff40c 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -2303,7 +2303,6 @@ void StmtProfiler::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *S) {
@@ -112,7 +112,7 @@ index 328b0f9cca8e..af25ff40c5cf 100644
  
  void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index c093409ebb56..ec58cc32a5b8 100644
+index c093409eb..ec58cc32a 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -1835,7 +1835,7 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
@@ -125,7 +125,7 @@ index c093409ebb56..ec58cc32a5b8 100644
      OS << " unresolved";
  }
 diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
-index b44a389ac753..f695fe709a35 100644
+index b44a389ac..f695fe709 100644
 --- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 @@ -7,75 +7,45 @@
@@ -280,7 +280,7 @@ index b44a389ac753..f695fe709a35 100644
        SourceRange(CandidateRange.getBegin(), RequirementRange.getEnd()));
  }
 diff --git a/clang/lib/Parse/Parser.cpp b/clang/lib/Parse/Parser.cpp
-index 5e1fd4df1a3f..37f37ced1d0e 100644
+index 5e1fd4df1..37f37ced1 100644
 --- a/clang/lib/Parse/Parser.cpp
 +++ b/clang/lib/Parse/Parser.cpp
 @@ -1851,8 +1851,11 @@ bool Parser::TryKeywordIdentFallback(bool DisableKeyword) {
@@ -298,7 +298,7 @@ index 5e1fd4df1a3f..37f37ced1d0e 100644
    return true;
  }
 diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
-index d02e55e9e452..4c4f60b380e3 100644
+index d02e55e9e..4c4f60b38 100644
 --- a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 @@ -261,26 +261,25 @@ static bool isDependentImplementsOperand(TypeSourceInfo *TSI) {
@@ -335,7 +335,7 @@ index d02e55e9e452..4c4f60b380e3 100644
    CXXRecordDecl *Candidate =
        resolveImplementsOperand(*this, CandidateTSI, Range.getBegin(),
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 5b8d1d2eadaf..8b37281e52e9 100644
+index 5b8d1d2ea..8b37281e5 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -15438,7 +15438,7 @@ TreeTransform<Derived>::TransformCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
@@ -348,7 +348,7 @@ index 5b8d1d2eadaf..8b37281e52e9 100644
  
  template<typename Derived>
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index 6a68a2d498f6..232ca4024df3 100644
+index 6a68a2d49..232ca4024 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -2225,7 +2225,6 @@ void ASTStmtReader::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
@@ -360,7 +360,7 @@ index 6a68a2d498f6..232ca4024df3 100644
    SourceLocation End = readSourceLocation();
    E->setSourceRange(SourceRange(Begin, End));
 diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
-index 2ac58f4894b6..a5b397eb249e 100644
+index 2ac58f489..a5b397eb2 100644
 --- a/clang/lib/Serialization/ASTWriterStmt.cpp
 +++ b/clang/lib/Serialization/ASTWriterStmt.cpp
 @@ -2236,7 +2236,6 @@ void ASTStmtWriter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
@@ -373,7 +373,7 @@ index 2ac58f4894b6..a5b397eb249e 100644
    Code = serialization::EXPR_CXXMG_IMPLEMENTS;
 diff --git a/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp b/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp
 new file mode 100644
-index 000000000000..b8714f3d6328
+index 000000000..b8714f3d6
 --- /dev/null
 +++ b/clang/test/CXXMG/regression/reverted-type-trait-keyword.cpp
 @@ -0,0 +1,32 @@
@@ -410,7 +410,7 @@ index 000000000000..b8714f3d6328
 +
 +template <class T> const bool numeric_traits_like<T>::__is_signed;
 diff --git a/clang/test/CXXMG/traits/trait-implements-basic.cpp b/clang/test/CXXMG/traits/trait-implements-basic.cpp
-index 9dd50912770d..eca77b959c9e 100644
+index 9dd509127..eca77b959 100644
 --- a/clang/test/CXXMG/traits/trait-implements-basic.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-basic.cpp
 @@ -12,7 +12,5 @@ struct S {
@@ -422,7 +422,7 @@ index 9dd50912770d..eca77b959c9e 100644
  static_assert(!(Empty implements HasValue));
 -static_assert(!(Empty <> HasValue));
 diff --git a/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
-index f89901e2cd37..40bd653586ae 100644
+index f89901e2c..40bd65358 100644
 --- a/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-dependent-template-specialization.cpp
 @@ -16,12 +16,5 @@ constexpr bool has_v_keyword() {
@@ -439,7 +439,7 @@ index f89901e2cd37..40bd653586ae 100644
 -static_assert(has_v_angle<true>());
 -static_assert(has_v_angle<false>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-dependent.cpp b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
-index 36d0ccd662a4..9e2a3040e3cc 100644
+index 36d0ccd66..9e2a3040e 100644
 --- a/clang/test/CXXMG/traits/trait-implements-dependent.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
 @@ -18,15 +18,5 @@ constexpr bool has_generate_keyword() {
@@ -459,7 +459,7 @@ index 36d0ccd662a4..9e2a3040e3cc 100644
 -static_assert(has_generate_shorthand<Graphviz>());
 -static_assert(!has_generate_shorthand<Empty>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-errors.cpp b/clang/test/CXXMG/traits/trait-implements-errors.cpp
-index 1509be27e398..be8d7d9e70df 100644
+index 1509be27e..be8d7d9e7 100644
 --- a/clang/test/CXXMG/traits/trait-implements-errors.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-errors.cpp
 @@ -10,6 +10,3 @@ struct S {
@@ -470,7 +470,7 @@ index 1509be27e398..be8d7d9e70df 100644
 -constexpr bool missing_rhs_shorthand = S <>;
 -// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
 diff --git a/clang/test/CXXMG/traits/trait-implements-false.cpp b/clang/test/CXXMG/traits/trait-implements-false.cpp
-index f4e3ddca03a4..28e29d814cab 100644
+index f4e3ddca0..28e29d814 100644
 --- a/clang/test/CXXMG/traits/trait-implements-false.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-false.cpp
 @@ -10,4 +10,3 @@ struct OnlyGenerate {
@@ -479,7 +479,7 @@ index f4e3ddca03a4..28e29d814cab 100644
  static_assert((OnlyGenerate implements HasBuild) == false);
 -static_assert((OnlyGenerate <> HasBuild) == false);
 diff --git a/clang/test/CXXMG/traits/trait-implements-qualified.cpp b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
-index ba54733d1ef2..197b1ccf5dc1 100644
+index ba54733d1..197b1ccf5 100644
 --- a/clang/test/CXXMG/traits/trait-implements-qualified.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
 @@ -23,7 +23,7 @@ namespace backend {
@@ -501,7 +501,7 @@ index ba54733d1ef2..197b1ccf5dc1 100644
  
  static_assert(global_qualified_check<mgmake::backend::graphviz>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-special-members.cpp b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
-index d13a841aa6c0..c77fdb688b43 100644
+index d13a841aa..c77fdb688 100644
 --- a/clang/test/CXXMG/traits/trait-implements-special-members.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
 @@ -15,7 +15,6 @@ struct Weird {
@@ -522,7 +522,7 @@ index d13a841aa6c0..c77fdb688b43 100644
  }
  
 diff --git a/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
-index b66a717b64ce..d48ee016b7f6 100644
+index b66a717b6..d48ee016b 100644
 --- a/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
 +++ b/clang/test/CXXMG/traits/trait-implements-template-specialization.cpp
 @@ -14,9 +14,6 @@ trait ValTrait {
@@ -544,5 +544,5 @@ index b66a717b64ce..d48ee016b7f6 100644
 -static_assert(!(Box<int> <> BoolValueTrait));
 -static_assert(Box<bool> <> BoolValueTrait);
 -- 
-2.54.0
+2.54.0.windows.1
 

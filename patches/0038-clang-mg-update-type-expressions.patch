@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 13:08:58 -0400
-Subject: [PATCH 38/56] clang-mg: update type-expressions
+Subject: [PATCH 38/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index fbb71606c4d6..e4ed42e2b5f1 100644
+index fbb71606c..e4ed42e2b 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -19,13 +19,48 @@ static bool isCXXMGImplementsOperator(Parser &P) {
@@ -127,7 +127,7 @@ index fbb71606c4d6..e4ed42e2b5f1 100644
    if (!TryParseCXXMGTypeExpression(RHS,
                                     /*RequireTypeProducingResult=*/false,
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
-index f31eb6428917..e4e1949e5f65 100644
+index f31eb6428..e4e1949e5 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 @@ -1,4 +1,4 @@
@@ -137,7 +137,7 @@ index f31eb6428917..e4e1949e5f65 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
-index 8c13c15cb591..7d1aeb41cb83 100644
+index 8c13c15cb..7d1aeb41c 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 @@ -1,4 +1,4 @@
@@ -147,7 +147,7 @@ index 8c13c15cb591..7d1aeb41cb83 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp
-index 19cbeec14531..69a843704b5c 100644
+index 19cbeec14..69a843704 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp
 @@ -1,4 +1,4 @@
@@ -157,7 +157,7 @@ index 19cbeec14531..69a843704b5c 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp
-index 6816448f3576..064a116ffdfb 100644
+index 6816448f3..064a116ff 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-rebind-generated-record-alias.cpp
 @@ -1,4 +1,4 @@
@@ -167,7 +167,7 @@ index 6816448f3576..064a116ffdfb 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp b/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp
-index c24f805c9ec6..74f8bdcd41ee 100644
+index c24f805c9..74f8bdcd4 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-generated-record-redefinition.cpp
 @@ -1,4 +1,4 @@
@@ -177,7 +177,7 @@ index c24f805c9ec6..74f8bdcd41ee 100644
  struct A { int a = 0; };
  struct B { int b = 0; };
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp b/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp
-index 921557ff1ec2..ad6478ac3929 100644
+index 921557ff1..ad6478ac3 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-generated-template-redefinition.cpp
 @@ -1,4 +1,4 @@
@@ -187,7 +187,7 @@ index 921557ff1ec2..ad6478ac3929 100644
  struct B { int b = 0; };
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp
-index 246effa57d22..4e14b2d83cec 100644
+index 246effa57..4e14b2d83 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-ast-dump.cpp
 @@ -1,4 +1,4 @@
@@ -197,7 +197,7 @@ index 246effa57d22..4e14b2d83cec 100644
  struct A {
    int count = 69;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp
-index 16238064dbc7..0ed1e3686423 100644
+index 16238064d..0ed1e3686 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-no-linkage-warning.cpp
 @@ -1,4 +1,4 @@
@@ -207,7 +207,7 @@ index 16238064dbc7..0ed1e3686423 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp b/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp
-index fa6c6719b50b..c35294accd92 100644
+index fa6c6719b..c35294acc 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-named-record-tag-lookup.cpp
 @@ -1,4 +1,4 @@
@@ -217,7 +217,7 @@ index fa6c6719b50b..c35294accd92 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp b/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp
-index 117f4486a819..bf5070691488 100644
+index 117f4486a..bf5070691 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-normal-alias-still-alias.cpp
 @@ -1,4 +1,4 @@
@@ -227,7 +227,7 @@ index 117f4486a819..bf5070691488 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp b/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
-index 9ff4e3e860c0..4116e86de259 100644
+index 9ff4e3e86..4116e86de 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 @@ -1,4 +1,4 @@
@@ -237,7 +237,7 @@ index 9ff4e3e860c0..4116e86de259 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp
-index a2c0fdce2991..96f39a7befeb 100644
+index a2c0fdce2..96f39a7be 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-ast-dump.cpp
 @@ -1,4 +1,4 @@
@@ -247,7 +247,7 @@ index a2c0fdce2991..96f39a7befeb 100644
  struct B {
    bool cond = true;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp
-index 2b8a017e4e96..8da59a8f020e 100644
+index 2b8a017e4..8da59a8f0 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-class-template-use.cpp
 @@ -1,4 +1,4 @@
@@ -257,7 +257,7 @@ index 2b8a017e4e96..8da59a8f020e 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp
-index 08eba9d982e3..89c852e6b963 100644
+index 08eba9d98..89c852e6b 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-no-linkage-warning.cpp
 @@ -1,4 +1,4 @@
@@ -267,7 +267,7 @@ index 08eba9d982e3..89c852e6b963 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp b/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp
-index 7ecec34a1ead..96807ead3a01 100644
+index 7ecec34a1..96807ead3 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-template-specialization-field-types.cpp
 @@ -1,4 +1,4 @@
@@ -277,7 +277,7 @@ index 7ecec34a1ead..96807ead3a01 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
-index 9dd50912770d..2972497965d6 100644
+index 9dd509127..297249796 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
 @@ -1,4 +1,4 @@
@@ -295,7 +295,7 @@ index 9dd50912770d..2972497965d6 100644
 +static_assert((Empty implements HasValue) == false);
 +static_assert((Empty <> HasValue) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
-index 88f3c1b52861..09071389a528 100644
+index 88f3c1b52..09071389a 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
 @@ -1,4 +1,4 @@
@@ -305,7 +305,7 @@ index 88f3c1b52861..09071389a528 100644
  
  trait HasValue {
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
-index 087cce7d5f1a..dd0ad1752bff 100644
+index 087cce7d5..dd0ad1752 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
 @@ -1,4 +1,4 @@
@@ -315,7 +315,7 @@ index 087cce7d5f1a..dd0ad1752bff 100644
  
  trait HasGenerate {
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
-index 3f767c17e27b..2cb60a458a04 100644
+index 3f767c17e..2cb60a458 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
 @@ -1,4 +1,4 @@
@@ -325,7 +325,7 @@ index 3f767c17e27b..2cb60a458a04 100644
  
  template <class T = int>
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
-index 073329307701..da2c9630f795 100644
+index 073329307..da2c9630f 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
 @@ -1,4 +1,4 @@
@@ -335,7 +335,7 @@ index 073329307701..da2c9630f795 100644
  
  namespace std {
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
-index e97732a41ff8..a8aa8eb295bd 100644
+index e97732a41..a8aa8eb29 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
 @@ -1,4 +1,4 @@
@@ -345,7 +345,7 @@ index e97732a41ff8..a8aa8eb295bd 100644
  
  template <class A, class B>
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
-index 88865308042d..44760138b0fc 100644
+index 888653080..44760138b 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 @@ -1,4 +1,4 @@
@@ -355,7 +355,7 @@ index 88865308042d..44760138b0fc 100644
  trait HasValue {
    int value;
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
-index ba54733d1ef2..d6722915f996 100644
+index ba54733d1..d6722915f 100644
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
 @@ -1,4 +1,4 @@
@@ -365,5 +365,5 @@ index ba54733d1ef2..d6722915f996 100644
  
  namespace backend {
 -- 
-2.54.0
+2.54.0.windows.1
 

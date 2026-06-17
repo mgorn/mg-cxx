@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:15:17 -0400
-Subject: [PATCH 21/56] clang-mg: add traits
+Subject: [PATCH 21/58] clang-mg: add traits
 
 
 diff --git a/clang/include/clang/AST/Decl.h b/clang/include/clang/AST/Decl.h
-index 620206612f98..6c1af78c33f3 100644
+index 620206612..6c1af78c3 100644
 --- a/clang/include/clang/AST/Decl.h
 +++ b/clang/include/clang/AST/Decl.h
 @@ -3948,6 +3948,7 @@ public:
@@ -17,10 +17,10 @@ index 620206612f98..6c1af78c33f3 100644
  
    bool isStructureOrClass() const {
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
-index 914c8a6276c2..036886d51ae7 100644
+index bdd907fb2..c4bc3d59d 100644
 --- a/clang/include/clang/AST/DeclCXX.h
 +++ b/clang/include/clang/AST/DeclCXX.h
-@@ -1920,6 +1920,7 @@ public:
+@@ -1933,6 +1933,7 @@ public:
    // Determine whether this type is an Interface Like type for
    // __interface inheritance purposes.
    bool isInterfaceLike() const;
@@ -28,7 +28,7 @@ index 914c8a6276c2..036886d51ae7 100644
  
    static bool classof(const Decl *D) { return classofKind(D->getKind()); }
    static bool classofKind(Kind K) {
-@@ -2127,6 +2128,49 @@ public:
+@@ -2140,6 +2141,49 @@ public:
    }
  };
  
@@ -79,7 +79,7 @@ index 914c8a6276c2..036886d51ae7 100644
  ///
  /// In the terminology of the C++ Standard, these are the (static and
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index eb7ae589dbcc..0f130d5d6eea 100644
+index eb7ae589d..0f130d5d6 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -2500,6 +2500,7 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
@@ -91,7 +91,7 @@ index eb7ae589dbcc..0f130d5d6eea 100644
  DEF_TRAVERSE_DECL(ImplicitConceptSpecializationDecl, {
    TRY_TO(TraverseTemplateArguments(D->getTemplateArguments()));
 diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
-index 0c515556a8b8..7a5883b45c53 100644
+index 0c515556a..7a5883b45 100644
 --- a/clang/include/clang/AST/TextNodeDumper.h
 +++ b/clang/include/clang/AST/TextNodeDumper.h
 @@ -378,6 +378,7 @@ public:
@@ -103,10 +103,10 @@ index 0c515556a8b8..7a5883b45c53 100644
    void VisitCXXRecordDecl(const CXXRecordDecl *D);
    void VisitFunctionTemplateDecl(const FunctionTemplateDecl *D);
 diff --git a/clang/include/clang/AST/TypeBase.h b/clang/include/clang/AST/TypeBase.h
-index e3141a82b54d..45e74017f3c1 100644
+index c9658775f..3edfe5a4c 100644
 --- a/clang/include/clang/AST/TypeBase.h
 +++ b/clang/include/clang/AST/TypeBase.h
-@@ -5981,6 +5981,9 @@ enum class ElaboratedTypeKeyword {
+@@ -5983,6 +5983,9 @@ enum class ElaboratedTypeKeyword {
    /// The "enum" keyword introduces the elaborated-type-specifier.
    Enum,
  
@@ -116,7 +116,7 @@ index e3141a82b54d..45e74017f3c1 100644
    /// The "typename" keyword precedes the qualified type name, e.g.,
    /// \c typename T::type.
    Typename,
-@@ -6004,7 +6007,10 @@ enum class TagTypeKind {
+@@ -6006,7 +6009,10 @@ enum class TagTypeKind {
    Class,
  
    /// The "enum" keyword.
@@ -129,7 +129,7 @@ index e3141a82b54d..45e74017f3c1 100644
  
  /// Provides a few static helpers for converting and printing
 diff --git a/clang/include/clang/Basic/DeclNodes.td b/clang/include/clang/Basic/DeclNodes.td
-index d4ddffc2c982..6cf5f9c3f25c 100644
+index d4ddffc2c..6cf5f9c3f 100644
 --- a/clang/include/clang/Basic/DeclNodes.td
 +++ b/clang/include/clang/Basic/DeclNodes.td
 @@ -117,4 +117,5 @@ def HLSLBuffer : DeclNode<Named, "HLSLBuffer">, DeclContext;
@@ -141,7 +141,7 @@ index d4ddffc2c982..6cf5f9c3f25c 100644
 +def CXXMGConditionalMember : DeclNode<Decl>;
 +def TraitRequirement : DeclNode<Named>;
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index 0dc7d0fbeac0..05cd0e37e0a8 100644
+index 0dc7d0fbe..05cd0e37e 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
 @@ -639,6 +639,10 @@ def err_expected_member_or_base_name : Error<
@@ -156,7 +156,7 @@ index 0dc7d0fbeac0..05cd0e37e0a8 100644
    "missing '}' at end of definition of %q0">;
  def note_missing_end_of_definition_before : Note<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index a3b575b7ee63..d5ce891ce9f1 100644
+index 8097800e6..204bac13f 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
 @@ -7829,6 +7829,17 @@ def err_typecheck_pointer_arith_void_type : Error<
@@ -178,7 +178,7 @@ index a3b575b7ee63..d5ce891ce9f1 100644
    "tentative definition of variable with internal linkage has incomplete "
    "%select{non-array|array}0 type %1">,
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
-index b5a8fd2cb128..71a79db381d6 100644
+index b5a8fd2cb..71a79db38 100644
 --- a/clang/include/clang/Basic/Features.def
 +++ b/clang/include/clang/Basic/Features.def
 @@ -383,6 +383,8 @@ FEATURE(clang_atomic_attributes, true)
@@ -191,7 +191,7 @@ index b5a8fd2cb128..71a79db381d6 100644
  // CUDA/HIP Features
  FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
 diff --git a/clang/include/clang/Basic/IdentifierTable.h b/clang/include/clang/Basic/IdentifierTable.h
-index 9e80c3fb7079..ec5e2b01849a 100644
+index 9e80c3fb7..ec5e2b018 100644
 --- a/clang/include/clang/Basic/IdentifierTable.h
 +++ b/clang/include/clang/Basic/IdentifierTable.h
 @@ -79,8 +79,9 @@ enum TokenKey : unsigned {
@@ -207,7 +207,7 @@ index 9e80c3fb7079..ec5e2b01849a 100644
             ~KEYNOHLSL // KEYNOMS18, KEYNOOPENCL, KEYNOZOS, KEYNOHLSL excluded.
  };
 diff --git a/clang/include/clang/Basic/Specifiers.h b/clang/include/clang/Basic/Specifiers.h
-index 8da6fd4cf454..a3192668521f 100644
+index 8da6fd4cf..a31926685 100644
 --- a/clang/include/clang/Basic/Specifiers.h
 +++ b/clang/include/clang/Basic/Specifiers.h
 @@ -82,6 +82,7 @@ namespace clang {
@@ -219,7 +219,7 @@ index 8da6fd4cf454..a3192668521f 100644
      TST_typeofType,        // C23 (and GNU extension) typeof(type-name)
      TST_typeofExpr,        // C23 (and GNU extension) typeof(expression)
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index f07d8ebb7503..aec5d827ae11 100644
+index f07d8ebb7..aec5d827a 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
 @@ -389,6 +389,7 @@ KEYWORD(static_cast                 , KEYCXX)
@@ -231,7 +231,7 @@ index f07d8ebb7503..aec5d827ae11 100644
  KEYWORD(try                         , KEYCXX)
  KEYWORD(typename                    , KEYCXX)
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index f56118352096..09f951e97415 100644
+index f56118352..09f951e97 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3557,6 +3557,9 @@ private:
@@ -245,7 +245,7 @@ index f56118352096..09f951e97415 100644
    /// which explicitly initializes the members or base classes of a
    /// class (C++ [class.base.init]). For example, the three initializers
 diff --git a/clang/include/clang/Sema/DeclSpec.h b/clang/include/clang/Sema/DeclSpec.h
-index 6e7f9cd6e3d3..ed52a7151d54 100644
+index 6e7f9cd6e..ed52a7151 100644
 --- a/clang/include/clang/Sema/DeclSpec.h
 +++ b/clang/include/clang/Sema/DeclSpec.h
 @@ -276,6 +276,7 @@ public:
@@ -266,7 +266,7 @@ index 6e7f9cd6e3d3..ed52a7151d54 100644
    static bool isTransformTypeTrait(TST T) {
      constexpr std::array<TST, 16> Traits = {
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index eb9dc371a3be..bb3b2646107c 100644
+index eb9dc371a..bb3b26461 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5874,6 +5874,15 @@ public:
@@ -286,7 +286,7 @@ index eb9dc371a3be..bb3b2646107c 100644
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
    /// parsing or instantiating the initializer failed.
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index 279380de2f7f..06d101215fc5 100644
+index 279380de2..06d101215 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
 @@ -1546,7 +1546,10 @@ enum DeclCode {
@@ -302,7 +302,7 @@ index 279380de2f7f..06d101215fc5 100644
  
  /// Record codes for each kind of statement or expression.
 diff --git a/clang/lib/AST/DeclBase.cpp b/clang/lib/AST/DeclBase.cpp
-index 8a96f3ab6453..8180d7be0607 100644
+index 8a96f3ab6..8180d7be0 100644
 --- a/clang/lib/AST/DeclBase.cpp
 +++ b/clang/lib/AST/DeclBase.cpp
 @@ -926,6 +926,7 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
@@ -314,10 +314,10 @@ index 8a96f3ab6453..8180d7be0607 100644
      case ObjCTypeParam:
        return IDNS_Ordinary | IDNS_Type;
 diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
-index fc8a15287f43..d77f81c7d8ae 100644
+index ce4ba971a..fd6dbf377 100644
 --- a/clang/lib/AST/DeclCXX.cpp
 +++ b/clang/lib/AST/DeclCXX.cpp
-@@ -2409,6 +2409,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+@@ -2410,6 +2410,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
    return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
  }
  
@@ -342,7 +342,7 @@ index fc8a15287f43..d77f81c7d8ae 100644
  
  bool CXXMethodDecl::isStatic() const {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 2b1c0cac25b6..49a39ea7cd85 100644
+index 2b1c0cac2..49a39ea7c 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -2702,6 +2702,14 @@ void TextNodeDumper::VisitTypeAliasDecl(const TypeAliasDecl *D) {
@@ -361,10 +361,10 @@ index 2b1c0cac25b6..49a39ea7cd85 100644
      const TypeAliasTemplateDecl *D) {
    dumpName(D);
 diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
-index 55c3e5c3ead1..cd1f3cd0ccc3 100644
+index cb846fa28..41ce98827 100644
 --- a/clang/lib/AST/Type.cpp
 +++ b/clang/lib/AST/Type.cpp
-@@ -3354,6 +3354,8 @@ ElaboratedTypeKeyword KeywordHelpers::getKeywordForTypeSpec(unsigned TypeSpec) {
+@@ -3358,6 +3358,8 @@ ElaboratedTypeKeyword KeywordHelpers::getKeywordForTypeSpec(unsigned TypeSpec) {
      return ElaboratedTypeKeyword::Struct;
    case TST_interface:
      return ElaboratedTypeKeyword::Interface;
@@ -373,7 +373,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TST_union:
      return ElaboratedTypeKeyword::Union;
    case TST_enum:
-@@ -3369,6 +3371,8 @@ TagTypeKind KeywordHelpers::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
+@@ -3373,6 +3375,8 @@ TagTypeKind KeywordHelpers::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
      return TagTypeKind::Struct;
    case TST_interface:
      return TagTypeKind::Interface;
@@ -382,7 +382,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TST_union:
      return TagTypeKind::Union;
    case TST_enum:
-@@ -3387,6 +3391,8 @@ KeywordHelpers::getKeywordForTagTypeKind(TagTypeKind Kind) {
+@@ -3391,6 +3395,8 @@ KeywordHelpers::getKeywordForTagTypeKind(TagTypeKind Kind) {
      return ElaboratedTypeKeyword::Struct;
    case TagTypeKind::Interface:
      return ElaboratedTypeKeyword::Interface;
@@ -391,7 +391,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TagTypeKind::Union:
      return ElaboratedTypeKeyword::Union;
    case TagTypeKind::Enum:
-@@ -3404,6 +3410,8 @@ KeywordHelpers::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
+@@ -3408,6 +3414,8 @@ KeywordHelpers::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
      return TagTypeKind::Struct;
    case ElaboratedTypeKeyword::Interface:
      return TagTypeKind::Interface;
@@ -400,7 +400,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case ElaboratedTypeKeyword::Union:
      return TagTypeKind::Union;
    case ElaboratedTypeKeyword::Enum:
-@@ -3423,6 +3431,7 @@ bool KeywordHelpers::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
+@@ -3427,6 +3435,7 @@ bool KeywordHelpers::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
    case ElaboratedTypeKeyword::Class:
    case ElaboratedTypeKeyword::Struct:
    case ElaboratedTypeKeyword::Interface:
@@ -408,7 +408,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case ElaboratedTypeKeyword::Union:
    case ElaboratedTypeKeyword::Enum:
      return true;
-@@ -3442,6 +3451,8 @@ StringRef KeywordHelpers::getKeywordName(ElaboratedTypeKeyword Keyword) {
+@@ -3446,6 +3455,8 @@ StringRef KeywordHelpers::getKeywordName(ElaboratedTypeKeyword Keyword) {
      return "struct";
    case ElaboratedTypeKeyword::Interface:
      return "__interface";
@@ -418,7 +418,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
      return "union";
    case ElaboratedTypeKeyword::Enum:
 diff --git a/clang/lib/Basic/IdentifierTable.cpp b/clang/lib/Basic/IdentifierTable.cpp
-index a2e9316e4e37..4f6c8ea04477 100644
+index a2e9316e4..4f6c8ea04 100644
 --- a/clang/lib/Basic/IdentifierTable.cpp
 +++ b/clang/lib/Basic/IdentifierTable.cpp
 @@ -108,6 +108,8 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
@@ -442,7 +442,7 @@ index a2e9316e4e37..4f6c8ea04477 100644
  
  static void MarkIdentifierAsKeywordInCpp(IdentifierTable &Table,
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 179b366ceaa3..8aa0faebe182 100644
+index 179b366ce..8aa0faebe 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
 @@ -758,6 +758,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
@@ -454,7 +454,7 @@ index 179b366ceaa3..8aa0faebe182 100644
  }
  
 diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
-index 405dddf7991b..7062de15f83e 100644
+index 405dddf79..7062de15f 100644
 --- a/clang/lib/Parse/ParseDecl.cpp
 +++ b/clang/lib/Parse/ParseDecl.cpp
 @@ -4498,6 +4498,7 @@ void Parser::ParseDeclarationSpecifiers(
@@ -490,7 +490,7 @@ index 405dddf7991b..7062de15f83e 100644
    case tok::kw_enum:
  
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index 0ebc4b0a3998..af3023c140f8 100644
+index 0ebc4b0a3..af3023c14 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -1553,6 +1553,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
@@ -539,7 +539,7 @@ index 0ebc4b0a3998..af3023c140f8 100644
      }
      T.consumeClose();
 diff --git a/clang/lib/Sema/DeclSpec.cpp b/clang/lib/Sema/DeclSpec.cpp
-index 2add7c6aa308..8a9c11df1661 100644
+index 2add7c6aa..8a9c11df1 100644
 --- a/clang/lib/Sema/DeclSpec.cpp
 +++ b/clang/lib/Sema/DeclSpec.cpp
 @@ -321,6 +321,7 @@ bool Declarator::isDeclarationOfFunction() const {
@@ -559,7 +559,7 @@ index 2add7c6aa308..8a9c11df1661 100644
    case DeclSpec::TST_struct:      return "struct";
    case DeclSpec::TST_interface:   return "__interface";
 diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
-index 44723750bccf..58b8e947e07d 100644
+index 44723750b..58b8e947e 100644
 --- a/clang/lib/Sema/SemaDecl.cpp
 +++ b/clang/lib/Sema/SemaDecl.cpp
 @@ -702,6 +702,8 @@ DeclSpec::TST Sema::isTagName(IdentifierInfo &II, Scope *S) {
@@ -660,7 +660,7 @@ index 44723750bccf..58b8e947e07d 100644
    if (!EltTy->isDependentType() && !EltTy->containsErrors()) {
      bool isIncomplete =
 diff --git a/clang/lib/Sema/SemaDeclCXX.cpp b/clang/lib/Sema/SemaDeclCXX.cpp
-index 772ba10bde50..c2a789471adf 100644
+index 772ba10bd..c2a789471 100644
 --- a/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -3540,6 +3540,70 @@ Decl *Sema::ActOnCXXMGConditionalMember(
@@ -735,10 +735,10 @@ index 772ba10bde50..c2a789471adf 100644
  Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
                                 MultiTemplateParamsArg TemplateParameterLists,
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index 825d15398fcd..e0fabad20b43 100644
+index cc640000e..7da0e2c86 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
-@@ -4872,6 +4872,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
+@@ -4873,6 +4873,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
    if (const ReferenceType *Ref = ExprType->getAs<ReferenceType>())
      ExprType = Ref->getPointeeType();
  
@@ -753,7 +753,7 @@ index 825d15398fcd..e0fabad20b43 100644
    //   When alignof or _Alignof is applied to an array type, the result
    //   is the alignment of the element type.
 diff --git a/clang/lib/Sema/SemaExprCXX.cpp b/clang/lib/Sema/SemaExprCXX.cpp
-index 4e1652462b3a..6e461a2aaf34 100644
+index 4e1652462..6e461a2aa 100644
 --- a/clang/lib/Sema/SemaExprCXX.cpp
 +++ b/clang/lib/Sema/SemaExprCXX.cpp
 @@ -2154,6 +2154,12 @@ ExprResult Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
@@ -770,7 +770,7 @@ index 4e1652462b3a..6e461a2aaf34 100644
    if (DirectInitRange.isValid()) {
      assert(Initializer && "Have parens but no initializer.");
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 699b080e9751..f11c1981b3ac 100644
+index 699b080e9..f11c1981b 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -4762,6 +4762,13 @@ TemplateDeclInstantiator::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
@@ -788,7 +788,7 @@ index 699b080e9751..f11c1981b3ac 100644
    llvm_unreachable("Unexpected decl");
  }
 diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
-index fb291a4b0f2c..c7dd9087a555 100644
+index fb291a4b0..c7dd9087a 100644
 --- a/clang/lib/Serialization/ASTReaderDecl.cpp
 +++ b/clang/lib/Serialization/ASTReaderDecl.cpp
 @@ -384,6 +384,7 @@ public:
@@ -825,7 +825,7 @@ index fb291a4b0f2c..c7dd9087a555 100644
      D = StaticAssertDecl::CreateDeserialized(Context, ID);
      break;
 diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
-index 7f5005aa666c..2c1bfcc8ae0f 100644
+index 7f5005aa6..2c1bfcc8a 100644
 --- a/clang/lib/Serialization/ASTWriterDecl.cpp
 +++ b/clang/lib/Serialization/ASTWriterDecl.cpp
 @@ -124,6 +124,7 @@ namespace clang {
@@ -853,7 +853,7 @@ index 7f5005aa666c..2c1bfcc8ae0f 100644
  
 diff --git a/clang/test/CXXMG/traits/trait-ast-dump.cpp b/clang/test/CXXMG/traits/trait-ast-dump.cpp
 new file mode 100644
-index 000000000000..8d51542fcabf
+index 000000000..8d51542fc
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-ast-dump.cpp
 @@ -0,0 +1,14 @@
@@ -873,7 +873,7 @@ index 000000000000..8d51542fcabf
 +// CHECK: TraitRequirementDecl {{.*}} staticFn StaticFunctionAnyReturn
 diff --git a/clang/test/CXXMG/traits/trait-definition.cpp b/clang/test/CXXMG/traits/trait-definition.cpp
 new file mode 100644
-index 000000000000..17c21225339f
+index 000000000..17c212253
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-definition.cpp
 @@ -0,0 +1,26 @@
@@ -905,7 +905,7 @@ index 000000000000..17c21225339f
 +trait Forward { int x; };
 diff --git a/clang/test/CXXMG/traits/trait-invalid.cpp b/clang/test/CXXMG/traits/trait-invalid.cpp
 new file mode 100644
-index 000000000000..36fc220d1c68
+index 000000000..36fc220d1
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-invalid.cpp
 @@ -0,0 +1,18 @@
@@ -929,7 +929,7 @@ index 000000000000..36fc220d1c68
 +struct T {}; // expected-error {{tag type that does not match previous declaration}} expected-error {{redefinition of 'T'}}
 diff --git a/clang/test/CXXMG/traits/trait-pch.cpp b/clang/test/CXXMG/traits/trait-pch.cpp
 new file mode 100644
-index 000000000000..689ee6791de1
+index 000000000..689ee6791
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-pch.cpp
 @@ -0,0 +1,18 @@
@@ -952,5 +952,5 @@ index 000000000000..689ee6791de1
 +// CHECK: TraitRequirementDecl {{.*}} type AssociatedTypeAny
 +// CHECK: TraitRequirementDecl {{.*}} staticFn StaticFunctionAnyReturn
 -- 
-2.54.0
+2.54.0.windows.1
 

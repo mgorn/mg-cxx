@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 21:53:39 -0400
-Subject: [PATCH 47/56] Remove "implements" from type-expressions
+Subject: [PATCH 47/58] Remove "implements" from type-expressions
 
 Removed Implements from CXXMGTypeExprOpcode.
 Removed type-expression predicate parsing from ParseCXXMGTypeExpr.cpp and its probes from ParseExpr.cpp.
@@ -12,7 +12,7 @@ Trimmed the mixed type-expression test so it no longer references implements.
 Kept implements handling in the trait path.
 
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
-index 852acb15553b..8f2a569e5511 100644
+index 852acb155..8f2a569e5 100644
 --- a/clang/include/clang/AST/CXXMGTypeExpr.h
 +++ b/clang/include/clang/AST/CXXMGTypeExpr.h
 @@ -25,8 +25,7 @@ class TypeSourceInfo;
@@ -26,7 +26,7 @@ index 852acb15553b..8f2a569e5511 100644
  
  const char *getCXXMGTypeExprOpcodeSpelling(CXXMGTypeExprOpcode Op);
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index acd45a016768..36a6dfa486b0 100644
+index acd45a016..36a6dfa48 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3573,8 +3573,6 @@ private:
@@ -39,7 +39,7 @@ index acd45a016768..36a6dfa486b0 100644
    /// which explicitly initializes the members or base classes of a
    /// class (C++ [class.base.init]). For example, the three initializers
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index fff42d0c9f29..8313d22a8853 100644
+index fff42d0c9..8313d22a8 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -200,8 +200,7 @@ class VisibleDeclConsumer;
@@ -71,7 +71,7 @@ index fff42d0c9f29..8313d22a8853 100644
                                                      QualType Underlying);
  
 diff --git a/clang/lib/AST/CXXMGTypeExpr.cpp b/clang/lib/AST/CXXMGTypeExpr.cpp
-index 7777373898de..40ae3dd7e72a 100644
+index 777737389..40ae3dd7e 100644
 --- a/clang/lib/AST/CXXMGTypeExpr.cpp
 +++ b/clang/lib/AST/CXXMGTypeExpr.cpp
 @@ -20,8 +20,6 @@ const char *clang::getCXXMGTypeExprOpcodeSpelling(CXXMGTypeExprOpcode Op) {
@@ -84,7 +84,7 @@ index 7777373898de..40ae3dd7e72a 100644
    llvm_unreachable("unknown C++MG type-expression opcode");
  }
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index 3f54838b5b34..a3c2a26b8051 100644
+index 3f54838b5..a3c2a26b8 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -6,40 +6,11 @@
@@ -218,7 +218,7 @@ index 3f54838b5b34..a3c2a26b8051 100644
 -  return Actions.ActOnCXXMGTypePredicateExpression(getCurScope(), *Node);
 -}
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 500b8bacdf4d..b5fe0558b38a 100644
+index 500b8bacd..b5fe0558b 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -86,14 +86,6 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -284,7 +284,7 @@ index 500b8bacdf4d..b5fe0558b38a 100644
      ExprResult TE = TryParseCXXMGImplementsExpression();
      if (TE.isInvalid())
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index d5492a934d10..17adee95fc62 100644
+index d5492a934..17adee95f 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -35,8 +35,6 @@ enum class CXXMGMemberKind {
@@ -384,7 +384,7 @@ index d5492a934d10..17adee95fc62 100644
                                                          QualType Underlying) {
    if (!Alias || Underlying.isNull())
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 8eb334f69606..5b8d1d2eadaf 100644
+index 8eb334f69..5b8d1d2ea 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -14800,25 +14800,7 @@ TreeTransform<Derived>::TransformCXXBoolLiteralExpr(CXXBoolLiteralExpr *E) {
@@ -416,7 +416,7 @@ index 8eb334f69606..5b8d1d2eadaf 100644
  template<typename Derived>
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-associated-types.cpp b/clang/test/CXXMG/type-expressions/type-expr-associated-types.cpp
 deleted file mode 100644
-index 997e67358241..000000000000
+index 997e67358..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-associated-types.cpp
 +++ /dev/null
 @@ -1,23 +0,0 @@
@@ -445,7 +445,7 @@ index 997e67358241..000000000000
 -static_assert(!exactB);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 deleted file mode 100644
-index 261f9d456e5d..000000000000
+index 261f9d456..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 +++ /dev/null
 @@ -1,11 +0,0 @@
@@ -462,7 +462,7 @@ index 261f9d456e5d..000000000000
 -// CHECK-SAME: unresolved
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp
 deleted file mode 100644
-index 8d0d4c3a8e1d..000000000000
+index 8d0d4c3a8..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-any.cpp
 +++ /dev/null
 @@ -1,22 +0,0 @@
@@ -490,7 +490,7 @@ index 8d0d4c3a8e1d..000000000000
 -static_assert(!hasCombined<B>);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 deleted file mode 100644
-index 7e05d6392159..000000000000
+index 7e05d6392..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate-invalid.cpp
 +++ /dev/null
 @@ -1,12 +0,0 @@
@@ -508,7 +508,7 @@ index 7e05d6392159..000000000000
 -// expected-note@-1 {{in instantiation of variable template specialization 'hasValue<int>' requested here}}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp
 deleted file mode 100644
-index 8e56afd51e7f..000000000000
+index 8e56afd51..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-dependent-predicate.cpp
 +++ /dev/null
 @@ -1,20 +0,0 @@
@@ -533,7 +533,7 @@ index 8e56afd51e7f..000000000000
 -static_assert(hasValue<A>);
 -static_assert(!hasValue<B>);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp b/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
-index 60b1de23dec8..b2a6f2dfbcb7 100644
+index 60b1de23d..b2a6f2dfb 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-dependent-trait-composition.cpp
 @@ -13,10 +13,3 @@ template <class T>
@@ -549,7 +549,7 @@ index 60b1de23dec8..b2a6f2dfbcb7 100644
 -static_assert(C implements Combined);
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 deleted file mode 100644
-index 6f9502bdda05..000000000000
+index 6f9502bdd..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-pch-dependent-predicate.cpp
 +++ /dev/null
 @@ -1,22 +0,0 @@
@@ -577,7 +577,7 @@ index 6f9502bdda05..000000000000
 -#endif
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp b/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 deleted file mode 100644
-index 4116e86de259..000000000000
+index 4116e86de..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -596,7 +596,7 @@ index 4116e86de259..000000000000
 -static_assert(A implements HasValue, "");
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-predicates.cpp b/clang/test/CXXMG/type-expressions/type-expr-predicates.cpp
 deleted file mode 100644
-index c2793ac26c04..000000000000
+index c2793ac26..000000000
 --- a/clang/test/CXXMG/type-expressions/type-expr-predicates.cpp
 +++ /dev/null
 @@ -1,18 +0,0 @@
@@ -620,7 +620,7 @@ index c2793ac26c04..000000000000
 -static_assert(!allA);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 deleted file mode 100644
-index 2a7034965770..000000000000
+index 2a7034965..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 +++ /dev/null
 @@ -1,53 +0,0 @@
@@ -679,7 +679,7 @@ index 2a7034965770..000000000000
 -template void check_static_local<without_value>();
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
 deleted file mode 100644
-index 2972497965d6..000000000000
+index 297249796..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-basic.cpp
 +++ /dev/null
 @@ -1,18 +0,0 @@
@@ -703,7 +703,7 @@ index 2972497965d6..000000000000
 -static_assert((Empty <> HasValue) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp
 deleted file mode 100644
-index e100e49ee63c..000000000000
+index e100e49ee..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp
 +++ /dev/null
 @@ -1,25 +0,0 @@
@@ -734,7 +734,7 @@ index e100e49ee63c..000000000000
 -static_assert((Graphviz <> (HasGenerate + HasBuild)) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
 deleted file mode 100644
-index 09071389a528..000000000000
+index 09071389a..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-composition.cpp
 +++ /dev/null
 @@ -1,18 +0,0 @@
@@ -758,7 +758,7 @@ index 09071389a528..000000000000
 -static_assert(S <> (HasValue + HasName));
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
 deleted file mode 100644
-index dd0ad1752bff..000000000000
+index dd0ad1752..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-dependent.cpp
 +++ /dev/null
 @@ -1,32 +0,0 @@
@@ -796,7 +796,7 @@ index dd0ad1752bff..000000000000
 -static_assert(!has_generate_shorthand<Empty>());
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
 deleted file mode 100644
-index 2cb60a458a04..000000000000
+index 2cb60a458..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-empty-template-args.cpp
 +++ /dev/null
 @@ -1,16 +0,0 @@
@@ -818,7 +818,7 @@ index 2cb60a458a04..000000000000
 -}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
 deleted file mode 100644
-index da2c9630f795..000000000000
+index da2c9630f..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-qualified-expressions.cpp
 +++ /dev/null
 @@ -1,46 +0,0 @@
@@ -870,7 +870,7 @@ index da2c9630f795..000000000000
 -}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
 deleted file mode 100644
-index a8aa8eb295bd..000000000000
+index a8aa8eb29..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-do-not-steal-value-expressions.cpp
 +++ /dev/null
 @@ -1,16 +0,0 @@
@@ -892,7 +892,7 @@ index a8aa8eb295bd..000000000000
 -}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp
 deleted file mode 100644
-index 0338f4c2384c..000000000000
+index 0338f4c23..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp
 +++ /dev/null
 @@ -1,39 +0,0 @@
@@ -937,7 +937,7 @@ index 0338f4c2384c..000000000000
 -static_assert(has_builder<Ninja>());
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 deleted file mode 100644
-index 23a3fff6872a..000000000000
+index 23a3fff68..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-errors.cpp
 +++ /dev/null
 @@ -1,18 +0,0 @@
@@ -961,7 +961,7 @@ index 23a3fff6872a..000000000000
 -// expected-error@-1 {{C++MG 'implements' predicate produces 'bool' and cannot be used as a type expression}}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp
 deleted file mode 100644
-index 15704e796cf4..000000000000
+index 15704e796..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -980,7 +980,7 @@ index 15704e796cf4..000000000000
 -static_assert((OnlyGenerate <> HasBuild) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
 deleted file mode 100644
-index d6722915f996..000000000000
+index d6722915f..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-qualified.cpp
 +++ /dev/null
 @@ -1,57 +0,0 @@
@@ -1043,7 +1043,7 @@ index d6722915f996..000000000000
 -static_assert(global_qualified_check<mgmake::backend::graphviz>());
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp
 deleted file mode 100644
-index 7261c43ab1fe..000000000000
+index 7261c43ab..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp
 +++ /dev/null
 @@ -1,18 +0,0 @@
@@ -1067,7 +1067,7 @@ index 7261c43ab1fe..000000000000
 -static_assert(Weird <> HasRun);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp
 deleted file mode 100644
-index 556874cd944b..000000000000
+index 556874cd9..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp
 +++ /dev/null
 @@ -1,12 +0,0 @@
@@ -1085,7 +1085,7 @@ index 556874cd944b..000000000000
 -// CHECK: value false
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 deleted file mode 100644
-index a4df2ae8a965..000000000000
+index a4df2ae8a..000000000
 --- a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 +++ /dev/null
 @@ -1,27 +0,0 @@
@@ -1117,5 +1117,5 @@ index a4df2ae8a965..000000000000
 -static_assert(has_generator_static_local<ninja_backend>());
 -static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.54.0.windows.1
 

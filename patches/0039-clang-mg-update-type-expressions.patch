@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 14:11:47 -0400
-Subject: [PATCH 39/56] clang-mg: update type-expressions
+Subject: [PATCH 39/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index 0dae8aca12e4..d5492a934d10 100644
+index 0dae8aca1..d5492a934 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -33,6 +33,12 @@ enum class CXXMGMemberKind {
@@ -122,7 +122,7 @@ index 0dae8aca12e4..d5492a934d10 100644
  
 diff --git a/clang/test/CXXMG/type-expressions/type-composition-skips-special-members.cpp b/clang/test/CXXMG/type-expressions/type-composition-skips-special-members.cpp
 new file mode 100644
-index 000000000000..19c72f591262
+index 000000000..19c72f591
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-composition-skips-special-members.cpp
 @@ -0,0 +1,22 @@
@@ -150,7 +150,7 @@ index 000000000000..19c72f591262
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp
 new file mode 100644
-index 000000000000..e100e49ee63c
+index 000000000..e100e49ee
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-composed-requirements.cpp
 @@ -0,0 +1,25 @@
@@ -181,7 +181,7 @@ index 000000000000..e100e49ee63c
 +static_assert((Graphviz <> (HasGenerate + HasBuild)) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp
 new file mode 100644
-index 000000000000..0338f4c2384c
+index 000000000..0338f4c23
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-does-not-copy-special-members.cpp
 @@ -0,0 +1,39 @@
@@ -226,7 +226,7 @@ index 000000000000..0338f4c2384c
 +static_assert(has_builder<Ninja>());
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp
 new file mode 100644
-index 000000000000..15704e796cf4
+index 000000000..15704e796
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-false.cpp
 @@ -0,0 +1,13 @@
@@ -245,7 +245,7 @@ index 000000000000..15704e796cf4
 +static_assert((OnlyGenerate <> HasBuild) == false);
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp b/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp
 new file mode 100644
-index 000000000000..7261c43ab1fe
+index 000000000..7261c43ab
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-implements-user-special-members.cpp
 @@ -0,0 +1,18 @@
@@ -268,5 +268,5 @@ index 000000000000..7261c43ab1fe
 +static_assert(Weird implements HasRun);
 +static_assert(Weird <> HasRun);
 -- 
-2.54.0
+2.54.0.windows.1
 
