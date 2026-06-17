@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 23:07:50 -0400
-Subject: [PATCH 40/56] clang-mg: add urlinclude
+Subject: [PATCH 40/58] clang-mg: add urlinclude
 
 
 diff --git a/clang/include/clang/Basic/DiagnosticLexKinds.td b/clang/include/clang/Basic/DiagnosticLexKinds.td
-index 383bf1a7fdb3..dda50c6e45ed 100644
+index 383bf1a7f..dda50c6e4 100644
 --- a/clang/include/clang/Basic/DiagnosticLexKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticLexKinds.td
 @@ -590,6 +590,28 @@ def err_pp_including_mainfile_in_preamble : Error<
@@ -38,7 +38,7 @@ index 383bf1a7fdb3..dda50c6e45ed 100644
  def err_pp_missing_macro_name : Error<"macro name missing">;
  def err_pp_missing_rparen_in_macro_def : Error<
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index 0d7bf62fded9..22ae3cf15eca 100644
+index 0d7bf62fd..22ae3cf15 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
 @@ -115,6 +115,7 @@ PPKEYWORD(defined)
@@ -50,7 +50,7 @@ index 0d7bf62fded9..22ae3cf15eca 100644
  
  // C99 6.10.3 - Macro Replacement.
 diff --git a/clang/include/clang/Lex/DependencyDirectivesScanner.h b/clang/include/clang/Lex/DependencyDirectivesScanner.h
-index b21da166a96e..1ca5b1803400 100644
+index b21da166a..1ca5b1803 100644
 --- a/clang/include/clang/Lex/DependencyDirectivesScanner.h
 +++ b/clang/include/clang/Lex/DependencyDirectivesScanner.h
 @@ -59,6 +59,7 @@ struct Token {
@@ -62,7 +62,7 @@ index b21da166a96e..1ca5b1803400 100644
    pp_define,
    pp_undef,
 diff --git a/clang/include/clang/Lex/PreprocessingRecord.h b/clang/include/clang/Lex/PreprocessingRecord.h
-index 7886aef7f0c7..20aec5f32522 100644
+index 7886aef7f..20aec5f32 100644
 --- a/clang/include/clang/Lex/PreprocessingRecord.h
 +++ b/clang/include/clang/Lex/PreprocessingRecord.h
 @@ -218,7 +218,10 @@ class Token;
@@ -87,7 +87,7 @@ index 7886aef7f0c7..20aec5f32522 100644
      /// Whether the inclusion directive was automatically turned into
      /// a module import.
 diff --git a/clang/include/clang/Lex/Preprocessor.h b/clang/include/clang/Lex/Preprocessor.h
-index 8b684e85eb1c..f43744896580 100644
+index 8b684e85e..f43744896 100644
 --- a/clang/include/clang/Lex/Preprocessor.h
 +++ b/clang/include/clang/Lex/Preprocessor.h
 @@ -2885,6 +2885,7 @@ private:
@@ -99,7 +99,7 @@ index 8b684e85eb1c..f43744896580 100644
    HandleHeaderIncludeOrImport(SourceLocation HashLoc, Token &IncludeTok,
                                Token &FilenameTok, SourceLocation EndLoc,
 diff --git a/clang/include/clang/Lex/PreprocessorOptions.h b/clang/include/clang/Lex/PreprocessorOptions.h
-index db80eecce490..8dfbf3d91bc6 100644
+index db80eecce..8dfbf3d91 100644
 --- a/clang/include/clang/Lex/PreprocessorOptions.h
 +++ b/clang/include/clang/Lex/PreprocessorOptions.h
 @@ -61,6 +61,12 @@ enum class DisableValidationForModuleKind {
@@ -134,10 +134,10 @@ index db80eecce490..8dfbf3d91bc6 100644
    /// the buffers associated with remapped files.
    ///
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 44718600ea07..947dfced7c34 100644
+index b4447fcc0..1e7c3cfcd 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
-@@ -3129,6 +3129,37 @@ defm gnu89_inline : BoolFOption<"gnu89-inline",
+@@ -3139,6 +3139,37 @@ defm gnu89_inline : BoolFOption<"gnu89-inline",
    NegFlag<SetFalse>>, ShouldParseIf<!strconcat("!", cplusplus.KeyPath)>;
  def fgnu_runtime : Flag<["-"], "fgnu-runtime">, Group<f_Group>,
    HelpText<"Generate output compatible with the standard GNU Objective-C runtime">;
@@ -176,7 +176,7 @@ index 44718600ea07..947dfced7c34 100644
  // -Wno-error=invalid-gnu-asm-cast, which is the only thing the flag used to
  // control.
 diff --git a/clang/lib/Basic/IdentifierTable.cpp b/clang/lib/Basic/IdentifierTable.cpp
-index 4f6c8ea04477..61435f62debd 100644
+index 4f6c8ea04..61435f62d 100644
 --- a/clang/lib/Basic/IdentifierTable.cpp
 +++ b/clang/lib/Basic/IdentifierTable.cpp
 @@ -456,6 +456,7 @@ tok::PPKeywordKind IdentifierInfo::getPPKeywordID() const {
@@ -188,10 +188,10 @@ index 4f6c8ea04477..61435f62debd 100644
  
    CASE(14, '_', 'p', __public_macro);
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index f45039ea683f..dcfc46cf18b2 100644
+index e07303e1b..c4ff3e110 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
-@@ -6339,6 +6339,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -6337,6 +6337,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
    }
    Args.AddLastArg(CmdArgs, options::OPT_P);
    Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
@@ -209,7 +209,7 @@ index f45039ea683f..dcfc46cf18b2 100644
    if (D.CCLogDiagnostics && !D.CCGenDiagnostics) {
      CmdArgs.push_back("-diagnostic-log-file");
 diff --git a/clang/lib/Frontend/CompilerInvocation.cpp b/clang/lib/Frontend/CompilerInvocation.cpp
-index 47cdcad377d0..a1965daf99fc 100644
+index 47cdcad37..a1965daf9 100644
 --- a/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -4861,6 +4861,33 @@ static void GeneratePreprocessorArgs(const PreprocessorOptions &Opts,
@@ -284,7 +284,7 @@ index 47cdcad377d0..a1965daf99fc 100644
    // preprocessor as we never want to emit the
    // "editor placeholder in source file" error in PP only mode.
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 6656f2bd076c..70f105a0fd0b 100644
+index 6656f2bd0..70f105a0f 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
 @@ -859,6 +859,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -297,7 +297,7 @@ index 6656f2bd076c..70f105a0fd0b 100644
    if (LangOpts.GNUCVersion != 0) {
      // Major, minor, patch, are given two decimal places each, so 4.2.1 becomes
 diff --git a/clang/lib/Lex/DependencyDirectivesScanner.cpp b/clang/lib/Lex/DependencyDirectivesScanner.cpp
-index ede5d49860fa..20af021470af 100644
+index ede5d4986..20af02147 100644
 --- a/clang/lib/Lex/DependencyDirectivesScanner.cpp
 +++ b/clang/lib/Lex/DependencyDirectivesScanner.cpp
 @@ -994,6 +994,7 @@ bool Scanner::lexPPLine(const char *&First, const char *const End) {
@@ -317,7 +317,7 @@ index ede5d49860fa..20af021470af 100644
    case pp_include_next:
    case pp_import:
 diff --git a/clang/lib/Lex/Lexer.cpp b/clang/lib/Lex/Lexer.cpp
-index f52b84a42ca7..87779e4a0d8f 100644
+index f52b84a42..87779e4a0 100644
 --- a/clang/lib/Lex/Lexer.cpp
 +++ b/clang/lib/Lex/Lexer.cpp
 @@ -4742,6 +4742,7 @@ bool Lexer::LexDependencyDirectiveTokenWhileSkipping(Token &Result) {
@@ -329,7 +329,7 @@ index f52b84a42ca7..87779e4a0d8f 100644
      case pp_define:
      case pp_undef:
 diff --git a/clang/lib/Lex/PPDirectives.cpp b/clang/lib/Lex/PPDirectives.cpp
-index eb21a510dcf8..af7afada31d2 100644
+index eb21a510d..af7afada3 100644
 --- a/clang/lib/Lex/PPDirectives.cpp
 +++ b/clang/lib/Lex/PPDirectives.cpp
 @@ -43,19 +43,329 @@
@@ -780,7 +780,7 @@ index eb21a510dcf8..af7afada31d2 100644
      ConstSearchDirIterator *CurDir, StringRef &Filename,
      SourceLocation FilenameLoc, CharSourceRange FilenameRange,
 diff --git a/clang/lib/Lex/PreprocessingRecord.cpp b/clang/lib/Lex/PreprocessingRecord.cpp
-index f76155b1c45d..8f9acf2b7e2e 100644
+index f76155b1c..8f9acf2b7 100644
 --- a/clang/lib/Lex/PreprocessingRecord.cpp
 +++ b/clang/lib/Lex/PreprocessingRecord.cpp
 @@ -478,6 +478,10 @@ void PreprocessingRecord::InclusionDirective(
@@ -795,7 +795,7 @@ index f76155b1c45d..8f9acf2b7e2e 100644
      Kind = InclusionDirective::Import;
      break;
 diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
-index 9c1b7d27a32e..7d11d1989f53 100644
+index 9c1b7d27a..7d11d1989 100644
 --- a/clang/lib/Serialization/ASTReader.cpp
 +++ b/clang/lib/Serialization/ASTReader.cpp
 @@ -7009,6 +7009,10 @@ PreprocessedEntity *ASTReader::ReadPreprocessedEntity(unsigned Index) {
@@ -810,7 +810,7 @@ index 9c1b7d27a32e..7d11d1989f53 100644
      InclusionDirective::InclusionKind Kind
        = static_cast<InclusionDirective::InclusionKind>(Record[2]);
 diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
-index 6639ebe2d5a6..06f7e2f1be00 100644
+index 6639ebe2d..06f7e2f1b 100644
 --- a/clang/lib/Serialization/ASTWriter.cpp
 +++ b/clang/lib/Serialization/ASTWriter.cpp
 @@ -2841,7 +2841,7 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec,
@@ -823,5 +823,5 @@ index 6639ebe2d5a6..06f7e2f1be00 100644
      Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob));
      InclusionAbbrev = Stream.EmitAbbrev(std::move(Abbrev));
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 19:20:14 -0400
-Subject: [PATCH 18/56] clang-mg: update conditional-members
+Subject: [PATCH 18/58] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
-index 2f7741ff74f9..b5a8fd2cb128 100644
+index 2f7741ff7..b5a8fd2cb 100644
 --- a/clang/include/clang/Basic/Features.def
 +++ b/clang/include/clang/Basic/Features.def
 @@ -381,6 +381,9 @@ FEATURE(cxx_abi_relative_vtable, LangOpts.CPlusPlus && LangOpts.RelativeCXXABIVT
@@ -19,7 +19,7 @@ index 2f7741ff74f9..b5a8fd2cb128 100644
  FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
  EXTENSION(cuda_implicit_host_device_templates, LangOpts.CUDA && LangOpts.OffloadImplicitHostDeviceTemplates)
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 3f0468a93814..179b366ceaa3 100644
+index 3f0468a93..179b366ce 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
 @@ -755,6 +755,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
@@ -35,7 +35,7 @@ index 3f0468a93814..179b366ceaa3 100644
  /// InitializeOpenCLFeatureTestMacros - Define OpenCL macros based on target
 diff --git a/clang/test/Parser/cxxmg-if-constexpr-members.cpp b/clang/test/Parser/cxxmg-if-constexpr-members.cpp
 new file mode 100644
-index 000000000000..fc213b1ee0a3
+index 000000000..fc213b1ee
 --- /dev/null
 +++ b/clang/test/Parser/cxxmg-if-constexpr-members.cpp
 @@ -0,0 +1,35 @@
@@ -76,7 +76,7 @@ index 000000000000..fc213b1ee0a3
 +};
 diff --git a/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp b/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
 new file mode 100644
-index 000000000000..d24454db9942
+index 000000000..d24454db9
 --- /dev/null
 +++ b/clang/test/Preprocessor/cxxmg-if-constexpr-members-feature-test.cpp
 @@ -0,0 +1,70 @@
@@ -152,7 +152,7 @@ index 000000000000..d24454db9942
 +#endif
 diff --git a/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
 new file mode 100644
-index 000000000000..d306aa92f7ce
+index 000000000..d306aa92f
 --- /dev/null
 +++ b/clang/test/SemaCXX/cxxmg-if-constexpr-members.cpp
 @@ -0,0 +1,71 @@
@@ -228,5 +228,5 @@ index 000000000000..d306aa92f7ce
 +  (void)value.enabled; // expected-error {{no member named 'enabled'}}
 +}
 -- 
-2.54.0
+2.54.0.windows.1
 

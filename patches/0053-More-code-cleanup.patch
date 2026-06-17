@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Wed, 10 Jun 2026 21:28:15 -0400
-Subject: [PATCH 53/56] More code cleanup
+Subject: [PATCH 53/58] More code cleanup
 
 
 diff --git a/clang/include/clang/AST/ASTImporter.h b/clang/include/clang/AST/ASTImporter.h
-index 82df6223afb5..39d1429639ed 100644
+index 82df6223a..39d142963 100644
 --- a/clang/include/clang/AST/ASTImporter.h
 +++ b/clang/include/clang/AST/ASTImporter.h
 @@ -18,7 +18,6 @@
@@ -17,7 +17,7 @@ index 82df6223afb5..39d1429639ed 100644
  #include "clang/AST/TemplateName.h"
  #include "clang/AST/Type.h"
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
-index 8f2a569e5511..6dbdba23274a 100644
+index 8f2a569e5..6dbdba232 100644
 --- a/clang/include/clang/AST/CXXMGTypeExpr.h
 +++ b/clang/include/clang/AST/CXXMGTypeExpr.h
 @@ -1,8 +1,8 @@
@@ -43,7 +43,7 @@ index 8f2a569e5511..6dbdba23274a 100644
  
  class CXXMGTypeExprNode {
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
-index b0736d85c6d7..855e62681887 100644
+index 99d4386ac..9bafb0470 100644
 --- a/clang/include/clang/AST/DeclCXX.h
 +++ b/clang/include/clang/AST/DeclCXX.h
 @@ -51,7 +51,6 @@
@@ -54,7 +54,7 @@ index b0736d85c6d7..855e62681887 100644
  
  namespace clang {
  
-@@ -2146,49 +2145,6 @@ public:
+@@ -2159,49 +2158,6 @@ public:
    }
  };
  
@@ -105,7 +105,7 @@ index b0736d85c6d7..855e62681887 100644
  ///
  /// In the terminology of the C++ Standard, these are the (static and
 diff --git a/clang/include/clang/AST/DeclCXXMG.h b/clang/include/clang/AST/DeclCXXMG.h
-index 6f8b43422f43..364f2b5a0d7d 100644
+index 6f8b43422..364f2b5a0 100644
 --- a/clang/include/clang/AST/DeclCXXMG.h
 +++ b/clang/include/clang/AST/DeclCXXMG.h
 @@ -1,4 +1,4 @@
@@ -175,7 +175,7 @@ index 6f8b43422f43..364f2b5a0d7d 100644
  ///
  /// Example:
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
-index 983c167037cf..3a1b31c9df61 100644
+index 983c16703..3a1b31c9d 100644
 --- a/clang/include/clang/AST/ExprCXXMG.h
 +++ b/clang/include/clang/AST/ExprCXXMG.h
 @@ -1,4 +1,10 @@
@@ -191,7 +191,7 @@ index 983c167037cf..3a1b31c9df61 100644
  #ifndef LLVM_CLANG_AST_EXPRCXXMG_H
  #define LLVM_CLANG_AST_EXPRCXXMG_H
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 154451e293c3..51acb160ee58 100644
+index 154451e29..51acb160e 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -18,6 +18,7 @@
@@ -203,7 +203,7 @@ index 154451e293c3..51acb160ee58 100644
  #include "clang/AST/DeclObjC.h"
  #include "clang/AST/DeclOpenACC.h"
 diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
-index bb9e3d626bfa..2affc16d29c4 100644
+index bb9e3d626..2affc16d2 100644
 --- a/clang/include/clang/AST/TextNodeDumper.h
 +++ b/clang/include/clang/AST/TextNodeDumper.h
 @@ -21,7 +21,6 @@
@@ -226,7 +226,7 @@ index bb9e3d626bfa..2affc16d29c4 100644
  class TextTreeStructure {
    raw_ostream &OS;
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index 1d20df1a8b8c..1d2dd05f56de 100644
+index 1d20df1a8..1d2dd05f5 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
 @@ -643,6 +643,8 @@ def err_cxxmg_trait_invalid_base_clause : Error<
@@ -239,7 +239,7 @@ index 1d20df1a8b8c..1d2dd05f56de 100644
    Error<"expected trait requirement after C++MG 'implements' operator">;
  def err_cxxmg_expected_type_before_implements :
 diff --git a/clang/include/clang/Lex/PreprocessorOptions.h b/clang/include/clang/Lex/PreprocessorOptions.h
-index 8dfbf3d91bc6..60eb4470d683 100644
+index 8dfbf3d91..60eb4470d 100644
 --- a/clang/include/clang/Lex/PreprocessorOptions.h
 +++ b/clang/include/clang/Lex/PreprocessorOptions.h
 @@ -13,6 +13,7 @@
@@ -260,7 +260,7 @@ index 8dfbf3d91bc6..60eb4470d683 100644
    UrlIncludeProgressMode UrlIncludeProgress = UrlIncludeProgressMode::Auto;
  
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index ee3de3f38052..99d3aa482963 100644
+index ee3de3f38..99d3aa482 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -26,7 +26,6 @@
@@ -281,7 +281,7 @@ index ee3de3f38052..99d3aa482963 100644
  enum class ComparisonCategoryType : unsigned char;
  class ConstraintSatisfaction;
 diff --git a/clang/include/clang/Sema/Template.h b/clang/include/clang/Sema/Template.h
-index b0170c21feb1..0ca6162912d3 100644
+index b0170c21f..0ca616291 100644
 --- a/clang/include/clang/Sema/Template.h
 +++ b/clang/include/clang/Sema/Template.h
 @@ -30,6 +30,7 @@ namespace clang {
@@ -302,7 +302,7 @@ index b0170c21feb1..0ca6162912d3 100644
                                LookupResult *Lookup);
  
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index 2e9efba0b0b5..3fa2bb06df22 100644
+index 2e9efba0b..3fa2bb06d 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
 @@ -14464,7 +14464,7 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
@@ -315,7 +315,7 @@ index 2e9efba0b0b5..3fa2bb06df22 100644
      return QualType(TX, 0);
    }
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 6469db29d154..54fec737a547 100644
+index 6469db29d..54fec737a 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -23,6 +23,7 @@
@@ -413,7 +413,7 @@ index 6469db29d154..54fec737a547 100644
    auto DCOrErr = Importer.ImportContext(D->getDeclContext());
    if (!DCOrErr)
 diff --git a/clang/lib/AST/ASTStructuralEquivalence.cpp b/clang/lib/AST/ASTStructuralEquivalence.cpp
-index b6594c10f80e..c66e8acfff8e 100644
+index b6594c10f..c66e8acff 100644
 --- a/clang/lib/AST/ASTStructuralEquivalence.cpp
 +++ b/clang/lib/AST/ASTStructuralEquivalence.cpp
 @@ -997,7 +997,7 @@ bool ASTStructuralEquivalence::isEquivalent(
@@ -426,7 +426,7 @@ index b6594c10f80e..c66e8acfff8e 100644
        return false;
      break;
 diff --git a/clang/lib/AST/CXXMGTypeExpr.cpp b/clang/lib/AST/CXXMGTypeExpr.cpp
-index 40ae3dd7e72a..6529d650e5e7 100644
+index 40ae3dd7e..6529d650e 100644
 --- a/clang/lib/AST/CXXMGTypeExpr.cpp
 +++ b/clang/lib/AST/CXXMGTypeExpr.cpp
 @@ -1,8 +1,8 @@
@@ -472,10 +472,10 @@ index 40ae3dd7e72a..6529d650e5e7 100644
    }
    ID.AddInteger(static_cast<unsigned>(Opcode));
 diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
-index d77f81c7d8ae..fc8a15287f43 100644
+index fd6dbf377..ce4ba971a 100644
 --- a/clang/lib/AST/DeclCXX.cpp
 +++ b/clang/lib/AST/DeclCXX.cpp
-@@ -2409,23 +2409,6 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+@@ -2410,23 +2410,6 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
    return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
  }
  
@@ -500,7 +500,7 @@ index d77f81c7d8ae..fc8a15287f43 100644
  
  bool CXXMethodDecl::isStatic() const {
 diff --git a/clang/lib/AST/DeclCXXMG.cpp b/clang/lib/AST/DeclCXXMG.cpp
-index d32ee7833cbe..57ab24b03d67 100644
+index d32ee7833..57ab24b03 100644
 --- a/clang/lib/AST/DeclCXXMG.cpp
 +++ b/clang/lib/AST/DeclCXXMG.cpp
 @@ -10,6 +10,23 @@
@@ -528,7 +528,7 @@ index d32ee7833cbe..57ab24b03d67 100644
  CXXMGConditionalMemberDecl::Create(
      ASTContext &Ctx,
 diff --git a/clang/lib/AST/ExprCXXMG.cpp b/clang/lib/AST/ExprCXXMG.cpp
-index a6cd9c0debc6..9e8f90c1d2e1 100644
+index a6cd9c0de..9e8f90c1d 100644
 --- a/clang/lib/AST/ExprCXXMG.cpp
 +++ b/clang/lib/AST/ExprCXXMG.cpp
 @@ -1,8 +1,8 @@
@@ -544,7 +544,7 @@ index a6cd9c0debc6..9e8f90c1d2e1 100644
  //===----------------------------------------------------------------------===//
  //
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index ec58cc32a5b8..70ee7988c427 100644
+index ec58cc32a..70ee7988c 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -12,6 +12,7 @@
@@ -556,7 +556,7 @@ index ec58cc32a5b8..70ee7988c427 100644
  #include "clang/AST/ExprCXXMG.h"
  #include "clang/AST/DeclOpenMP.h"
 diff --git a/clang/lib/Driver/Driver.cpp b/clang/lib/Driver/Driver.cpp
-index 75a70d48627b..dde297ec18f4 100644
+index 64f4bf234..9ed6f06b6 100644
 --- a/clang/lib/Driver/Driver.cpp
 +++ b/clang/lib/Driver/Driver.cpp
 @@ -1975,7 +1975,8 @@ static const char BugReportMsg[] =
@@ -570,7 +570,7 @@ index 75a70d48627b..dde297ec18f4 100644
  
  // When clang crashes, produce diagnostic information including the fully
 diff --git a/clang/lib/Lex/CMakeLists.txt b/clang/lib/Lex/CMakeLists.txt
-index f61737cd6802..abcdc31eb725 100644
+index f61737cd6..abcdc31eb 100644
 --- a/clang/lib/Lex/CMakeLists.txt
 +++ b/clang/lib/Lex/CMakeLists.txt
 @@ -31,6 +31,7 @@ add_clang_library(clangLex
@@ -582,7 +582,7 @@ index f61737cd6802..abcdc31eb725 100644
    LINK_LIBS
    clangBasic
 diff --git a/clang/lib/Lex/PPDirectives.cpp b/clang/lib/Lex/PPDirectives.cpp
-index af7afada31d2..443798f6f7d7 100644
+index af7afada3..443798f6f 100644
 --- a/clang/lib/Lex/PPDirectives.cpp
 +++ b/clang/lib/Lex/PPDirectives.cpp
 @@ -11,6 +11,7 @@
@@ -930,7 +930,7 @@ index af7afada31d2..443798f6f7d7 100644
  //===----------------------------------------------------------------------===//
 diff --git a/clang/lib/Lex/UrlInclude.cpp b/clang/lib/Lex/UrlInclude.cpp
 new file mode 100644
-index 000000000000..0131e3b03eda
+index 000000000..0131e3b03
 --- /dev/null
 +++ b/clang/lib/Lex/UrlInclude.cpp
 @@ -0,0 +1,363 @@
@@ -1299,7 +1299,7 @@ index 000000000000..0131e3b03eda
 +}
 diff --git a/clang/lib/Lex/UrlInclude.h b/clang/lib/Lex/UrlInclude.h
 new file mode 100644
-index 000000000000..661ed6ddb3e1
+index 000000000..661ed6ddb
 --- /dev/null
 +++ b/clang/lib/Lex/UrlInclude.h
 @@ -0,0 +1,38 @@
@@ -1342,7 +1342,7 @@ index 000000000000..661ed6ddb3e1
 +
 +#endif // LLVM_CLANG_LIB_LEX_URLINCLUDE_H
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index a3c2a26b8051..1357d231590e 100644
+index a3c2a26b8..1357d2315 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -151,18 +151,18 @@ bool Parser::ParseCXXMGTypeExprRHS(ParsedCXXMGTypeExpr &LHS,
@@ -1377,7 +1377,7 @@ index a3c2a26b8051..1357d231590e 100644
  }
  
 diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
-index b0f8ce66b17e..5dd399fac68d 100644
+index b0f8ce66b..5dd399fac 100644
 --- a/clang/lib/Parse/ParseDeclCXXMG.cpp
 +++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
 @@ -7,6 +7,7 @@
@@ -1416,7 +1416,7 @@ index b0f8ce66b17e..5dd399fac68d 100644
          getCurScope(), TagDecl, StaticLoc, NameLoc, Name, nullptr);
      return DeclGroupPtrTy::make(DeclGroupRef(D));
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
-index a77b26c75b2d..06f3c27bc3ab 100644
+index a77b26c75..06f3c27bc 100644
 --- a/clang/lib/Sema/CMakeLists.txt
 +++ b/clang/lib/Sema/CMakeLists.txt
 @@ -58,6 +58,7 @@ add_clang_library(clangSema
@@ -1429,7 +1429,7 @@ index a77b26c75b2d..06f3c27bc3ab 100644
    SemaFixItUtils.cpp
 diff --git a/clang/lib/Sema/SemaCXXMG.h b/clang/lib/Sema/SemaCXXMG.h
 new file mode 100644
-index 000000000000..debb805c2d26
+index 000000000..debb805c2
 --- /dev/null
 +++ b/clang/lib/Sema/SemaCXXMG.h
 @@ -0,0 +1,32 @@
@@ -1466,7 +1466,7 @@ index 000000000000..debb805c2d26
 +
 +#endif // LLVM_CLANG_LIB_SEMA_SEMACXXMG_H
 diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
-index 4c4f60b380e3..ca94a550217d 100644
+index 4c4f60b38..ca94a5502 100644
 --- a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 @@ -4,6 +4,7 @@
@@ -1478,7 +1478,7 @@ index 4c4f60b380e3..ca94a550217d 100644
  #include "clang/AST/ExprCXXMG.h"
  #include "clang/Basic/DiagnosticSema.h"
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index 17adee95fc62..3446c697d59e 100644
+index 17adee95f..3446c697d 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -10,6 +10,7 @@
@@ -1517,7 +1517,7 @@ index 17adee95fc62..3446c697d59e 100644
  
    CXXMGMemberSet Set =
 diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
-index 18d75d43ceea..03c3bcfa2a7a 100644
+index 18d75d43c..03c3bcfa2 100644
 --- a/clang/lib/Sema/SemaDeclCXXMG.cpp
 +++ b/clang/lib/Sema/SemaDeclCXXMG.cpp
 @@ -8,6 +8,7 @@
@@ -1529,7 +1529,7 @@ index 18d75d43ceea..03c3bcfa2a7a 100644
  #include "clang/AST/Expr.h"
  #include "clang/Sema/CXXFieldCollector.h"
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index f97d43f08d91..bcfaf9c9d807 100644
+index aa9509100..6008f651f 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
 @@ -12,6 +12,7 @@
@@ -1540,7 +1540,7 @@ index f97d43f08d91..bcfaf9c9d807 100644
  #include "UsedDeclVisitor.h"
  #include "clang/AST/ASTConsumer.h"
  #include "clang/AST/ASTContext.h"
-@@ -2814,154 +2815,6 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
+@@ -2815,154 +2816,6 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
        TemplateArgs);
  }
  
@@ -1697,7 +1697,7 @@ index f97d43f08d91..bcfaf9c9d807 100644
                                     UnqualifiedId &Id, bool HasTrailingLParen,
 diff --git a/clang/lib/Sema/SemaExprCXXMG.cpp b/clang/lib/Sema/SemaExprCXXMG.cpp
 new file mode 100644
-index 000000000000..4508b6642ea2
+index 000000000..4508b6642
 --- /dev/null
 +++ b/clang/lib/Sema/SemaExprCXXMG.cpp
 @@ -0,0 +1,140 @@
@@ -1842,7 +1842,7 @@ index 000000000000..4508b6642ea2
 +      /*FirstQualifierFoundInScope=*/nullptr, NameInfo, TemplateArgs);
 +}
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index a4d2b73e5d3e..cf804a687e9f 100644
+index 0eb9abd1a..23859cd3a 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
 @@ -3657,40 +3657,14 @@ bool Sema::InstantiateClassImpl(
@@ -1894,7 +1894,7 @@ index a4d2b73e5d3e..cf804a687e9f 100644
      }
  
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 68ed2113e67e..355123aba364 100644
+index 68ed2113e..355123aba 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -13,6 +13,7 @@
@@ -2018,7 +2018,7 @@ index 68ed2113e67e..355123aba364 100644
  }
  
 diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
-index 7d11d1989f53..d7464cf84db7 100644
+index 7d11d1989..d7464cf84 100644
 --- a/clang/lib/Serialization/ASTReader.cpp
 +++ b/clang/lib/Serialization/ASTReader.cpp
 @@ -7850,17 +7850,38 @@ CXXMGTypeExprNode *ASTRecordReader::readCXXMGTypeExprNodeRef() {
@@ -2063,7 +2063,7 @@ index 7d11d1989f53..d7464cf84db7 100644
                                           SourceRange(Begin, End));
  }
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
-index 4dc9161da038..dd7f1d98c889 100644
+index 4dc9161da..dd7f1d98c 100644
 --- a/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-cache-offline.cpp
 @@ -16,4 +16,4 @@
@@ -2073,7 +2073,7 @@ index 4dc9161da038..dd7f1d98c889 100644
 -// MISS: #urlinclude cache miss for https://cxxmg.test/basic.hpp in offline mode
 +// MISS: #urlinclude cache miss for https://cxxmg.test/.../basic.hpp in offline mode
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
-index 5ef447b75ebc..4efce2561d5a 100644
+index 5ef447b75..4efce2561 100644
 --- a/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-diagnostics.cpp
 @@ -31,4 +31,4 @@
@@ -2083,7 +2083,7 @@ index 5ef447b75ebc..4efce2561d5a 100644
 -// FAIL: #urlinclude download failed for https://cxxmg.test/basic.hpp
 +// FAIL: #urlinclude download failed for https://cxxmg.test/.../basic.hpp
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
-index 63cc343cf08b..23711729c788 100644
+index 63cc343cf..23711729c 100644
 --- a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 @@ -1,7 +1,40 @@
@@ -2131,7 +2131,7 @@ index 63cc343cf08b..23711729c788 100644
 +// PATH-NOT: secret
 +#endif
 diff --git a/clang/tools/driver/CMakeLists.txt b/clang/tools/driver/CMakeLists.txt
-index 1e9f2ff0ef34..9195437308a4 100644
+index 1e9f2ff0e..919543730 100644
 --- a/clang/tools/driver/CMakeLists.txt
 +++ b/clang/tools/driver/CMakeLists.txt
 @@ -93,7 +93,7 @@ if(NOT CLANG_LINKS_TO_CREATE)
@@ -2144,7 +2144,7 @@ index 1e9f2ff0ef34..9195437308a4 100644
  endif()
  
 diff --git a/clang/tools/driver/driver.cpp b/clang/tools/driver/driver.cpp
-index d4d913a8977a..bccedf22bb2f 100644
+index d4d913a89..bccedf22b 100644
 --- a/clang/tools/driver/driver.cpp
 +++ b/clang/tools/driver/driver.cpp
 @@ -241,7 +241,8 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV,
@@ -2158,7 +2158,7 @@ index d4d913a8977a..bccedf22bb2f 100644
                          " dumped files.\n");
    SmallVector<const char *, 256> Args(Argv, Argv + Argc);
 diff --git a/llvm/CMakeLists.txt b/llvm/CMakeLists.txt
-index 231350a7069b..a6c682caa138 100644
+index 231350a70..a6c682caa 100644
 --- a/llvm/CMakeLists.txt
 +++ b/llvm/CMakeLists.txt
 @@ -461,9 +461,9 @@ set(LLVM_FORCE_VC_REPOSITORY
@@ -2174,7 +2174,7 @@ index 231350a7069b..a6c682caa138 100644
  set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
    "Default URL where bug reports are to be submitted.")
 diff --git a/llvm/lib/Support/PrettyStackTrace.cpp b/llvm/lib/Support/PrettyStackTrace.cpp
-index 462ef94fffd0..2161345ade27 100644
+index 462ef94ff..2161345ad 100644
 --- a/llvm/lib/Support/PrettyStackTrace.cpp
 +++ b/llvm/lib/Support/PrettyStackTrace.cpp
 @@ -38,11 +38,8 @@
@@ -2192,5 +2192,5 @@ index 462ef94fffd0..2161345ade27 100644
  // If backtrace support is not enabled, compile out support for pretty stack
  // traces.  This has the secondary effect of not requiring thread local storage
 -- 
-2.54.0
+2.54.0.windows.1
 

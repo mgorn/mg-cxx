@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 01:10:55 -0400
-Subject: [PATCH 36/56] clang-mg: update type-expressions
+Subject: [PATCH 36/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
-index ea1c89e8bcb7..11bebd4173f4 100644
+index ea1c89e8b..11bebd417 100644
 --- a/clang/include/clang/AST/ExprCXXMG.h
 +++ b/clang/include/clang/AST/ExprCXXMG.h
 @@ -3,6 +3,7 @@
@@ -97,7 +97,7 @@ index ea1c89e8bcb7..11bebd4173f4 100644
  
  #endif
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index f52f1723bf6a..809f1ce14d7c 100644
+index f52f1723b..809f1ce14 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
 @@ -694,6 +694,7 @@ namespace clang {
@@ -132,7 +132,7 @@ index f52f1723bf6a..809f1ce14d7c 100644
  ExpectedType ASTNodeImporter::VisitTypedefType(const TypedefType *T) {
    Expected<TypedefNameDecl *> ToDeclOrErr = import(T->getDecl());
 diff --git a/clang/lib/AST/ASTStructuralEquivalence.cpp b/clang/lib/AST/ASTStructuralEquivalence.cpp
-index ca6577af26c2..b837efeaf512 100644
+index ca6577af2..b837efeaf 100644
 --- a/clang/lib/AST/ASTStructuralEquivalence.cpp
 +++ b/clang/lib/AST/ASTStructuralEquivalence.cpp
 @@ -408,7 +408,12 @@ class StmtComparer {
@@ -150,7 +150,7 @@ index ca6577af26c2..b837efeaf512 100644
    }
  
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index d62de57f5859..24698fc0ec67 100644
+index 5fbb9e7fa..8587eb253 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -43,20 +43,35 @@
@@ -202,7 +202,7 @@ index d62de57f5859..24698fc0ec67 100644
  
  CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
 diff --git a/clang/lib/AST/ExprConstant.cpp b/clang/lib/AST/ExprConstant.cpp
-index 1642c41a99a2..d52f94a22597 100644
+index 1642c41a9..d52f94a22 100644
 --- a/clang/lib/AST/ExprConstant.cpp
 +++ b/clang/lib/AST/ExprConstant.cpp
 @@ -44,6 +44,7 @@
@@ -231,7 +231,7 @@ index 1642c41a99a2..d52f94a22597 100644
      return Success(E->getValue(), E);
    }
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 14d3af0696a2..328b0f9cca8e 100644
+index 14d3af069..328b0f9cc 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -2320,6 +2320,9 @@ void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
@@ -245,7 +245,7 @@ index 14d3af0696a2..328b0f9cca8e 100644
  
  void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index e69a2c70d418..c093409ebb56 100644
+index e69a2c70d..c093409eb 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -1841,8 +1841,10 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
@@ -262,7 +262,7 @@ index e69a2c70d418..c093409ebb56 100644
      OS << " '" << getCXXMGTypeExprOpcodeSpelling(TE->getOpcode()) << "'";
  }
 diff --git a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
-index 9f5c0e899b9f..65a7e36c4641 100644
+index 9f5c0e899..65a7e36c4 100644
 --- a/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 +++ b/clang/lib/Sema/SemaCXXMGTypeExpr.cpp
 @@ -838,8 +838,7 @@ ExprResult Sema::BuildCXXMGTypePredicateExpr(CXXMGTypeExprNode *TE) {
@@ -276,7 +276,7 @@ index 9f5c0e899b9f..65a7e36c4641 100644
  
  ExprResult Sema::ActOnCXXMGTypePredicateExpression(
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 4a4fd99f3071..8eb334f69606 100644
+index 4a4fd99f3..8eb334f69 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -14804,7 +14804,21 @@ TreeTransform<Derived>::TransformCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
@@ -303,7 +303,7 @@ index 4a4fd99f3071..8eb334f69606 100644
  
  template<typename Derived>
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index a5c567e91f21..6a68a2d498f6 100644
+index a5c567e91..6a68a2d49 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -2234,6 +2234,11 @@ void ASTStmtReader::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
@@ -319,7 +319,7 @@ index a5c567e91f21..6a68a2d498f6 100644
  
  void ASTStmtReader::VisitArrayTypeTraitExpr(ArrayTypeTraitExpr *E) {
 diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
-index de7a6c7ff9f8..2ac58f4894b6 100644
+index de7a6c7ff..2ac58f489 100644
 --- a/clang/lib/Serialization/ASTWriterStmt.cpp
 +++ b/clang/lib/Serialization/ASTWriterStmt.cpp
 @@ -2245,6 +2245,9 @@ void ASTStmtWriter::VisitCXXMGImplementsExpr(CXXMGImplementsExpr *E) {
@@ -333,7 +333,7 @@ index de7a6c7ff9f8..2ac58f4894b6 100644
  }
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
-index 3bb2ca5c67ac..ab6762860b12 100644
+index 3bb2ca5c6..ab6762860 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-ast-dump-dependent-predicate.cpp
 @@ -8,4 +8,4 @@ template <class T>
@@ -344,7 +344,7 @@ index 3bb2ca5c67ac..ab6762860b12 100644
 +// CHECK-SAME: unresolved
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 new file mode 100644
-index 000000000000..342842f64d1a
+index 000000000..342842f64
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-constexpr.cpp
 @@ -0,0 +1,53 @@
@@ -403,7 +403,7 @@ index 000000000000..342842f64d1a
 +template void check_static_local<without_value>();
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp b/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp
 new file mode 100644
-index 000000000000..7e953da11cb8
+index 000000000..7e953da11
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-known-value-ast-dump.cpp
 @@ -0,0 +1,12 @@
@@ -421,7 +421,7 @@ index 000000000000..7e953da11cb8
 +// CHECK: value false
 diff --git a/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 new file mode 100644
-index 000000000000..5480e6fcc4ba
+index 000000000..5480e6fcc
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-predicate-static-local-constexpr.cpp
 @@ -0,0 +1,27 @@
@@ -453,5 +453,5 @@ index 000000000000..5480e6fcc4ba
 +static_assert(has_generator_static_local<ninja_backend>());
 +static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.54.0.windows.1
 

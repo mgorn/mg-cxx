@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 00:38:05 -0400
-Subject: [PATCH 31/56] clang-mg: update type-expressions
+Subject: [PATCH 31/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index ebdbb8af6f23..fc50fd51770b 100644
+index ebdbb8af6..fc50fd517 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -889,38 +889,63 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -102,7 +102,7 @@ index ebdbb8af6f23..fc50fd51770b 100644
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 new file mode 100644
-index 000000000000..cccd555ee571
+index 000000000..cccd555ee
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 @@ -0,0 +1,15 @@
@@ -123,7 +123,7 @@ index 000000000000..cccd555ee571
 +static_assert(sizeof(C) == 8, "");
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 new file mode 100644
-index 000000000000..99f1d97bc0af
+index 000000000..99f1d97bc
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 @@ -0,0 +1,25 @@
@@ -153,5 +153,5 @@ index 000000000000..99f1d97bc0af
 +
 +using R = X<int>;
 -- 
-2.54.0
+2.54.0.windows.1
 

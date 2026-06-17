@@ -1,12 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 8 Jun 2026 22:32:58 -0400
-Subject: [PATCH 26/56] clang-mg: update traits
+Subject: [PATCH 26/58] clang-mg: update traits
 
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
 new file mode 100644
-index 000000000000..ea1c89e8bcb7
+index 000000000..ea1c89e8b
 --- /dev/null
 +++ b/clang/include/clang/AST/ExprCXXMG.h
 @@ -0,0 +1,75 @@
@@ -86,7 +86,7 @@ index 000000000000..ea1c89e8bcb7
 +
 +#endif
 diff --git a/clang/include/clang/AST/RecursiveASTVisitor.h b/clang/include/clang/AST/RecursiveASTVisitor.h
-index 0f130d5d6eea..6886223875bc 100644
+index 0f130d5d6..688622387 100644
 --- a/clang/include/clang/AST/RecursiveASTVisitor.h
 +++ b/clang/include/clang/AST/RecursiveASTVisitor.h
 @@ -26,6 +26,7 @@
@@ -112,7 +112,7 @@ index 0f130d5d6eea..6886223875bc 100644
    TRY_TO(TraverseTypeLoc(S->getQueriedTypeSourceInfo()->getTypeLoc()));
  })
 diff --git a/clang/include/clang/AST/StmtVisitor.h b/clang/include/clang/AST/StmtVisitor.h
-index 8b7b728deaff..6ce7999eab1e 100644
+index 8b7b728de..6ce7999ea 100644
 --- a/clang/include/clang/AST/StmtVisitor.h
 +++ b/clang/include/clang/AST/StmtVisitor.h
 @@ -14,6 +14,7 @@
@@ -124,7 +124,7 @@ index 8b7b728deaff..6ce7999eab1e 100644
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
 diff --git a/clang/include/clang/AST/TextNodeDumper.h b/clang/include/clang/AST/TextNodeDumper.h
-index 7a5883b45c53..88d6a8936550 100644
+index 7a5883b45..88d6a8936 100644
 --- a/clang/include/clang/AST/TextNodeDumper.h
 +++ b/clang/include/clang/AST/TextNodeDumper.h
 @@ -21,6 +21,7 @@
@@ -144,7 +144,7 @@ index 7a5883b45c53..88d6a8936550 100644
    void VisitExpressionTraitExpr(const ExpressionTraitExpr *Node);
    void VisitCXXDefaultArgExpr(const CXXDefaultArgExpr *Node);
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index 05cd0e37e0a8..a69394abd2ad 100644
+index 05cd0e37e..a69394abd 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
 @@ -643,6 +643,10 @@ def err_cxxmg_trait_invalid_base_clause : Error<
@@ -159,7 +159,7 @@ index 05cd0e37e0a8..a69394abd2ad 100644
    "missing '}' at end of definition of %q0">;
  def note_missing_end_of_definition_before : Note<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index d5ce891ce9f1..f9732631f3db 100644
+index 204bac13f..fe6e77a99 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
 @@ -7840,6 +7840,16 @@ def err_cxxmg_trait_special_member : Error<
@@ -180,7 +180,7 @@ index d5ce891ce9f1..f9732631f3db 100644
    "tentative definition of variable with internal linkage has incomplete "
    "%select{non-array|array}0 type %1">,
 diff --git a/clang/include/clang/Basic/StmtNodes.td b/clang/include/clang/Basic/StmtNodes.td
-index e166894ea024..dad01ceadf0b 100644
+index e166894ea..dad01cead 100644
 --- a/clang/include/clang/Basic/StmtNodes.td
 +++ b/clang/include/clang/Basic/StmtNodes.td
 @@ -135,6 +135,7 @@ def CXXFunctionalCastExpr : StmtNode<ExplicitCastExpr>;
@@ -192,7 +192,7 @@ index e166894ea024..dad01ceadf0b 100644
  def CXXThisExpr : StmtNode<Expr>;
  def CXXThrowExpr : StmtNode<Expr>;
 diff --git a/clang/include/clang/Basic/TokenKinds.def b/clang/include/clang/Basic/TokenKinds.def
-index aec5d827ae11..0d7bf62fded9 100644
+index aec5d827a..0d7bf62fd 100644
 --- a/clang/include/clang/Basic/TokenKinds.def
 +++ b/clang/include/clang/Basic/TokenKinds.def
 @@ -390,6 +390,7 @@ KEYWORD(template                    , KEYCXX)
@@ -204,7 +204,7 @@ index aec5d827ae11..0d7bf62fded9 100644
  KEYWORD(try                         , KEYCXX)
  KEYWORD(typename                    , KEYCXX)
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index 09f951e97415..a678fde7f7f0 100644
+index 09f951e97..a678fde7f 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3559,6 +3559,10 @@ private:
@@ -219,7 +219,7 @@ index 09f951e97415..a678fde7f7f0 100644
    /// ParseConstructorInitializer - Parse a C++ constructor initializer,
    /// which explicitly initializes the members or base classes of a
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index bb3b2646107c..8269f78c1a4b 100644
+index bb3b26461..8269f78c1 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -5883,6 +5883,15 @@ public:
@@ -239,7 +239,7 @@ index bb3b2646107c..8269f78c1a4b 100644
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
    /// parsing or instantiating the initializer failed.
 diff --git a/clang/include/clang/Serialization/ASTBitCodes.h b/clang/include/clang/Serialization/ASTBitCodes.h
-index 06d101215fc5..ad0dfd4eef77 100644
+index 06d101215..ad0dfd4ee 100644
 --- a/clang/include/clang/Serialization/ASTBitCodes.h
 +++ b/clang/include/clang/Serialization/ASTBitCodes.h
 @@ -1930,6 +1930,7 @@ enum StmtCode {
@@ -251,7 +251,7 @@ index 06d101215fc5..ad0dfd4eef77 100644
  
    EXPR_PACK_EXPANSION,                    // PackExpansionExpr
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index f3acb366dc07..02c33e539674 100644
+index 1bafc4708..bc2ed6a9c 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -22,6 +22,7 @@
@@ -309,7 +309,7 @@ index f3acb366dc07..02c33e539674 100644
    const Expr *E = this;
    while (true) {
 diff --git a/clang/lib/AST/Stmt.cpp b/clang/lib/AST/Stmt.cpp
-index 15d0e6435aaf..762f887a5d15 100644
+index 15d0e6435..762f887a5 100644
 --- a/clang/lib/AST/Stmt.cpp
 +++ b/clang/lib/AST/Stmt.cpp
 @@ -18,6 +18,7 @@
@@ -321,7 +321,7 @@ index 15d0e6435aaf..762f887a5d15 100644
  #include "clang/AST/ExprObjC.h"
  #include "clang/AST/ExprOpenMP.h"
 diff --git a/clang/lib/AST/StmtPrinter.cpp b/clang/lib/AST/StmtPrinter.cpp
-index 6c3294573e9d..c9f2fd5d2618 100644
+index 6c3294573..c9f2fd5d2 100644
 --- a/clang/lib/AST/StmtPrinter.cpp
 +++ b/clang/lib/AST/StmtPrinter.cpp
 @@ -22,6 +22,7 @@
@@ -348,7 +348,7 @@ index 6c3294573e9d..c9f2fd5d2618 100644
    OS << getTraitSpelling(E->getTrait()) << '(';
    E->getQueriedType().print(OS, Policy);
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 22e2cc56bc70..f8597dc441df 100644
+index 22e2cc56b..f8597dc44 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -16,6 +16,7 @@
@@ -376,7 +376,7 @@ index 22e2cc56bc70..f8597dc441df 100644
    VisitExpr(S);
    ID.AddInteger(S->getTrait());
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 49a39ea7cd85..0105a6d8be4a 100644
+index 49a39ea7c..0105a6d8b 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -13,6 +13,7 @@
@@ -402,7 +402,7 @@ index 49a39ea7cd85..0105a6d8be4a 100644
    OS << " " << getTraitSpelling(Node->getTrait());
  }
 diff --git a/clang/lib/Parse/CMakeLists.txt b/clang/lib/Parse/CMakeLists.txt
-index 07169bfc9129..eb648d905297 100644
+index 07169bfc9..eb648d905 100644
 --- a/clang/lib/Parse/CMakeLists.txt
 +++ b/clang/lib/Parse/CMakeLists.txt
 @@ -13,6 +13,7 @@ add_clang_library(clangParse
@@ -415,7 +415,7 @@ index 07169bfc9129..eb648d905297 100644
    ParseHLSL.cpp
 diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 new file mode 100644
-index 000000000000..883df3239e37
+index 000000000..883df3239
 --- /dev/null
 +++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
 @@ -0,0 +1,162 @@
@@ -582,7 +582,7 @@ index 000000000000..883df3239e37
 +      SourceRange(CandidateRange.getBegin(), RequirementRange.getEnd()));
 +}
 diff --git a/clang/lib/Parse/ParseExpr.cpp b/clang/lib/Parse/ParseExpr.cpp
-index 2987d32d6e0d..b5fe0558b38a 100644
+index 2987d32d6..b5fe0558b 100644
 --- a/clang/lib/Parse/ParseExpr.cpp
 +++ b/clang/lib/Parse/ParseExpr.cpp
 @@ -86,6 +86,14 @@ ExprResult Parser::ParseAssignmentExpression(
@@ -648,7 +648,7 @@ index 2987d32d6e0d..b5fe0558b38a 100644
    // cast-expression? If not, and we find some, we'll parse them anyway and
    // diagnose them.
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
-index 49f4cefccdc1..3a7236fa3ab8 100644
+index 49f4cefcc..3a7236fa3 100644
 --- a/clang/lib/Sema/CMakeLists.txt
 +++ b/clang/lib/Sema/CMakeLists.txt
 @@ -52,6 +52,7 @@ add_clang_library(clangSema
@@ -661,7 +661,7 @@ index 49f4cefccdc1..3a7236fa3ab8 100644
    SemaExpr.cpp
 diff --git a/clang/lib/Sema/SemaCXXMGTraitExpr.cpp b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 new file mode 100644
-index 000000000000..cfba2c41a15d
+index 000000000..cfba2c41a
 --- /dev/null
 +++ b/clang/lib/Sema/SemaCXXMGTraitExpr.cpp
 @@ -0,0 +1,286 @@
@@ -952,7 +952,7 @@ index 000000000000..cfba2c41a15d
 +  return CXXBoolLiteralExpr::Create(Context, Result, Context.BoolTy, OpLoc);
 +}
 diff --git a/clang/lib/Sema/TreeTransform.h b/clang/lib/Sema/TreeTransform.h
-index 53107c827006..3fc0e0e1dfe5 100644
+index 53107c827..3fc0e0e1d 100644
 --- a/clang/lib/Sema/TreeTransform.h
 +++ b/clang/lib/Sema/TreeTransform.h
 @@ -20,6 +20,7 @@
@@ -997,7 +997,7 @@ index 53107c827006..3fc0e0e1dfe5 100644
  ExprResult
  TreeTransform<Derived>::TransformConceptSpecializationExpr(
 diff --git a/clang/lib/Serialization/ASTReaderStmt.cpp b/clang/lib/Serialization/ASTReaderStmt.cpp
-index 02ccf8d4d41c..493fda644d58 100644
+index 02ccf8d4d..493fda644 100644
 --- a/clang/lib/Serialization/ASTReaderStmt.cpp
 +++ b/clang/lib/Serialization/ASTReaderStmt.cpp
 @@ -24,6 +24,7 @@
@@ -1039,7 +1039,7 @@ index 02ccf8d4d41c..493fda644d58 100644
        S = new (Context) ArrayTypeTraitExpr(Empty);
        break;
 diff --git a/clang/lib/Serialization/ASTWriterStmt.cpp b/clang/lib/Serialization/ASTWriterStmt.cpp
-index 4e9eadd730a5..90028a12fb58 100644
+index 4e9eadd73..90028a12f 100644
 --- a/clang/lib/Serialization/ASTWriterStmt.cpp
 +++ b/clang/lib/Serialization/ASTWriterStmt.cpp
 @@ -16,6 +16,7 @@
@@ -1071,7 +1071,7 @@ index 4e9eadd730a5..90028a12fb58 100644
    Record.push_back(E->getTrait());
 diff --git a/clang/test/CXXMG/traits/trait-implements-basic.cpp b/clang/test/CXXMG/traits/trait-implements-basic.cpp
 new file mode 100644
-index 000000000000..9dd50912770d
+index 000000000..9dd509127
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-basic.cpp
 @@ -0,0 +1,18 @@
@@ -1095,7 +1095,7 @@ index 000000000000..9dd50912770d
 +static_assert(!(Empty <> HasValue));
 diff --git a/clang/test/CXXMG/traits/trait-implements-dependent.cpp b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
 new file mode 100644
-index 000000000000..36d0ccd662a4
+index 000000000..36d0ccd66
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-dependent.cpp
 @@ -0,0 +1,32 @@
@@ -1133,7 +1133,7 @@ index 000000000000..36d0ccd662a4
 +static_assert(!has_generate_shorthand<Empty>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp
 new file mode 100644
-index 000000000000..3f767c17e27b
+index 000000000..3f767c17e
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-empty-template-args.cpp
 @@ -0,0 +1,16 @@
@@ -1155,7 +1155,7 @@ index 000000000000..3f767c17e27b
 +}
 diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp
 new file mode 100644
-index 000000000000..7a0207cf462e
+index 000000000..7a0207cf4
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-qualified-expressions.cpp
 @@ -0,0 +1,43 @@
@@ -1204,7 +1204,7 @@ index 000000000000..7a0207cf462e
 +}
 diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp
 new file mode 100644
-index 000000000000..e97732a41ff8
+index 000000000..e97732a41
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-value-expressions.cpp
 @@ -0,0 +1,16 @@
@@ -1226,7 +1226,7 @@ index 000000000000..e97732a41ff8
 +}
 diff --git a/clang/test/CXXMG/traits/trait-implements-errors.cpp b/clang/test/CXXMG/traits/trait-implements-errors.cpp
 new file mode 100644
-index 000000000000..1509be27e398
+index 000000000..1509be27e
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-errors.cpp
 @@ -0,0 +1,15 @@
@@ -1247,7 +1247,7 @@ index 000000000000..1509be27e398
 +// expected-error@-1 {{expected trait requirement after C++MG 'implements' operator}}
 diff --git a/clang/test/CXXMG/traits/trait-implements-false.cpp b/clang/test/CXXMG/traits/trait-implements-false.cpp
 new file mode 100644
-index 000000000000..f4e3ddca03a4
+index 000000000..f4e3ddca0
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-false.cpp
 @@ -0,0 +1,13 @@
@@ -1266,7 +1266,7 @@ index 000000000000..f4e3ddca03a4
 +static_assert((OnlyGenerate <> HasBuild) == false);
 diff --git a/clang/test/CXXMG/traits/trait-implements-qualified.cpp b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
 new file mode 100644
-index 000000000000..ba54733d1ef2
+index 000000000..ba54733d1
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-qualified.cpp
 @@ -0,0 +1,57 @@
@@ -1329,7 +1329,7 @@ index 000000000000..ba54733d1ef2
 +static_assert(global_qualified_check<mgmake::backend::graphviz>());
 diff --git a/clang/test/CXXMG/traits/trait-implements-special-members.cpp b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
 new file mode 100644
-index 000000000000..d13a841aa6c0
+index 000000000..d13a841aa
 --- /dev/null
 +++ b/clang/test/CXXMG/traits/trait-implements-special-members.cpp
 @@ -0,0 +1,55 @@
@@ -1389,5 +1389,5 @@ index 000000000000..d13a841aa6c0
 +static_assert(has_generator<Ninja>());
 +static_assert(has_builder<Ninja>());
 -- 
-2.54.0
+2.54.0.windows.1
 

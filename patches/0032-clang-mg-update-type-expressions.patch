@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sun, 24 May 2026 00:52:41 -0400
-Subject: [PATCH 32/56] clang-mg: update type-expressions
+Subject: [PATCH 32/58] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
-index 2e0400a7d285..785f245e5987 100644
+index 2e0400a7d..785f245e5 100644
 --- a/clang/include/clang/Parse/Parser.h
 +++ b/clang/include/clang/Parse/Parser.h
 @@ -3358,10 +3358,13 @@ private:
@@ -26,7 +26,7 @@ index 2e0400a7d285..785f245e5987 100644
  
    /// ParseStaticAssertDeclaration - Parse C++0x or C11
 diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
-index d36514d82a1b..e1f167655a3c 100644
+index d36514d82..e1f167655 100644
 --- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 +++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
 @@ -19,9 +19,12 @@ static const char *getCXXMGTypeExprOperatorSpelling(tok::TokenKind K) {
@@ -174,7 +174,7 @@ index d36514d82a1b..e1f167655a3c 100644
      TPA.Revert();
      return ExprEmpty();
 diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
-index fc50fd51770b..12480e41a7ba 100644
+index fc50fd517..12480e41a 100644
 --- a/clang/lib/Parse/ParseDeclCXX.cpp
 +++ b/clang/lib/Parse/ParseDeclCXX.cpp
 @@ -925,7 +925,8 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
@@ -188,7 +188,7 @@ index fc50fd51770b..12480e41a7ba 100644
        } else if (!TE.SawTypeExprOperator) {
          TypeAlias = true;
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
-index cccd555ee571..f31eb6428917 100644
+index cccd555ee..f31eb6428 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-alias-parse-once-positive.cpp
 @@ -1,4 +1,4 @@
@@ -198,7 +198,7 @@ index cccd555ee571..f31eb6428917 100644
  // expected-no-diagnostics
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
-index 99f1d97bc0af..8c13c15cb591 100644
+index 99f1d97bc..8c13c15cb 100644
 --- a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-alias-template-args.cpp
 @@ -1,4 +1,4 @@
@@ -209,7 +209,7 @@ index 99f1d97bc0af..8c13c15cb591 100644
  
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp
 new file mode 100644
-index 000000000000..19cbeec14531
+index 000000000..19cbeec14
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-do-not-hijack-function-style-construction.cpp
 @@ -0,0 +1,21 @@
@@ -236,7 +236,7 @@ index 000000000000..19cbeec14531
 +}
 diff --git a/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp b/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 new file mode 100644
-index 000000000000..f28d1db01507
+index 000000000..f28d1db01
 --- /dev/null
 +++ b/clang/test/CXXMG/type-expressions/type-expr-predicate-no-typename-fallback.cpp
 @@ -0,0 +1,13 @@
@@ -254,5 +254,5 @@ index 000000000000..f28d1db01507
 +
 +static_assert(HasValue && A, "");
 -- 
-2.54.0
+2.54.0.windows.1
 

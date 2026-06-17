@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:23:48 -0400
-Subject: [PATCH 22/56] clang-mg: update traits
+Subject: [PATCH 22/58] clang-mg: update traits
 
 
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
-index 0ebf56ecffe6..49f4cefccdc1 100644
+index 0ebf56ecf..49f4cefcc 100644
 --- a/clang/lib/Sema/CMakeLists.txt
 +++ b/clang/lib/Sema/CMakeLists.txt
 @@ -51,6 +51,7 @@ add_clang_library(clangSema
@@ -18,7 +18,7 @@ index 0ebf56ecffe6..49f4cefccdc1 100644
    SemaExpr.cpp
 diff --git a/clang/lib/Sema/SemaDeclCXXMG.cpp b/clang/lib/Sema/SemaDeclCXXMG.cpp
 new file mode 100644
-index 000000000000..2f50d8cb4e3c
+index 000000000..2f50d8cb4
 --- /dev/null
 +++ b/clang/lib/Sema/SemaDeclCXXMG.cpp
 @@ -0,0 +1,73 @@
@@ -97,5 +97,5 @@ index 000000000000..2f50d8cb4e3c
 +}
 \ No newline at end of file
 -- 
-2.54.0
+2.54.0.windows.1
 

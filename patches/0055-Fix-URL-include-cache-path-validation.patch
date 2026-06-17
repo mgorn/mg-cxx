@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 11 Jun 2026 18:31:01 -0400
-Subject: [PATCH 55/56] Fix URL include cache path validation
+Subject: [PATCH 55/58] Fix URL include cache path validation
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -13,7 +13,7 @@ UrlInclude.cpp (line 287): scope-disable LLVM’s internal sandbox around the co
 urlinclude-redaction.cpp (line 1): added -fno-caret-diagnostics so redaction checks don’t fail on Clang echoing the raw source line.
 
 diff --git a/clang/lib/Lex/UrlInclude.cpp b/clang/lib/Lex/UrlInclude.cpp
-index 0131e3b03eda..90459017a97c 100644
+index 0131e3b03..90459017a 100644
 --- a/clang/lib/Lex/UrlInclude.cpp
 +++ b/clang/lib/Lex/UrlInclude.cpp
 @@ -144,10 +144,12 @@ bool computeUrlIncludeCachePath(Preprocessor &PP, StringRef URL,
@@ -43,7 +43,7 @@ index 0131e3b03eda..90459017a97c 100644
      return false;
    if (!computeUrlIncludeCachePath(PP, URL, Loc, Result))
 diff --git a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
-index 23711729c788..c2f4f91e4435 100644
+index 23711729c..c2f4f91e4 100644
 --- a/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 +++ b/clang/test/CXXMG/urlinclude/urlinclude-redaction.cpp
 @@ -1,14 +1,18 @@
@@ -66,5 +66,5 @@ index 23711729c788..c2f4f91e4435 100644
  
  #ifdef USERINFO
 -- 
-2.54.0
+2.54.0.windows.1
 
