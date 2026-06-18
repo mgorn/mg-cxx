@@ -3,3 +3,4 @@ work/
 *.backup.*
 /.cxxmg-cache
 __pycache__
+/.vscode

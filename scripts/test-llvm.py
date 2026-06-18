@@ -555,6 +555,27 @@ def parse_lit_passed_count(line: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def has_lit_output_option(args: list[str]) -> bool:
+    # These options already ask lit to print test details. Do not add an
+    # automatic verbosity flag on top of an explicit user choice.
+    options = {"-v", "--verbose", "-a", "--show-all"}
+    return any(arg == option for arg in args for option in options)
+
+
+def lit_args_for_requested_tests(jobs: str, extra_args: list[str], test_paths: list[Path]) -> list[str]:
+    args = ["-j", str(jobs), *extra_args]
+
+    # A single concrete test file is usually a debugging run. Make failures
+    # self-explanatory by default so lit prints the failing command, stdout,
+    # stderr, exit status, and FileCheck diagnostics. Directory runs and multi-
+    # test runs keep lit's concise default output.
+    if len(test_paths) == 1 and test_paths[0].is_file() and not has_lit_output_option(extra_args):
+        args.append("-v")
+
+    args.extend(str(path) for path in test_paths)
+    return args
+
+
 def run_lit_command(args: list[str], env: dict[str, str]) -> int | None:
     sys.stdout.flush()
     sys.stderr.flush()
@@ -584,7 +605,7 @@ def run_minimal_clang_mg_lit(build_dir: Path, jobs: str, project_test_dir: Path,
     suite_dir = create_minimal_clang_mg_lit_suite(build_dir, project_test_dir / "CXXMG")
     mapped_tests = map_to_minimal_clang_mg_suite(project_test_dir, suite_dir, test_paths)
     extra_args = shlex.split(os.environ.get("CLANG_MG_LIT_OPTS", ""))
-    args = [*lit_cmd, "-j", str(jobs), *extra_args, *[str(path) for path in mapped_tests]]
+    args = [*lit_cmd, *lit_args_for_requested_tests(jobs, extra_args, mapped_tests)]
     env = env_with_preferred_tools(build_dir)
     print()
     print("Running llvm-lit with minimal CXXMG config:")
@@ -598,7 +619,7 @@ def run_minimal_clang_mg_lit(build_dir: Path, jobs: str, project_test_dir: Path,
 def run_lit(build_dir: Path, jobs: str, test_paths: list[Path]) -> int | None:
     lit_cmd = find_llvm_lit_command(build_dir)
     extra_args = shlex.split(os.environ.get("CLANG_MG_LIT_OPTS", ""))
-    args = [*lit_cmd, "-j", str(jobs), *extra_args, *[str(path) for path in test_paths]]
+    args = [*lit_cmd, *lit_args_for_requested_tests(jobs, extra_args, test_paths)]
     env = env_with_preferred_tools(build_dir)
     print()
     print("Running llvm-lit:")
