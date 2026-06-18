@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 18 Jun 2026 17:33:18 -0400
+Subject: [PATCH] clang-mg: Add test for conditional member declaration
+
+
+diff --git a/clang/test/CXXMG/conditional-members/conditional-member-simple.cpp b/clang/test/CXXMG/conditional-members/conditional-member-simple.cpp
+new file mode 100644
+index 000000000000..e21a900841f4
+--- /dev/null
++++ b/clang/test/CXXMG/conditional-members/conditional-member-simple.cpp
+@@ -0,0 +1,21 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++template<auto v>
++struct S {
++	static constexpr bool has_value = v != 0;
++
++	if constexpr (has_value) {
++		int x = 0;
++	}
++
++	template<class T>
++	void f(T) {
++		if constexpr (has_value) {
++			this->x = 1;
++		}
++	}
++};
++
++template struct S<1>;
++template struct S<0>;
+\ No newline at end of file
+-- 
+2.54.0
+

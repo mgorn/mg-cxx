@@ -1,0 +1,282 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Thu, 18 Jun 2026 17:58:26 -0400
+Subject: [PATCH] clang-mg: Improve semantic recovery for conditional member
+ access
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implements robust semantic recovery for conditional member access (C++ MG).[4D[K
+MG).
+A new function, `recoverFromCXXMGConditionalMemberAccess`, is added to [K
+Sema to handle
+the logic for member access expressions.
+This recovery path is now hooked into `SemaExprMember.cpp`, ensuring correc[6D[K
+correct
+handling of conditional member lookups during member reference expression c[1D[K
+construction.
+
+diff --git a/clang/lib/Sema/SemaCXXMG.h b/clang/lib/Sema/SemaCXXMG.h
+index debb805c2d26..cf299e466c36 100644
+--- a/clang/lib/Sema/SemaCXXMG.h
++++ b/clang/lib/Sema/SemaCXXMG.h
+@@ -18,15 +18,25 @@
+ namespace clang {
+ 
+ class ASTContext;
++class CXXScopeSpec;
+ class Expr;
++class NamedDecl;
+ class Sema;
+ struct DeclarationNameInfo;
+ class TemplateArgumentListInfo;
++class QualType;
+ 
+ Expr *recoverFromCXXMGConditionalMemberLookup(
+-    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
++    Sema &S, ASTContext &Context, const DeclarationNameInfo &NameInfo,
+     SourceLocation TemplateKWLoc, const TemplateArgumentListInfo *TemplateArgs);
+ 
++Expr *recoverFromCXXMGConditionalMemberAccess(
++    Sema &S, ASTContext &Context, Expr *BaseExpr, QualType BaseExprType,
++    bool IsArrow, SourceLocation OpLoc, const CXXScopeSpec &SS,
++    SourceLocation TemplateKWLoc, NamedDecl *FirstQualifierInScope,
++    const DeclarationNameInfo &NameInfo,
++    const TemplateArgumentListInfo *TemplateArgs);
++
+ } // namespace clang
+ 
+ #endif // LLVM_CLANG_LIB_SEMA_SEMACXXMG_H
+diff --git a/clang/lib/Sema/SemaExprCXXMG.cpp b/clang/lib/Sema/SemaExprCXXMG.cpp
+index 4508b6642ea2..35ae69dbd85d 100644
+--- a/clang/lib/Sema/SemaExprCXXMG.cpp
++++ b/clang/lib/Sema/SemaExprCXXMG.cpp
+@@ -115,7 +115,7 @@ static bool recordHasCXXMGConditionalMemberExpressionCandidate(
+ }
+ 
+ Expr *clang::recoverFromCXXMGConditionalMemberLookup(
+-    Sema &S, ASTContext &Context, DeclarationNameInfo &NameInfo,
++    Sema &S, ASTContext &Context, const DeclarationNameInfo &NameInfo,
+     SourceLocation TemplateKWLoc,
+     const TemplateArgumentListInfo *TemplateArgs) {
+   QualType ThisType = S.getCurrentThisType();
+@@ -138,3 +138,33 @@ Expr *clang::recoverFromCXXMGConditionalMemberLookup(
+       /*Op=*/SourceLocation(), NestedNameSpecifierLoc(), TemplateKWLoc,
+       /*FirstQualifierFoundInScope=*/nullptr, NameInfo, TemplateArgs);
+ }
++
++Expr *clang::recoverFromCXXMGConditionalMemberAccess(
++    Sema &S, ASTContext &Context, Expr *BaseExpr, QualType BaseExprType,
++    bool IsArrow, SourceLocation OpLoc, const CXXScopeSpec &SS,
++    SourceLocation TemplateKWLoc, NamedDecl *FirstQualifierInScope,
++    const DeclarationNameInfo &NameInfo,
++    const TemplateArgumentListInfo *TemplateArgs) {
++  if (!BaseExpr || SS.isSet())
++    return nullptr;
++
++  QualType RecordType = BaseExprType;
++  if (IsArrow) {
++    if (!RecordType->isPointerType())
++      return nullptr;
++    RecordType = RecordType->castAs<PointerType>()->getPointeeType();
++  }
++
++  const CXXRecordDecl *RD = RecordType->getAsCXXRecordDecl();
++  if (!RD)
++    return nullptr;
++
++  if (!recordHasCXXMGConditionalMemberExpressionCandidate(
++          S, RD, NameInfo.getName()))
++    return nullptr;
++
++  return CXXDependentScopeMemberExpr::Create(
++      Context, BaseExpr, BaseExprType, IsArrow, OpLoc,
++      SS.getWithLocInContext(Context), TemplateKWLoc, FirstQualifierInScope,
++      NameInfo, TemplateArgs);
++}
+diff --git a/clang/lib/Sema/SemaExprMember.cpp b/clang/lib/Sema/SemaExprMember.cpp
+index 851d58c49f7b..9984b82b6095 100644
+--- a/clang/lib/Sema/SemaExprMember.cpp
++++ b/clang/lib/Sema/SemaExprMember.cpp
+@@ -9,6 +9,7 @@
+ //  This file implements semantic analysis member access expressions.
+ //
+ //===----------------------------------------------------------------------===//
++#include "SemaCXXMG.h"
+ #include "clang/AST/DeclCXX.h"
+ #include "clang/AST/DeclObjC.h"
+ #include "clang/AST/DeclTemplate.h"
+@@ -922,6 +923,14 @@ Sema::BuildMemberReferenceExpr(Expr *BaseExpr, QualType BaseExprType,
+         << isa<CXXDestructorDecl>(FD);
+ 
+   if (R.empty()) {
++    if (getLangOpts().CPlusPlusMG) {
++      if (Expr *E = recoverFromCXXMGConditionalMemberAccess(
++              *this, Context, BaseExpr, BaseExprType, IsArrow, OpLoc, SS,
++              TemplateKWLoc, FirstQualifierInScope, MemberNameInfo,
++              TemplateArgs))
++        return E;
++    }
++
+     ExprResult RetryExpr = ExprError();
+     if (ExtraArgs && !IsArrow && BaseExpr && !BaseExpr->isTypeDependent()) {
+       SFINAETrap Trap(*this, true);
+diff --git a/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp b/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp
+index 8de0f09ac6f3..0c641e286135 100644
+--- a/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp
++++ b/clang/test/CXXMG/conditional-members/conditional-member-dependent-lookup.cpp
+@@ -18,9 +18,9 @@ struct DepLookup {
+ 
+   int explicit_this() {
+     if constexpr (Enabled)
+-      return this->value; // expected-error {{no member named 'value'}}
++      return this->value;
+     else
+-      return this->fallback; // expected-error {{no member named 'fallback'}}
++      return this->fallback;
+   }
+ 
+   int const_member() const {
+diff --git a/clang/test/CXXMG/conditional-members/conditional-member-dependent-this.cpp b/clang/test/CXXMG/conditional-members/conditional-member-dependent-this.cpp
+new file mode 100644
+index 000000000000..c40eebb23c12
+--- /dev/null
++++ b/clang/test/CXXMG/conditional-members/conditional-member-dependent-this.cpp
+@@ -0,0 +1,58 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++template <auto V>
++struct MemberTemplateUse {
++  static constexpr bool has_value = V != 0;
++
++  if constexpr (has_value) {
++    int x = 0;
++  }
++
++  template <class T>
++  void f(T) {
++    if constexpr (has_value) {
++      this->x = 1;
++    }
++  }
++};
++
++template struct MemberTemplateUse<1>;
++template struct MemberTemplateUse<0>;
++
++template <auto V>
++struct NonTemplateUse {
++  static constexpr bool has_value = V != 0;
++
++  if constexpr (has_value) {
++    int x = 0;
++  }
++
++  void f() {
++    if constexpr (has_value) {
++      this->x = 1;
++    }
++  }
++};
++
++template struct NonTemplateUse<1>;
++template struct NonTemplateUse<0>;
++
++template <auto V>
++struct UnqualifiedUse {
++  static constexpr bool has_value = V != 0;
++
++  if constexpr (has_value) {
++    int x = 0;
++  }
++
++  template <class T>
++  void f(T) {
++    if constexpr (has_value) {
++      x = 1;
++    }
++  }
++};
++
++template struct UnqualifiedUse<1>;
++template struct UnqualifiedUse<0>;
+diff --git a/clang/test/CXXMG/conditional-members/conditional-member-realistic-guard.cpp b/clang/test/CXXMG/conditional-members/conditional-member-realistic-guard.cpp
+new file mode 100644
+index 000000000000..5f00384c0265
+--- /dev/null
++++ b/clang/test/CXXMG/conditional-members/conditional-member-realistic-guard.cpp
+@@ -0,0 +1,32 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++struct impl {
++  void on(int &) {}
++};
++
++template <class I, class E>
++concept has_on_for = requires(I i, E &e) {
++  i->on(e);
++};
++
++template <impl *Implementation>
++struct control {
++  static constexpr bool has_implementation = Implementation != nullptr;
++
++  if constexpr (has_implementation) {
++    impl *m_implementation = Implementation;
++  }
++
++  template <typename event_t>
++  void trigger(event_t &event) {
++    if constexpr (has_implementation && has_on_for<impl *, event_t>) {
++      this->m_implementation->on(event);
++    }
++  }
++};
++
++impl global_impl;
++
++template struct control<&global_impl>;
++template struct control<nullptr>;
+diff --git a/clang/test/CXXMG/conditional-members/conditional-member-this-negative.cpp b/clang/test/CXXMG/conditional-members/conditional-member-this-negative.cpp
+new file mode 100644
+index 000000000000..f2eb0133acbe
+--- /dev/null
++++ b/clang/test/CXXMG/conditional-members/conditional-member-this-negative.cpp
+@@ -0,0 +1,31 @@
++// RUN: %clang_cc1 -std=c++20 -fcxxmg -fsyntax-only -verify %s
++
++template <auto V>
++struct Unguarded {
++  static constexpr bool has_value = V != 0;
++
++  if constexpr (has_value) {
++    int x = 0;
++  }
++
++  void f() {
++    this->x = 1; // expected-error {{no member named 'x'}}
++  }
++};
++
++template struct Unguarded<0>; // expected-note {{in instantiation of member function}}
++
++template <bool A, bool B>
++struct MismatchedGuard {
++  if constexpr (A) {
++    int x = 0;
++  }
++
++  void f() {
++    if constexpr (B) {
++      this->x = 1; // expected-error {{no member named 'x'}}
++    }
++  }
++};
++
++template struct MismatchedGuard<false, true>; // expected-note {{in instantiation of member function}}
+-- 
+2.54.0
+
