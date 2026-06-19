@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Fri, 19 Jun 2026 02:32:38 -0400
+Subject: [PATCH] =?UTF-8?q?clang-mg:=20Remove=20redundant=20check=20for=20?=
+ =?UTF-8?q?top-level=20'implements'=20keywor=1B[6D=1B[K?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Removes the obsolete helper function hasTopLevelCXXMGImplementsKeyword.
+
+This function performed complex lookahead checks that were no longer necess[6D[K
+necessary,
+as checking for `CPlusPlusMG` language option and token type is sufficient [K
+in
+the calling context (`TryParseCXXMGImplementsExpression`).
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index 1aa595761424..84928e8b002b 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -11,49 +11,6 @@ static bool isCXXMGImplementsFollowOperator(Parser &P) {
+   return P.NextToken().is(tok::kw_implements);
+ }
+ 
+-static bool hasTopLevelCXXMGImplementsKeyword(Parser &P) {
+-  bool AllowParens = P.GetLookAheadToken(0).is(tok::l_paren);
+-  unsigned AngleDepth = 0;
+-  unsigned ParenDepth = 0;
+-  for (unsigned I = 0; I != 128; ++I) {
+-    tok::TokenKind K = P.GetLookAheadToken(I).getKind();
+-    if (AngleDepth == 0) {
+-      if (K == tok::kw_implements)
+-        return true;
+-      if (K == tok::eof || K == tok::semi || K == tok::comma ||
+-          K == tok::l_brace || K == tok::l_square ||
+-          K == tok::pipepipe || K == tok::ampamp || K == tok::question)
+-        return false;
+-      if (K == tok::l_paren) {
+-        if (!AllowParens)
+-          return false;
+-        ++ParenDepth;
+-        continue;
+-      }
+-      if (K == tok::r_paren) {
+-        if (ParenDepth == 0)
+-          return false;
+-        --ParenDepth;
+-        if (AllowParens && ParenDepth == 0)
+-          return false;
+-        continue;
+-      }
+-    }
+-    if (K == tok::less) {
+-      ++AngleDepth;
+-    } else if (K == tok::greatergreater) {
+-      if (AngleDepth <= 1)
+-        return false;
+-      AngleDepth -= 2;
+-    } else if (K == tok::greater) {
+-      if (AngleDepth == 0)
+-        return false;
+-      --AngleDepth;
+-    }
+-  }
+-  return false;
+-}
+-
+ bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
+                                              SourceRange &Range,
+                                              bool AllowTypeNameFallback) {
+@@ -97,9 +54,13 @@ bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
+ }
+ 
+ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+-  if (!getLangOpts().CPlusPlusMG ||
+-      !Tok.isOneOf(tok::identifier, tok::coloncolon, tok::l_paren) ||
+-      !hasTopLevelCXXMGImplementsKeyword(*this))
++  if (!getLangOpts().CPlusPlusMG)
++    return ExprEmpty();
++
++  if (!Tok.isOneOf(tok::identifier, tok::coloncolon, tok::l_paren,
++                   tok::kw_decltype, tok::kw_typename, tok::annot_typename,
++                   tok::annot_template_id) &&
++      !isKnownToBeTypeSpecifier(Tok))
+     return ExprEmpty();
+ 
+   if (Tok.is(tok::l_paren)) {
+-- 
+2.54.0.windows.1
+
