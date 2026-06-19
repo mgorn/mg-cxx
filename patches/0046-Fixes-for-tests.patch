@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 21:36:02 -0400
-Subject: [PATCH 46/56] Fixes for tests
+Subject: [PATCH 46/59] Fixes for tests
 
 
 diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
-index 947dfced7c34..a55be54a0d3c 100644
+index 7fa0997bfa14..6e692b8858b6 100644
 --- a/clang/include/clang/Options/Options.td
 +++ b/clang/include/clang/Options/Options.td
-@@ -3375,6 +3375,11 @@ defm experimental_pointer_field_protection_tagged
+@@ -3392,6 +3392,11 @@ defm experimental_pointer_field_protection_tagged
  def fcxx_abi_EQ : Joined<["-"], "fc++-abi=">,
                    Group<f_clang_Group>, Visibility<[ClangOption, CC1Option]>,
                    HelpText<"C++ ABI to use. This will override the target C++ ABI.">;
@@ -330,5 +330,5 @@ index a6834ccac2f0..a4df2ae8a965 100644
  
  trait generator {
 -- 
-2.54.0
+2.54.0.windows.1
 

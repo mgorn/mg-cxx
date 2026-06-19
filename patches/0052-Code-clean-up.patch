@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Wed, 10 Jun 2026 20:40:08 -0400
-Subject: [PATCH 52/56] Code clean-up
+Subject: [PATCH 52/59] Code clean-up
 
 Goes through the net changes so far and cleans up a lot of bad code. Moved CXXMG declaration Sema ownership into SemaDeclCXXMG.cpp and removed duplicate bodies from SemaDeclCXX.cpp. Fixed conditional-member parser/AST lifetimes by replacing stored ArrayRef decl lists with owned decl storage plus arm index/count ranges. Added the non-CXXMG class-scope if parser guard. Split CXXMG expression factories into new ExprCXXMG.cpp. Added CXXMGImplementsExpr ASTImporter support. Implemented TreeTransform rebuild support for CXXMGTypeCheckExpr.
 
@@ -108,10 +108,10 @@ index 821b333df6c6..ee3de3f38052 100644
    Decl *ActOnCXXMGTraitAssociatedTypeRequirement(
        Scope *S, Decl *TraitDecl, SourceLocation UsingLoc,
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index 809f1ce14d7c..6469db29d154 100644
+index f3b61e1adc27..cef31141ae69 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
-@@ -694,6 +694,7 @@ namespace clang {
+@@ -695,6 +695,7 @@ namespace clang {
      ExpectedStmt VisitCXXNamedCastExpr(CXXNamedCastExpr *E);
      ExpectedStmt VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E);
      ExpectedStmt VisitTypeTraitExpr(TypeTraitExpr *E);
@@ -119,7 +119,7 @@ index 809f1ce14d7c..6469db29d154 100644
      ExpectedStmt VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E);
      ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
      ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
-@@ -1716,6 +1717,34 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+@@ -1717,6 +1718,34 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
    return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
  }
  
@@ -232,7 +232,7 @@ index a097e4dfe7e5..d32ee7833cbe 100644
                                             Arm.IsElseArm},
                   Ctx);
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index ade4eb8bd3e0..014f2bf69f0b 100644
+index e01e7f99308d..25db5d21ea22 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -22,7 +22,6 @@
@@ -749,10 +749,10 @@ index 8061da693393..18d75d43ceea 100644
 \ No newline at end of file
 +}
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index e0fabad20b43..f97d43f08d91 100644
+index e0253b2b1dee..f3ee08532b81 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
-@@ -2917,10 +2917,8 @@ static bool CXXMGRecordHasConditionalMemberExpressionCandidate(
+@@ -2918,10 +2918,8 @@ static bool CXXMGRecordHasConditionalMemberExpressionCandidate(
      if (FirstPossibleArm == CXXMGInvalidConditionalMemberArmIndex)
        continue;
  
@@ -766,7 +766,7 @@ index e0fabad20b43..f97d43f08d91 100644
            return true;
        }
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 90aa0f32606a..a4d2b73e5d3e 100644
+index 7b02155b9373..0eb9abd1a1d7 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
 @@ -3657,7 +3657,8 @@ bool Sema::InstantiateClassImpl(
@@ -852,5 +852,5 @@ index 85b8dfc2ce13..2227093b51ab 100644
    }
    Code = serialization::DECL_CXXMG_CONDITIONAL_MEMBER;
 -- 
-2.54.0
+2.54.0.windows.1
 

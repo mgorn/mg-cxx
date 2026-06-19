@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Fri, 22 May 2026 19:20:14 -0400
-Subject: [PATCH 18/56] clang-mg: update conditional-members
+Subject: [PATCH 18/59] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Basic/Features.def b/clang/include/clang/Basic/Features.def
@@ -19,10 +19,10 @@ index 2f7741ff74f9..b5a8fd2cb128 100644
  FEATURE(cuda_noinline_keyword, LangOpts.CUDA)
  EXTENSION(cuda_implicit_host_device_templates, LangOpts.CUDA && LangOpts.OffloadImplicitHostDeviceTemplates)
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 3f0468a93814..179b366ceaa3 100644
+index ec009211ec6d..e9b38d527d24 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
-@@ -755,6 +755,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
+@@ -759,6 +759,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
    if (LangOpts.Char8)
      Builder.defineMacro("__cpp_char8_t", "202207L");
    Builder.defineMacro("__cpp_impl_destroying_delete", "201806L");
@@ -228,5 +228,5 @@ index 000000000000..d306aa92f7ce
 +  (void)value.enabled; // expected-error {{no member named 'enabled'}}
 +}
 -- 
-2.54.0
+2.54.0.windows.1
 

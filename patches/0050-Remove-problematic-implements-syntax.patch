@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 23:48:11 -0400
-Subject: [PATCH 50/56] Remove problematic implements syntax
+Subject: [PATCH 50/59] Remove problematic implements syntax
 
 Removes the problematic <> shorthand for the 'implements' keyword.
 
@@ -71,7 +71,7 @@ index 8313d22a8853..821b333df6c6 100644
    /// Enter a new C++ default initializer scope. After calling this, the
    /// caller must call \ref ActOnFinishCXXInClassMemberInitializer, even if
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index 30cef70871bb..ade4eb8bd3e0 100644
+index 66a454a13e93..e01e7f99308d 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -106,10 +106,9 @@ CXXMGImplementsExpr *
@@ -100,7 +100,7 @@ index c4d8822bdcba..ad17bfbee944 100644
      TSI->getType().print(OS, Policy);
  }
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 328b0f9cca8e..af25ff40c5cf 100644
+index d9400087211f..2e8a3b69c8f1 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -2303,7 +2303,6 @@ void StmtProfiler::VisitCXXMGImplementsExpr(const CXXMGImplementsExpr *S) {
@@ -112,7 +112,7 @@ index 328b0f9cca8e..af25ff40c5cf 100644
  
  void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index c093409ebb56..ec58cc32a5b8 100644
+index 3835e211e994..685c4b7ee60f 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -1835,7 +1835,7 @@ void TextNodeDumper::VisitTypeTraitExpr(const TypeTraitExpr *Node) {
@@ -544,5 +544,5 @@ index b66a717b64ce..d48ee016b7f6 100644
 -static_assert(!(Box<int> <> BoolValueTrait));
 -static_assert(Box<bool> <> BoolValueTrait);
 -- 
-2.54.0
+2.54.0.windows.1
 

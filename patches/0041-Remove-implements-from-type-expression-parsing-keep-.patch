@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 18:51:39 -0400
-Subject: [PATCH 41/56] Remove "implements" from type expression parsing, keep
+Subject: [PATCH 41/59] Remove "implements" from type expression parsing, keep
  only in traits
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -15,10 +15,10 @@ The semantic information for the `Implements` opcode is also removed from S[1D
 Sema, as its usage was superseded by new predicate logic.
 
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index f02ff4e7ad3b..1d20df1a8b8c 100644
+index 02ccf95aff20..d2a9b8b29578 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
-@@ -1878,10 +1878,6 @@ def err_cxxmg_type_expr_invalid_operator_alias :
+@@ -1882,10 +1882,6 @@ def err_cxxmg_type_expr_invalid_operator_alias :
    Error<"operator %0 does not produce a type in a type alias expression">;
  def err_cxxmg_type_expr_invalid_operator_predicate :
    Error<"operator %0 is not supported in a type predicate expression">;
@@ -270,5 +270,5 @@ index d5492a934d10..1c21f5ab52e0 100644
    llvm_unreachable("not a C++MG type-expression operator");
  }
 -- 
-2.54.0
+2.54.0.windows.1
 

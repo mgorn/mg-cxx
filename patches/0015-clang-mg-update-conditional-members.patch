@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Wed, 20 May 2026 16:00:06 -0400
-Subject: [PATCH 15/56] clang-mg: update conditional-members
+Subject: [PATCH 15/59] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
-index cc4b4ff9db27..914c8a6276c2 100644
+index 28d171253dc0..bdd907fb299d 100644
 --- a/clang/include/clang/AST/DeclCXX.h
 +++ b/clang/include/clang/AST/DeclCXX.h
 @@ -51,6 +51,8 @@
@@ -301,5 +301,5 @@ index 324d6bf3857c..7563e00c0e8b 100644
                                                  FunctionDecl *Orig, QualType &T,
                                                  TypeSourceInfo *&TInfo,
 -- 
-2.54.0
+2.54.0.windows.1
 

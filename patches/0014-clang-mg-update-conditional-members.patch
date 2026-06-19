@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 19 May 2026 14:26:59 -0400
-Subject: [PATCH 14/56] clang-mg: update conditional-members
+Subject: [PATCH 14/59] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Parse/CMakeLists.txt b/clang/lib/Parse/CMakeLists.txt
@@ -144,5 +144,5 @@ index 000000000000..b2d281464004
 +}
 \ No newline at end of file
 -- 
-2.54.0
+2.54.0.windows.1
 

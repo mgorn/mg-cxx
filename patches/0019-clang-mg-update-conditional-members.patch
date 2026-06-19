@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 4 Jun 2026 19:41:42 -0400
-Subject: [PATCH 19/56] clang-mg: update conditional-members
+Subject: [PATCH 19/59] clang-mg: update conditional-members
 
 
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index ad6e7183cb3a..825d15398fcd 100644
+index 675d0bd389e2..1899cd97f9ba 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
-@@ -2814,6 +2814,156 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
+@@ -2815,6 +2815,156 @@ recoverFromMSUnqualifiedLookup(Sema &S, ASTContext &Context,
        TemplateArgs);
  }
  
@@ -165,7 +165,7 @@ index ad6e7183cb3a..825d15398fcd 100644
  ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                                     SourceLocation TemplateKWLoc,
                                     UnqualifiedId &Id, bool HasTrailingLParen,
-@@ -2918,6 +3068,12 @@ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
+@@ -2919,6 +3069,12 @@ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
    bool ADL = UseArgumentDependentLookup(SS, R, HasTrailingLParen);
  
    if (R.empty() && !ADL) {
@@ -287,5 +287,5 @@ index d306aa92f7ce..d30fa7112a00 100644
 +template struct CXXMGDependentElseIfAfterKnownFalse<true>;
 +template struct CXXMGDependentElseIfAfterKnownFalse<false>;
 -- 
-2.54.0
+2.54.0.windows.1
 

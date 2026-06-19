@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 21 May 2026 20:32:16 -0400
-Subject: [PATCH 16/56] clang-mg: update conditional-members
+Subject: [PATCH 16/59] clang-mg: update conditional-members
 
 
 diff --git a/clang/include/clang/Parse/Parser.h b/clang/include/clang/Parse/Parser.h
@@ -378,7 +378,7 @@ index 418ff01f3d98..f1c494552f91 100644
  
    if (isInstField) {
 diff --git a/clang/lib/Sema/SemaTemplateInstantiate.cpp b/clang/lib/Sema/SemaTemplateInstantiate.cpp
-index 5309ec4430e9..96561efc5050 100644
+index 427b634a92e4..aa2fe65888dc 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiate.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiate.cpp
 @@ -3590,7 +3590,47 @@ bool Sema::InstantiateClassImpl(
@@ -537,5 +537,5 @@ index 7563e00c0e8b..699b080e9751 100644
    if (CXXRecordDecl *Parent= dyn_cast<CXXRecordDecl>(Field->getDeclContext())) {
      if (Parent->isAnonymousStructOrUnion() &&
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Mon, 11 May 2026 17:50:26 -0400
-Subject: [PATCH 01/56] clang-mg: add change-bin-name
+Subject: [PATCH 01/59] clang-mg: add change-bin-name
 
 
 diff --git a/clang/CMakeLists.txt b/clang/CMakeLists.txt
-index db79131af9c1..8e40651b15bc 100644
+index cd7ba53b0306..0e559902db34 100644
 --- a/clang/CMakeLists.txt
 +++ b/clang/CMakeLists.txt
 @@ -1,6 +1,10 @@
@@ -49,5 +49,5 @@ index 002aaef00525..0ca3b7dc194c 100644
  
  if (CLANG_ENABLE_HLSL)
 -- 
-2.54.0
+2.54.0.windows.1
 

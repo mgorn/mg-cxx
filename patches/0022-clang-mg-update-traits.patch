@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:23:48 -0400
-Subject: [PATCH 22/56] clang-mg: update traits
+Subject: [PATCH 22/59] clang-mg: update traits
 
 
 diff --git a/clang/lib/Sema/CMakeLists.txt b/clang/lib/Sema/CMakeLists.txt
@@ -97,5 +97,5 @@ index 000000000000..2f50d8cb4e3c
 +}
 \ No newline at end of file
 -- 
-2.54.0
+2.54.0.windows.1
 

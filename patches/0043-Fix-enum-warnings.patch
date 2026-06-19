@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 19:31:27 -0400
-Subject: [PATCH 43/56] Fix enum warnings
+Subject: [PATCH 43/59] Fix enum warnings
 
 
 diff --git a/clang/include/clang/AST/CXXMGTypeExpr.h b/clang/include/clang/AST/CXXMGTypeExpr.h
@@ -123,10 +123,10 @@ index eb65f560f88d..7777373898de 100644
      TypeSourceInfo *OperandTSI, SourceRange Range, bool Dependent,
      bool InstantiationDependent, bool ContainsUnexpandedParameterPack)
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index 24698fc0ec67..30cef70871bb 100644
+index 8587eb25317e..66a454a13e93 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
-@@ -3820,6 +3820,8 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
+@@ -3821,6 +3821,8 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
    case TypeTraitExprClass:
    case ArrayTypeTraitExprClass:
    case ExpressionTraitExprClass:
@@ -149,10 +149,10 @@ index d153afda71c4..d83725d87e52 100644
    case Expr::ObjCProtocolExprClass:
    case Expr::ObjCStringLiteralClass:
 diff --git a/clang/lib/AST/ExprConstant.cpp b/clang/lib/AST/ExprConstant.cpp
-index d52f94a22597..7be6e4ceca74 100644
+index 3283769b0ec3..26cfbcf57c74 100644
 --- a/clang/lib/AST/ExprConstant.cpp
 +++ b/clang/lib/AST/ExprConstant.cpp
-@@ -21929,6 +21929,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
+@@ -21930,6 +21930,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
    case Expr::CXXBoolLiteralExprClass:
    case Expr::CXXScalarValueInitExprClass:
    case Expr::TypeTraitExprClass:
@@ -162,7 +162,7 @@ index d52f94a22597..7be6e4ceca74 100644
    case Expr::RequiresExprClass:
    case Expr::ArrayTypeTraitExprClass:
 diff --git a/clang/lib/AST/ItaniumMangle.cpp b/clang/lib/AST/ItaniumMangle.cpp
-index df7574f254a1..d0d0fbc2c58e 100644
+index d572cea120fd..0c2e2eb30d1f 100644
 --- a/clang/lib/AST/ItaniumMangle.cpp
 +++ b/clang/lib/AST/ItaniumMangle.cpp
 @@ -24,6 +24,7 @@
@@ -189,7 +189,7 @@ index df7574f254a1..d0d0fbc2c58e 100644
      Out << "Ts";
      break;
    case ElaboratedTypeKeyword::Union:
-@@ -5039,6 +5042,7 @@ recurse:
+@@ -5041,6 +5044,7 @@ recurse:
    case Expr::StmtExprClass:
    case Expr::ArrayTypeTraitExprClass:
    case Expr::ExpressionTraitExprClass:
@@ -197,7 +197,7 @@ index df7574f254a1..d0d0fbc2c58e 100644
    case Expr::VAArgExprClass:
    case Expr::CUDAKernelCallExprClass:
    case Expr::AsTypeExprClass:
-@@ -5482,6 +5486,19 @@ recurse:
+@@ -5484,6 +5488,19 @@ recurse:
      break;
    }
  
@@ -230,10 +230,10 @@ index 411d0af7a1eb..d4f5cb69d438 100644
      break;
    case TagTypeKind::Class:
 diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
-index cedda36ade27..40d7f1723f84 100644
+index 8656f3757a07..736809ce20e4 100644
 --- a/clang/lib/AST/Type.cpp
 +++ b/clang/lib/AST/Type.cpp
-@@ -5202,6 +5202,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
+@@ -5205,6 +5205,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
    case Type::TypeOf:
    case Type::Decltype:
    case Type::PackIndexing:
@@ -242,7 +242,7 @@ index cedda36ade27..40d7f1723f84 100644
    case Type::TemplateTypeParm:
    case Type::SubstTemplateTypeParmPack:
 diff --git a/clang/lib/AST/TypePrinter.cpp b/clang/lib/AST/TypePrinter.cpp
-index 2646d0ee9abe..bdb2e362ba98 100644
+index 46be3ae6df87..9d2967444336 100644
 --- a/clang/lib/AST/TypePrinter.cpp
 +++ b/clang/lib/AST/TypePrinter.cpp
 @@ -263,6 +263,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
@@ -337,7 +337,7 @@ index 5b1aad3fa847..b6ad89b58ce2 100644
    case TST_class:
    case TST_auto:
 diff --git a/clang/lib/Sema/SemaType.cpp b/clang/lib/Sema/SemaType.cpp
-index ea4a6fb208dc..e1287326cc21 100644
+index d2bb312feadc..8439c81d119d 100644
 --- a/clang/lib/Sema/SemaType.cpp
 +++ b/clang/lib/Sema/SemaType.cpp
 @@ -1217,6 +1217,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
@@ -417,5 +417,5 @@ index c4788dd6917f..cf4bd7b2459a 100644
        Out << "@U";
        break;
 -- 
-2.54.0
+2.54.0.windows.1
 

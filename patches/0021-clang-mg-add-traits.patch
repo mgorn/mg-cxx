@@ -1,11 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 19:15:17 -0400
-Subject: [PATCH 21/56] clang-mg: add traits
+Subject: [PATCH 21/59] clang-mg: add traits
 
 
 diff --git a/clang/include/clang/AST/Decl.h b/clang/include/clang/AST/Decl.h
-index 620206612f98..6c1af78c33f3 100644
+index e0623d0cb324..467122d0b7b6 100644
 --- a/clang/include/clang/AST/Decl.h
 +++ b/clang/include/clang/AST/Decl.h
 @@ -3948,6 +3948,7 @@ public:
@@ -17,10 +17,10 @@ index 620206612f98..6c1af78c33f3 100644
  
    bool isStructureOrClass() const {
 diff --git a/clang/include/clang/AST/DeclCXX.h b/clang/include/clang/AST/DeclCXX.h
-index 914c8a6276c2..036886d51ae7 100644
+index bdd907fb299d..c4bc3d59d500 100644
 --- a/clang/include/clang/AST/DeclCXX.h
 +++ b/clang/include/clang/AST/DeclCXX.h
-@@ -1920,6 +1920,7 @@ public:
+@@ -1933,6 +1933,7 @@ public:
    // Determine whether this type is an Interface Like type for
    // __interface inheritance purposes.
    bool isInterfaceLike() const;
@@ -28,7 +28,7 @@ index 914c8a6276c2..036886d51ae7 100644
  
    static bool classof(const Decl *D) { return classofKind(D->getKind()); }
    static bool classofKind(Kind K) {
-@@ -2127,6 +2128,49 @@ public:
+@@ -2140,6 +2141,49 @@ public:
    }
  };
  
@@ -103,10 +103,10 @@ index 0c515556a8b8..7a5883b45c53 100644
    void VisitCXXRecordDecl(const CXXRecordDecl *D);
    void VisitFunctionTemplateDecl(const FunctionTemplateDecl *D);
 diff --git a/clang/include/clang/AST/TypeBase.h b/clang/include/clang/AST/TypeBase.h
-index e3141a82b54d..45e74017f3c1 100644
+index c9658775f047..3edfe5a4c71c 100644
 --- a/clang/include/clang/AST/TypeBase.h
 +++ b/clang/include/clang/AST/TypeBase.h
-@@ -5981,6 +5981,9 @@ enum class ElaboratedTypeKeyword {
+@@ -5983,6 +5983,9 @@ enum class ElaboratedTypeKeyword {
    /// The "enum" keyword introduces the elaborated-type-specifier.
    Enum,
  
@@ -116,7 +116,7 @@ index e3141a82b54d..45e74017f3c1 100644
    /// The "typename" keyword precedes the qualified type name, e.g.,
    /// \c typename T::type.
    Typename,
-@@ -6004,7 +6007,10 @@ enum class TagTypeKind {
+@@ -6006,7 +6009,10 @@ enum class TagTypeKind {
    Class,
  
    /// The "enum" keyword.
@@ -141,7 +141,7 @@ index d4ddffc2c982..6cf5f9c3f25c 100644
 +def CXXMGConditionalMember : DeclNode<Decl>;
 +def TraitRequirement : DeclNode<Named>;
 diff --git a/clang/include/clang/Basic/DiagnosticParseKinds.td b/clang/include/clang/Basic/DiagnosticParseKinds.td
-index 0dc7d0fbeac0..05cd0e37e0a8 100644
+index 4c2db88958e5..c7a74783ac35 100644
 --- a/clang/include/clang/Basic/DiagnosticParseKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticParseKinds.td
 @@ -639,6 +639,10 @@ def err_expected_member_or_base_name : Error<
@@ -156,10 +156,10 @@ index 0dc7d0fbeac0..05cd0e37e0a8 100644
    "missing '}' at end of definition of %q0">;
  def note_missing_end_of_definition_before : Note<
 diff --git a/clang/include/clang/Basic/DiagnosticSemaKinds.td b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-index a3b575b7ee63..d5ce891ce9f1 100644
+index f7fba8df1e4d..a3e6d4eccd0c 100644
 --- a/clang/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/clang/include/clang/Basic/DiagnosticSemaKinds.td
-@@ -7829,6 +7829,17 @@ def err_typecheck_pointer_arith_void_type : Error<
+@@ -7832,6 +7832,17 @@ def err_typecheck_pointer_arith_void_type : Error<
    "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
  def err_typecheck_decl_incomplete_type : Error<
    "variable has incomplete type %0">;
@@ -314,10 +314,10 @@ index 8a96f3ab6453..8180d7be0607 100644
      case ObjCTypeParam:
        return IDNS_Ordinary | IDNS_Type;
 diff --git a/clang/lib/AST/DeclCXX.cpp b/clang/lib/AST/DeclCXX.cpp
-index fc8a15287f43..d77f81c7d8ae 100644
+index ce4ba971a463..fd6dbf37762b 100644
 --- a/clang/lib/AST/DeclCXX.cpp
 +++ b/clang/lib/AST/DeclCXX.cpp
-@@ -2409,6 +2409,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
+@@ -2410,6 +2410,23 @@ RequiresExprBodyDecl::CreateDeserialized(ASTContext &C, GlobalDeclID ID) {
    return new (C, ID) RequiresExprBodyDecl(C, nullptr, SourceLocation());
  }
  
@@ -342,10 +342,10 @@ index fc8a15287f43..d77f81c7d8ae 100644
  
  bool CXXMethodDecl::isStatic() const {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index 2b1c0cac25b6..49a39ea7cd85 100644
+index f0064362abbc..52bd61a56da2 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
-@@ -2702,6 +2702,14 @@ void TextNodeDumper::VisitTypeAliasDecl(const TypeAliasDecl *D) {
+@@ -2705,6 +2705,14 @@ void TextNodeDumper::VisitTypeAliasDecl(const TypeAliasDecl *D) {
    }
  }
  
@@ -361,10 +361,10 @@ index 2b1c0cac25b6..49a39ea7cd85 100644
      const TypeAliasTemplateDecl *D) {
    dumpName(D);
 diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
-index 55c3e5c3ead1..cd1f3cd0ccc3 100644
+index b7bef40ca89f..99235e803ae2 100644
 --- a/clang/lib/AST/Type.cpp
 +++ b/clang/lib/AST/Type.cpp
-@@ -3354,6 +3354,8 @@ ElaboratedTypeKeyword KeywordHelpers::getKeywordForTypeSpec(unsigned TypeSpec) {
+@@ -3357,6 +3357,8 @@ ElaboratedTypeKeyword KeywordHelpers::getKeywordForTypeSpec(unsigned TypeSpec) {
      return ElaboratedTypeKeyword::Struct;
    case TST_interface:
      return ElaboratedTypeKeyword::Interface;
@@ -373,7 +373,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TST_union:
      return ElaboratedTypeKeyword::Union;
    case TST_enum:
-@@ -3369,6 +3371,8 @@ TagTypeKind KeywordHelpers::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
+@@ -3372,6 +3374,8 @@ TagTypeKind KeywordHelpers::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
      return TagTypeKind::Struct;
    case TST_interface:
      return TagTypeKind::Interface;
@@ -382,7 +382,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TST_union:
      return TagTypeKind::Union;
    case TST_enum:
-@@ -3387,6 +3391,8 @@ KeywordHelpers::getKeywordForTagTypeKind(TagTypeKind Kind) {
+@@ -3390,6 +3394,8 @@ KeywordHelpers::getKeywordForTagTypeKind(TagTypeKind Kind) {
      return ElaboratedTypeKeyword::Struct;
    case TagTypeKind::Interface:
      return ElaboratedTypeKeyword::Interface;
@@ -391,7 +391,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case TagTypeKind::Union:
      return ElaboratedTypeKeyword::Union;
    case TagTypeKind::Enum:
-@@ -3404,6 +3410,8 @@ KeywordHelpers::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
+@@ -3407,6 +3413,8 @@ KeywordHelpers::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
      return TagTypeKind::Struct;
    case ElaboratedTypeKeyword::Interface:
      return TagTypeKind::Interface;
@@ -400,7 +400,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case ElaboratedTypeKeyword::Union:
      return TagTypeKind::Union;
    case ElaboratedTypeKeyword::Enum:
-@@ -3423,6 +3431,7 @@ bool KeywordHelpers::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
+@@ -3426,6 +3434,7 @@ bool KeywordHelpers::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
    case ElaboratedTypeKeyword::Class:
    case ElaboratedTypeKeyword::Struct:
    case ElaboratedTypeKeyword::Interface:
@@ -408,7 +408,7 @@ index 55c3e5c3ead1..cd1f3cd0ccc3 100644
    case ElaboratedTypeKeyword::Union:
    case ElaboratedTypeKeyword::Enum:
      return true;
-@@ -3442,6 +3451,8 @@ StringRef KeywordHelpers::getKeywordName(ElaboratedTypeKeyword Keyword) {
+@@ -3445,6 +3454,8 @@ StringRef KeywordHelpers::getKeywordName(ElaboratedTypeKeyword Keyword) {
      return "struct";
    case ElaboratedTypeKeyword::Interface:
      return "__interface";
@@ -442,10 +442,10 @@ index a2e9316e4e37..4f6c8ea04477 100644
  
  static void MarkIdentifierAsKeywordInCpp(IdentifierTable &Table,
 diff --git a/clang/lib/Frontend/InitPreprocessor.cpp b/clang/lib/Frontend/InitPreprocessor.cpp
-index 179b366ceaa3..8aa0faebe182 100644
+index e9b38d527d24..7c6e7aa9cd3e 100644
 --- a/clang/lib/Frontend/InitPreprocessor.cpp
 +++ b/clang/lib/Frontend/InitPreprocessor.cpp
-@@ -758,6 +758,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
+@@ -762,6 +762,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
  
    if (LangOpts.CPlusPlusMG) {
      Builder.defineMacro("__cxxmg_if_constexpr_member", "202604L");
@@ -735,10 +735,10 @@ index 772ba10bde50..c2a789471adf 100644
  Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
                                 MultiTemplateParamsArg TemplateParameterLists,
 diff --git a/clang/lib/Sema/SemaExpr.cpp b/clang/lib/Sema/SemaExpr.cpp
-index 825d15398fcd..e0fabad20b43 100644
+index 1899cd97f9ba..e0253b2b1dee 100644
 --- a/clang/lib/Sema/SemaExpr.cpp
 +++ b/clang/lib/Sema/SemaExpr.cpp
-@@ -4872,6 +4872,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
+@@ -4873,6 +4873,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
    if (const ReferenceType *Ref = ExprType->getAs<ReferenceType>())
      ExprType = Ref->getPointeeType();
  
@@ -952,5 +952,5 @@ index 000000000000..689ee6791de1
 +// CHECK: TraitRequirementDecl {{.*}} type AssociatedTypeAny
 +// CHECK: TraitRequirementDecl {{.*}} staticFn StaticFunctionAnyReturn
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 30 May 2026 01:10:55 -0400
-Subject: [PATCH 36/56] clang-mg: update type-expressions
+Subject: [PATCH 36/59] clang-mg: update type-expressions
 
 
 diff --git a/clang/include/clang/AST/ExprCXXMG.h b/clang/include/clang/AST/ExprCXXMG.h
@@ -97,10 +97,10 @@ index ea1c89e8bcb7..11bebd4173f4 100644
  
  #endif
 diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
-index f52f1723bf6a..809f1ce14d7c 100644
+index c00ba8b52b5c..f3b61e1adc27 100644
 --- a/clang/lib/AST/ASTImporter.cpp
 +++ b/clang/lib/AST/ASTImporter.cpp
-@@ -694,6 +694,7 @@ namespace clang {
+@@ -695,6 +695,7 @@ namespace clang {
      ExpectedStmt VisitCXXNamedCastExpr(CXXNamedCastExpr *E);
      ExpectedStmt VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E);
      ExpectedStmt VisitTypeTraitExpr(TypeTraitExpr *E);
@@ -108,7 +108,7 @@ index f52f1723bf6a..809f1ce14d7c 100644
      ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
      ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
      ExpectedStmt VisitRequiresExpr(RequiresExpr* E);
-@@ -1715,8 +1716,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
+@@ -1716,8 +1717,6 @@ ASTNodeImporter::VisitCXXMGTypeExprType(const CXXMGTypeExprType *T) {
    return Importer.getToContext().getCXXMGTypeExprType(*NodeOrErr);
  }
  
@@ -117,7 +117,7 @@ index f52f1723bf6a..809f1ce14d7c 100644
  ExpectedStmt
  ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    Expected<CXXMGTypeExprNode *> NodeOrErr =
-@@ -1725,9 +1724,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
+@@ -1726,9 +1725,12 @@ ASTNodeImporter::VisitCXXMGTypeCheckExpr(CXXMGTypeCheckExpr *E) {
    if (!NodeOrErr)
      return NodeOrErr.takeError();
  
@@ -150,7 +150,7 @@ index ca6577af26c2..b837efeaf512 100644
    }
  
 diff --git a/clang/lib/AST/Expr.cpp b/clang/lib/AST/Expr.cpp
-index d62de57f5859..24698fc0ec67 100644
+index 5fbb9e7fa2b0..8587eb25317e 100644
 --- a/clang/lib/AST/Expr.cpp
 +++ b/clang/lib/AST/Expr.cpp
 @@ -43,20 +43,35 @@
@@ -202,7 +202,7 @@ index d62de57f5859..24698fc0ec67 100644
  
  CXXMGTypeCheckExpr *CXXMGTypeCheckExpr::CreateEmpty(ASTContext &Ctx) {
 diff --git a/clang/lib/AST/ExprConstant.cpp b/clang/lib/AST/ExprConstant.cpp
-index 1642c41a99a2..d52f94a22597 100644
+index 6ac16c2b831d..3283769b0ec3 100644
 --- a/clang/lib/AST/ExprConstant.cpp
 +++ b/clang/lib/AST/ExprConstant.cpp
 @@ -44,6 +44,7 @@
@@ -213,7 +213,7 @@ index 1642c41a99a2..d52f94a22597 100644
  #include "clang/AST/InferAlloc.h"
  #include "clang/AST/OSLog.h"
  #include "clang/AST/OptionalDiagnostic.h"
-@@ -15570,6 +15571,16 @@ public:
+@@ -15575,6 +15576,16 @@ public:
      return Success(E->getAPValue().getInt(), E);
    }
  
@@ -231,7 +231,7 @@ index 1642c41a99a2..d52f94a22597 100644
      return Success(E->getValue(), E);
    }
 diff --git a/clang/lib/AST/StmtProfile.cpp b/clang/lib/AST/StmtProfile.cpp
-index 14d3af0696a2..328b0f9cca8e 100644
+index 246cba2d5bd8..d9400087211f 100644
 --- a/clang/lib/AST/StmtProfile.cpp
 +++ b/clang/lib/AST/StmtProfile.cpp
 @@ -2320,6 +2320,9 @@ void StmtProfiler::VisitCXXMGTypeExprNode(const CXXMGTypeExprNode *Node) {
@@ -245,7 +245,7 @@ index 14d3af0696a2..328b0f9cca8e 100644
  
  void StmtProfiler::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *S) {
 diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
-index e69a2c70d418..c093409ebb56 100644
+index f4dafd38fffc..3835e211e994 100644
 --- a/clang/lib/AST/TextNodeDumper.cpp
 +++ b/clang/lib/AST/TextNodeDumper.cpp
 @@ -1841,8 +1841,10 @@ void TextNodeDumper::VisitCXXMGImplementsExpr(
@@ -453,5 +453,5 @@ index 000000000000..5480e6fcc4ba
 +static_assert(has_generator_static_local<ninja_backend>());
 +static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.54.0.windows.1
 

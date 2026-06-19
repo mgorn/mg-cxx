@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Sat, 23 May 2026 00:08:28 -0400
-Subject: [PATCH 20/56] clang-mg: add mac-sdk-discovery
+Subject: [PATCH 20/59] clang-mg: add mac-sdk-discovery
 
 
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
@@ -52,5 +52,5 @@ index 59744d1cb3e8..f57d319302c3 100644
    }
  
 -- 
-2.54.0
+2.54.0.windows.1
 

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Thu, 11 Jun 2026 18:12:02 -0400
-Subject: [PATCH 54/56] Fix parse bug
+Subject: [PATCH 54/59] Fix parse bug
 
 Fixed the focused parser regression under work/llvm-project/.
 Changed:
@@ -47,5 +47,5 @@ index 1a33f2e7d695..d76592b04cca 100644
      DeclEnd = Tok.getLocation();
      SkipUntil(tok::semi);
 -- 
-2.54.0
+2.54.0.windows.1
 

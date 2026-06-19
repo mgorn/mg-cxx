@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mike <michaelgorney4@gmail.com>
 Date: Tue, 9 Jun 2026 21:53:39 -0400
-Subject: [PATCH 47/56] Remove "implements" from type-expressions
+Subject: [PATCH 47/59] Remove "implements" from type-expressions
 
 Removed Implements from CXXMGTypeExprOpcode.
 Removed type-expression predicate parsing from ParseCXXMGTypeExpr.cpp and its probes from ParseExpr.cpp.
@@ -1117,5 +1117,5 @@ index a4df2ae8a965..000000000000
 -static_assert(has_generator_static_local<ninja_backend>());
 -static_assert(!has_generator_static_local<empty_backend>());
 -- 
-2.54.0
+2.54.0.windows.1
 
