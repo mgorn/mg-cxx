@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Fri, 19 Jun 2026 03:01:14 -0400
+Subject: [PATCH] Proper parsing prefilter
+
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index 84928e8b002b..72b1845393d1 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -11,13 +11,87 @@ static bool isCXXMGImplementsFollowOperator(Parser &P) {
+   return P.NextToken().is(tok::kw_implements);
+ }
+ 
++static bool hasCXXMGImplementsBeforeExpressionBoundary(Parser &P) {
++  unsigned AngleDepth = 0;
++  unsigned ParenDepthInAngle = 0;
++  unsigned SquareDepthInAngle = 0;
++
++  for (unsigned I = 0; I != 128; ++I) {
++    tok::TokenKind K = P.GetLookAheadToken(I).getKind();
++
++    if (K == tok::kw_implements && AngleDepth == 0)
++      return true;
++
++    if (K == tok::eof || K == tok::semi || K == tok::l_brace ||
++        K == tok::r_brace)
++      return false;
++
++    if (AngleDepth == 0) {
++      if (K == tok::comma || K == tok::r_paren || K == tok::l_paren ||
++          K == tok::r_square || K == tok::question || K == tok::pipepipe ||
++          K == tok::ampamp)
++        return false;
++    } else {
++      if (K == tok::l_paren) {
++        ++ParenDepthInAngle;
++        continue;
++      }
++
++      if (K == tok::r_paren) {
++        if (ParenDepthInAngle == 0)
++          return false;
++        --ParenDepthInAngle;
++        continue;
++      }
++
++      if (K == tok::l_square) {
++        ++SquareDepthInAngle;
++        continue;
++      }
++
++      if (K == tok::r_square) {
++        if (SquareDepthInAngle == 0)
++          return false;
++        --SquareDepthInAngle;
++        continue;
++      }
++    }
++
++    if (K == tok::less) {
++      ++AngleDepth;
++      continue;
++    }
++
++    if (K == tok::greatergreater) {
++      if (AngleDepth < 2)
++        return false;
++      AngleDepth -= 2;
++      continue;
++    }
++
++    if (K == tok::greater) {
++      if (AngleDepth == 0)
++        return false;
++      --AngleDepth;
++      continue;
++    }
++  }
++
++  return false;
++}
++
+ bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
+                                              SourceRange &Range,
+                                              bool AllowTypeNameFallback) {
+-  (void)AllowTypeNameFallback;
+   TSI = nullptr;
+   Range = SourceRange();
+ 
++  if (!AllowTypeNameFallback &&
++      !Tok.isOneOf(tok::annot_typename, tok::annot_template_id,
++                   tok::kw_decltype, tok::kw_typename) &&
++      !isKnownToBeTypeSpecifier(Tok))
++    return false;
++
+   if ((Tok.is(tok::identifier) && NextToken().is(tok::coloncolon)) ||
+       Tok.is(tok::coloncolon)) {
+     if (TryAnnotateTypeOrScopeToken())
+@@ -76,11 +150,14 @@ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+     return Inner;
+   }
+ 
++  if (!hasCXXMGImplementsBeforeExpressionBoundary(*this))
++    return ExprEmpty();
++
+   TentativeParsingAction TPA(*this);
+   TypeSourceInfo *CandidateTSI = nullptr;
+   SourceRange CandidateRange;
+   if (!ParseCXXMGImplementsTypeOperand(CandidateTSI, CandidateRange,
+-                                       /*AllowTypeNameFallback=*/false)) {
++                                       /*AllowTypeNameFallback=*/true)) {
+     TPA.Revert();
+     return ExprEmpty();
+   }
+diff --git a/clang/test/CXXMG/traits/trait-implements-do-not-steal-msvc-declval.cpp b/clang/test/CXXMG/traits/trait-implements-do-not-steal-msvc-declval.cpp
+new file mode 100644
+index 000000000000..62352f17873a
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-do-not-steal-msvc-declval.cpp
+@@ -0,0 +1,42 @@
++// RUN: %clang_cc1 -std=c++26 -fcxxmg -triple x86_64-pc-windows-msvc -fms-compatibility -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++#define _STD ::std::
++
++namespace std {
++template <class T>
++T declval() noexcept;
++}
++
++template <class T, T _Val>
++struct integral_constant_shape {
++  static constexpr T value = _Val;
++
++  constexpr operator T() const noexcept {
++    return value;
++  }
++
++  constexpr T call() const noexcept {
++    return value;
++  }
++};
++
++inline void *placement_new_shape(unsigned long long _Size,
++                                 void *_Where) noexcept {
++  (void)_Size;
++  return _Where;
++}
++
++template <class _Callable, class _Ty1, class... _Types2>
++struct _Invoker1 {
++  static int _Call(_Callable, _Ty1, _Types2...);
++};
++
++template <class _Callable, class _Ty1, class... _Types2>
++using _Decltype_invoke_nonzero_shape =
++    decltype(_Invoker1<_Callable, _Ty1>::_Call(
++        _STD declval<_Callable>(), _STD declval<_Ty1>(),
++        _STD declval<_Types2>()...));
++
++using IC = integral_constant_shape<int, 1>;
++using D = _Decltype_invoke_nonzero_shape<int, int>;
+-- 
+2.54.0.windows.1
+
