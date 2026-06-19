@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Fri, 19 Jun 2026 02:14:15 -0400
+Subject: [PATCH] Default on cxxmg flag
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adds logic to pass the -fcxxmg or -fno-cxxmg flags when building toolchain [K
+command lines.
+This ensures correct build behavior for projects using CXXMG features, refl[4D[K
+reflecting internal changes.
+
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index f05652e50747..cc5298757e03 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -6888,6 +6888,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+                    options::OPT_foperator_names, false))
+     CmdArgs.push_back("-fno-operator-names");
+ 
++  if (types::isCXX(InputType)) {
++    if (Args.hasFlag(options::OPT_fcxxmg,
++                     options::OPT_fno_cxxmg,
++                     /*Default=*/true)) {
++      CmdArgs.push_back("-fcxxmg");
++    } else {
++      CmdArgs.push_back("-fno-cxxmg");
++    }
++  }
++
+   // Forward -f (flag) options which we can pass directly.
+   Args.AddLastArg(CmdArgs, options::OPT_femit_all_decls);
+   Args.AddLastArg(CmdArgs, options::OPT_fheinous_gnu_extensions);
+diff --git a/clang/test/CXXMG/traits/trait-implements-expression-probe.cpp b/clang/test/CXXMG/traits/trait-implements-expression-probe.cpp
+new file mode 100644
+index 000000000000..b5d286e7e604
+--- /dev/null
++++ b/clang/test/CXXMG/traits/trait-implements-expression-probe.cpp
+@@ -0,0 +1,20 @@
++// RUN: %clang_cc1 -std=c++26 -fcxxmg -triple x86_64-pc-windows-msvc -fms-compatibility -fdelayed-template-parsing -fsyntax-only -verify %s
++// expected-no-diagnostics
++
++template <class T>
++int cxxmg_do_not_crash_msvc_integral_to_string_shape(const T _Val) {
++  if constexpr (true) {
++    const auto _UVal = static_cast<unsigned>(_Val);
++    if (_Val < 0) {
++      return -1;
++    } else {
++      return static_cast<int>(_UVal);
++    }
++  } else {
++    return 0;
++  }
++}
++
++int use() {
++  return cxxmg_do_not_crash_msvc_integral_to_string_shape(-1);
++}
+\ No newline at end of file
+-- 
+2.54.0.windows.1
+

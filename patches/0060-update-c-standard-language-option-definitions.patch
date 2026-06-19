@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Fri, 19 Jun 2026 01:52:22 -0400
+Subject: [PATCH] clang-mg: Update C++ standard language option definitions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adjust the default values for C++26 and C++MG in LangOptions.def.
+These standards now assume a non-default (off) state.
+
+Update the flag definition in Options.td to include BothFlags support for C[1D[K
+C++MG, allowing both set/unset usage.
+
+diff --git a/clang/include/clang/Basic/LangOptions.def b/clang/include/clang/Basic/LangOptions.def
+index f5dac92ad6e2..13e2656dbc01 100644
+--- a/clang/include/clang/Basic/LangOptions.def
++++ b/clang/include/clang/Basic/LangOptions.def
+@@ -56,8 +56,8 @@ LANGOPT(CPlusPlus14       , 1, 0, NotCompatible, "C++14")
+ LANGOPT(CPlusPlus17       , 1, 0, NotCompatible, "C++17")
+ LANGOPT(CPlusPlus20       , 1, 0, NotCompatible, "C++20")
+ LANGOPT(CPlusPlus23       , 1, 0, NotCompatible, "C++23")
+-LANGOPT(CPlusPlus26       , 1, 1, NotCompatible, "C++26")
+-LANGOPT(CPlusPlusMG       , 1, 1, NotCompatible, "C++MG")
++LANGOPT(CPlusPlus26       , 1, 0, NotCompatible, "C++26")
++LANGOPT(CPlusPlusMG       , 1, 0, NotCompatible, "C++MG")
+ LANGOPT(ObjC              , 1, 0, NotCompatible, "Objective-C")
+ LANGOPT(ObjCDefaultSynthProperties , 1, 0, Benign,
+         "Objective-C auto-synthesized properties")
+diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
+index 6e692b8858b6..7abe7d311728 100644
+--- a/clang/include/clang/Options/Options.td
++++ b/clang/include/clang/Options/Options.td
+@@ -3396,7 +3396,8 @@ defm cxxmg : BoolFOption<"cxxmg", LangOpts<"CPlusPlusMG">, DefaultTrue,
+   PosFlag<SetTrue, [], [ClangOption, CC1Option],
+           "Enable C++MG language extensions">,
+   NegFlag<SetFalse, [], [ClangOption, CC1Option],
+-          "Disable C++MG language extensions">>;
++          "Disable C++MG language extensions">,
++  BothFlags<[], [ClangOption, CC1Option]>>;
+ 
+ def flat__namespace : Flag<["-"], "flat_namespace">;
+ def flax_vector_conversions_EQ : Joined<["-"], "flax-vector-conversions=">, Group<f_Group>,
+-- 
+2.54.0.windows.1
+
