@@ -1,0 +1,139 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Sat, 20 Jun 2026 01:08:24 -0400
+Subject: [PATCH] clang-mg: Improve parsing robustness with fatal error checks
+
+
+diff --git a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+index 72b1845393d1..80d3c0bfa47c 100644
+--- a/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTraitExpr.cpp
+@@ -130,6 +130,8 @@ bool Parser::ParseCXXMGImplementsTypeOperand(TypeSourceInfo *&TSI,
+ ExprResult Parser::TryParseCXXMGImplementsExpression() {
+   if (!getLangOpts().CPlusPlusMG)
+     return ExprEmpty();
++  if (Diags.hasFatalErrorOccurred())
++    return ExprEmpty();
+ 
+   if (!Tok.isOneOf(tok::identifier, tok::coloncolon, tok::l_paren,
+                    tok::kw_decltype, tok::kw_typename, tok::annot_typename,
+diff --git a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+index 1357d231590e..465c3ee4b3ba 100644
+--- a/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
++++ b/clang/lib/Parse/ParseCXXMGTypeExpr.cpp
+@@ -171,6 +171,8 @@ bool Parser::TryParseCXXMGTypeExpression(ParsedCXXMGTypeExpr &Out,
+                                          bool AllowTypeNameFallback) {
+   if (!getLangOpts().CPlusPlusMG)
+     return false;
++  if (Diags.hasFatalErrorOccurred())
++    return false;
+ 
+   if (!ParseCXXMGTypeExprPrimary(Out, AllowTypeNameFallback))
+     return false;
+diff --git a/clang/lib/Parse/ParseDeclCXX.cpp b/clang/lib/Parse/ParseDeclCXX.cpp
+index d76592b04cca..11e7ca5ab203 100644
+--- a/clang/lib/Parse/ParseDeclCXX.cpp
++++ b/clang/lib/Parse/ParseDeclCXX.cpp
+@@ -3547,7 +3547,9 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
+     return ParseOpenACCDirectiveDecl(AS, AccessAttrs, TagType, TagDecl);
+ 
+   case tok::kw_if:
+-    if (getLangOpts().CPlusPlusMG)
++    if (getLangOpts().CPlusPlusMG &&
++        !Diags.hasFatalErrorOccurred() &&
++        NextToken().is(tok::kw_constexpr))
+       return ParseCXXMGConditionalMember(AS, AccessAttrs, TagType, TagDecl);
+     [[fallthrough]];
+ 
+diff --git a/clang/lib/Parse/ParseDeclCXXMG.cpp b/clang/lib/Parse/ParseDeclCXXMG.cpp
+index 5dd399fac68d..c55182b0719f 100644
+--- a/clang/lib/Parse/ParseDeclCXXMG.cpp
++++ b/clang/lib/Parse/ParseDeclCXXMG.cpp
+@@ -21,10 +21,40 @@ static CXXRecordDecl *getCXXMGConditionalMemberRecord(Decl *Tag) {
+   return nullptr;
+ }
+ 
++namespace {
++class CXXMGConditionalMemberArmRAII {
++  Sema &Actions;
++  bool Active = false;
++  llvm::SmallVectorImpl<Decl *> &Out;
++
++public:
++  CXXMGConditionalMemberArmRAII(Sema &Actions, CXXRecordDecl *Record,
++                                AccessSpecifier AS,
++                                llvm::SmallVectorImpl<Decl *> &Out)
++      : Actions(Actions), Out(Out) {
++    if (Record) {
++      Actions.BeginCXXMGConditionalMemberArm(Record, AS);
++      Active = true;
++    }
++  }
++
++  ~CXXMGConditionalMemberArmRAII() {
++    if (Active)
++      Actions.EndCXXMGConditionalMemberArm(Out);
++  }
++
++  CXXMGConditionalMemberArmRAII(const CXXMGConditionalMemberArmRAII &) = delete;
++  CXXMGConditionalMemberArmRAII &
++  operator=(const CXXMGConditionalMemberArmRAII &) = delete;
++};
++} // namespace
++
+ Parser::DeclGroupPtrTy Parser::ParseCXXMGConditionalMember(AccessSpecifier &AS,
+                               ParsedAttributes &AccessAttrs,
+                               DeclSpec::TST TagType, Decl *Tag) {
+   assert(getLangOpts().CPlusPlusMG && "ParseCXXMGConditionalMember should only be called in C++MG mode");
++  if (Diags.hasFatalErrorOccurred())
++    return nullptr;
+ 
+   SmallVector<CXXMGConditionalMemberArm, 4> Arms;
+   SmallVector<SmallVector<Decl *, 8>, 4> ArmDeclStorage;
+@@ -107,6 +137,9 @@ SourceRange Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+                               ParsedAttributes &AccessAttrs,
+                               DeclSpec::TST TagType, Decl *Tag,
+                               llvm::SmallVectorImpl<Decl *> &PatternDecls) {
++  if (Diags.hasFatalErrorOccurred())
++    return SourceRange();
++
+   SourceLocation LBraceLoc;
+   SourceLocation RBraceLoc;
+   if (Tok.isNot(tok::l_brace)) {
+@@ -115,11 +148,8 @@ SourceRange Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+   }
+   LBraceLoc = ConsumeBrace();
+ 
+-  bool BeganArm = false;
+-  if (auto *Record = getCXXMGConditionalMemberRecord(Tag)) {
+-    Actions.BeginCXXMGConditionalMemberArm(Record, AS);
+-    BeganArm = true;
+-  }
++  CXXMGConditionalMemberArmRAII ArmRAII(
++      Actions, getCXXMGConditionalMemberRecord(Tag), AS, PatternDecls);
+ 
+   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
+     if (Tok.isOneOf(tok::kw_public, tok::kw_private, tok::kw_protected) &&
+@@ -133,9 +163,6 @@ SourceRange Parser::ParseCXXMGConditionalMemberBody(AccessSpecifier &AS,
+     ParseCXXClassMemberDeclarationWithPragmas(AS, AccessAttrs, TagType, Tag);
+   }
+ 
+-  if (BeganArm)
+-    Actions.EndCXXMGConditionalMemberArm(PatternDecls);
+-
+   if (Tok.is(tok::r_brace))
+     RBraceLoc = ConsumeBrace();
+   return SourceRange(LBraceLoc, RBraceLoc);
+@@ -145,6 +172,9 @@ using namespace clang;
+ 
+ Parser::DeclGroupPtrTy Parser::ParseCXXMGTraitMemberDeclaration(
+     AccessSpecifier &AS, ParsedAttributes &AccessAttrs, Decl *TagDecl) {
++  if (Diags.hasFatalErrorOccurred())
++    return nullptr;
++
+   if (Tok.isOneOf(tok::kw_private, tok::kw_public, tok::kw_protected) &&
+       NextToken().is(tok::colon)) {
+     Diag(Tok.getLocation(), diag::err_cxxmg_trait_access_specifier);
+-- 
+2.54.0.windows.1
+

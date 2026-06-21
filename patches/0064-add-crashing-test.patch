@@ -1,0 +1,249 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mike <michaelgorney4@gmail.com>
+Date: Sat, 20 Jun 2026 00:55:32 -0400
+Subject: [PATCH] Add crashing test
+
+This test currently crashes the compiler, it should instead just emit the proper errors.
+
+diff --git a/clang/test/CXXMG/regression/error-limit-before-msvc-ranges.cpp b/clang/test/CXXMG/regression/error-limit-before-msvc-ranges.cpp
+new file mode 100644
+index 000000000000..c05982a30ece
+--- /dev/null
++++ b/clang/test/CXXMG/regression/error-limit-before-msvc-ranges.cpp
+@@ -0,0 +1,232 @@
++//===----------------------------------------------------------------------===//
++//
++// clang-mg regression test.
++//
++// This test intentionally emits enough diagnostics to hit -ferror-limit before
++// including MSVC STL <ranges>. A clang-mg bug previously asserted in
++// Sema::ActOnPopScope while parsing std::ranges::chunk_view after the fatal
++// "too many errors emitted" diagnostic.
++//
++// Correct behavior:
++//   - emit normal diagnostics
++//   - emit "fatal error: too many errors emitted"
++//   - exit nonzero
++//   - do not assert
++//   - do not print the clang crash banner
++//
++// This is Windows/MSVC-STL-specific because the reproducer depends on the
++// MSVC <ranges> implementation shape.
++//
++//===----------------------------------------------------------------------===//
++
++// REQUIRES: system-windows
++
++// RUN: not %clangxx -fcxxmg -std=c++26 -fsyntax-only -ferror-limit=19 %s 2>&1 | FileCheck %s
++
++// CHECK: fatal error: too many errors emitted
++// CHECK-NOT: Assertion failed
++// CHECK-NOT: Scope shouldn't contain decls
++// CHECK-NOT: PLEASE submit a bug report
++// CHECK-NOT: clang frontend command failed
++
++#include <expected>
++#include <optional>
++#include <string>
++#include <string_view>
++#include <vector>
++
++#define mgmkassert(...) ((void)0)
++
++namespace mgmake::dag {
++struct graph {};
++} // namespace mgmake::dag
++
++namespace mgmake::build {
++struct request {};
++} // namespace mgmake::build
++
++namespace mgmake::ext {
++struct fetch {
++  using id = std::vector<fetch>::size_type;
++  std::string m_name;
++};
++} // namespace mgmake::ext
++
++namespace mgmake::spec {
++
++// Intentionally missing:
++//
++//   struct executable;
++//   struct library;
++//
++// The invalid declarations below are here to produce a diagnostic cascade.
++// The compiler must recover cleanly instead of asserting after the error limit
++// is reached.
++
++struct project {
++  std::string m_name;
++  std::vector<spec::executable> m_executables;
++  std::vector<spec::library> m_libraries;
++  std::vector<ext::fetch> m_fetches;
++
++  inline constexpr project(std::string_view name)
++      : m_name{name} {
++    mgmkassert(!m_name.empty(), "project has no name");
++  }
++
++  inline project &add_target(const spec::executable &exe) {
++    mgmkassert(!exe.m_name.empty(), "executable has no name");
++    mgmkassert(!find_library(exe.m_name).has_value(), "target conflict");
++    mgmkassert(!find_executable(exe.m_name).has_value(), "target conflict");
++
++    m_executables.emplace_back(exe);
++    return *this;
++  }
++
++  inline project &add_target(const spec::library &lib) {
++    mgmkassert(!lib.m_name.empty(), "library has no name");
++    mgmkassert(!find_executable(lib.m_name).has_value(), "target conflict");
++    mgmkassert(!find_library(lib.m_name).has_value(), "target conflict");
++
++    switch (lib.m_kind) {
++    case spec::library::kind::interface:
++      break;
++
++    case spec::library::kind::static_lib:
++      break;
++
++    case spec::library::kind::shared_lib:
++      break;
++
++    default:
++      break;
++    }
++
++    m_libraries.emplace_back(lib);
++    return *this;
++  }
++
++  inline project &add_fetch(const ext::fetch &fetch) {
++    mgmkassert(!fetch.m_name.empty(), "fetch has no name");
++    mgmkassert(!find_fetch(fetch.m_name).has_value(), "fetch conflict");
++
++    m_fetches.emplace_back(fetch);
++    return *this;
++  }
++
++  const std::optional<spec::library::id>
++  find_library(std::string_view name) const {
++    for (spec::library::id idx = 0; idx < m_libraries.size(); ++idx) {
++      const auto &lib = m_libraries.at(idx);
++      if (lib.m_name == name)
++        return idx;
++    }
++
++    return std::nullopt;
++  }
++
++  const spec::library *
++  get_library(const spec::library::id idx) const {
++    if (idx >= m_libraries.size())
++      return nullptr;
++
++    return &m_libraries.at(idx);
++  }
++
++  const std::optional<spec::executable::id>
++  find_executable(std::string_view name) const {
++    for (spec::executable::id idx = 0; idx < m_executables.size(); ++idx) {
++      const auto &exe = m_executables.at(idx);
++      if (exe.m_name == name)
++        return idx;
++    }
++
++    return std::nullopt;
++  }
++
++  const spec::executable *
++  get_executable(const spec::executable::id idx) const {
++    if (idx >= m_executables.size())
++      return nullptr;
++
++    return &m_executables.at(idx);
++  }
++
++  const std::optional<ext::fetch::id>
++  find_fetch(std::string_view name) const {
++    for (ext::fetch::id idx = 0; idx < m_fetches.size(); ++idx) {
++      const auto &fetch = m_fetches.at(idx);
++      if (fetch.m_name == name)
++        return idx;
++    }
++
++    return std::nullopt;
++  }
++};
++
++} // namespace mgmake::spec
++
++namespace mgmake::backend {
++
++struct generate_backend {
++  void generate(const dag::graph &graph, const build::request &req) const;
++};
++
++struct build_backend {
++  std::expected<void, std::string>
++  build(const dag::graph &graph, const build::request &req) const;
++};
++
++} // namespace mgmake::backend
++
++namespace mgmake::discovery {
++
++struct project_tool_usage {
++  bool m_has_static_library = false;
++  bool m_has_shared_library = false;
++  bool m_has_executable = false;
++};
++
++// These extra invalid uses are here to push the file over -ferror-limit right
++// before <ranges> is parsed.
++inline void record_library_kind(project_tool_usage &usage,
++                                mgmake::spec::library::kind kind) noexcept {
++  switch (kind) {
++  case mgmake::spec::library::kind::interface:
++    return;
++
++  case mgmake::spec::library::kind::static_lib:
++    usage.m_has_static_library = true;
++    return;
++
++  case mgmake::spec::library::kind::shared_lib:
++    usage.m_has_shared_library = true;
++    return;
++  }
++}
++
++using forced_error_1 = mgmake::spec::library::id;
++using forced_error_2 = mgmake::spec::executable::id;
++using forced_error_3 = mgmake::spec::library::kind;
++
++} // namespace mgmake::discovery
++
++// Important: this comes after the intentional diagnostic cascade.
++//
++// The original crash surfaced while parsing MSVC STL <ranges> after the
++// clang-mg frontend had already emitted the fatal error-limit diagnostic.
++#include <ranges>
++
++int main() {
++  mgmake::spec::project p{"repro"};
++
++  auto r =
++      std::views::iota(0, 8) |
++      std::views::chunk(2) |
++      std::views::transform([](auto chunk) {
++        return std::ranges::distance(chunk);
++      });
++
++  (void)p;
++  (void)r;
++}
+\ No newline at end of file
+-- 
+2.54.0.windows.1
+
