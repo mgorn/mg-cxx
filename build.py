@@ -9,6 +9,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from clang_mg_common import default_jobs, detect_target_triple, env_or_default, git, run, truthy
 
+BUILD_TYPE_COMMANDS = {"bootstrap", "install", "build", "test", "fresh", "rebuild"}
+BUILD_TYPE_ALIASES = {
+    "debug": "Debug",
+    "release": "Release",
+}
+
+
+def canonical_build_type(value: str) -> str:
+    normalized = value.strip().lower()
+    return BUILD_TYPE_ALIASES.get(normalized, value)
+
+
+def parse_command_build_type(command: str, rest: list[str], build_type: str) -> tuple[str, list[str]]:
+    if command not in BUILD_TYPE_COMMANDS or not rest:
+        return build_type, rest
+    normalized = rest[0].strip().lower()
+    if normalized not in BUILD_TYPE_ALIASES:
+        return build_type, rest
+    return BUILD_TYPE_ALIASES[normalized], rest[1:]
+
+
+def default_build_dir(work_dir: Path, target_triple: str, build_type: str) -> Path:
+    suffix = "-debug" if build_type == "Debug" else ""
+    return work_dir / f"build-{target_triple}{suffix}"
+
 
 def print_header(command: str, llvm_ref: str, llvm_dir: Path, target_triple: str,
                  build_dir: Path, build_type: str, jobs: str) -> None:
@@ -38,10 +63,10 @@ def usage(root_dir: Path) -> None:
     print("  export [base-ref]   Write one net patch for the applied LLVM changes into work/")
     print("  collect [base-ref]  Alias for export")
     print("  save                 Save current LLVM working-tree changes as a new patch")
-    print("  build                Build current LLVM tree only")
-    print("  test [target] [path ...]  Build test dependencies and run LLVM lit tests")
-    print("  fresh                Reset LLVM, apply all patches, then build")
-    print("  rebuild              Same as fresh")
+    print("  build [debug|release]  Build current LLVM tree only")
+    print("  test [debug|release] [target] [path ...]  Build test dependencies and run LLVM lit tests")
+    print("  fresh [debug|release]  Reset LLVM, apply all patches, then build")
+    print("  rebuild [debug|release]  Same as fresh")
     print("  help                 Show this help menu")
     print()
     print("Examples:")
@@ -54,6 +79,8 @@ def usage(root_dir: Path) -> None:
     print("  python build.py export")
     print("  python build.py export origin/main")
     print("  python build.py build")
+    print("  python build.py build debug")
+    print("  python build.py build release")
     print("  python build.py test")
     print("  python build.py test clang")
     print("  python build.py test clang CXXMG/traits")
@@ -74,6 +101,7 @@ def usage(root_dir: Path) -> None:
     print(f"  LLVM_DIR={root_dir}/work/llvm-project")
     print("  BUILD_TARGET_TRIPLE=x86_64-pc-linux-gnu")
     print(f"  BUILD_DIR={root_dir}/work/build-$BUILD_TARGET_TRIPLE")
+    print(f"  Debug builds default to {root_dir}/work/build-$BUILD_TARGET_TRIPLE-debug")
     print("  BUILD_TYPE=Release")
     print("  LLVM_ENABLE_PROJECTS=clang")
     print("  JOBS=16")
@@ -228,8 +256,7 @@ def main(argv: list[str]) -> int:
     work_dir = Path(env_or_default("WORK_DIR", root_dir / "work"))
     llvm_dir = Path(env_or_default("LLVM_DIR", work_dir / "llvm-project"))
     build_target_triple = detect_target_triple()
-    build_dir = Path(env_or_default("BUILD_DIR", work_dir / f"build-{build_target_triple}"))
-    build_type = env_or_default("BUILD_TYPE", "Release")
+    build_type = canonical_build_type(env_or_default("BUILD_TYPE", "Release"))
     jobs = default_jobs()
 
     interactive = truthy(env_or_default("INTERACTIVE", "0"))
@@ -241,6 +268,8 @@ def main(argv: list[str]) -> int:
             filtered.append(arg)
     command = filtered[0] if filtered else "bootstrap"
     rest = filtered[1:]
+    build_type, rest = parse_command_build_type(command, rest, build_type)
+    build_dir = Path(env_or_default("BUILD_DIR", default_build_dir(work_dir, build_target_triple, build_type)))
 
     print_header(command, llvm_ref, llvm_dir, build_target_triple, build_dir, build_type, jobs)
     final_message = "Done."
@@ -285,21 +314,41 @@ def main(argv: list[str]) -> int:
             return 1
         run_save_patches(scripts_dir, llvm_dir)
     elif command == "build":
+        if rest:
+            print("ERROR: build accepts at most one optional build type: debug or release.")
+            print("Usage:")
+            print("  python build.py build [debug|release]")
+            return 1
         run_build(scripts_dir, llvm_dir, build_dir, build_type, jobs, build_target_triple, interactive)
     elif command == "test":
         passed_tests = run_tests(scripts_dir, llvm_dir, build_dir, build_type, jobs, rest, work_dir, build_target_triple)
         final_message = final_message_for_passed_tests(passed_tests)
     elif command == "bootstrap":
+        if rest:
+            print("ERROR: bootstrap accepts at most one optional build type: debug or release.")
+            print("Usage:")
+            print("  python build.py bootstrap [debug|release]")
+            return 1
         run_update(scripts_dir, llvm_url, llvm_ref, work_dir, llvm_dir)
         run_apply_patches(root_dir, scripts_dir, llvm_dir)
         run_build(scripts_dir, llvm_dir, build_dir, build_type, jobs, build_target_triple, interactive)
     elif command == "install":
+        if rest:
+            print("ERROR: install accepts at most one optional build type: debug or release.")
+            print("Usage:")
+            print("  python build.py install [debug|release]")
+            return 1
         run_update(scripts_dir, llvm_url, llvm_ref, work_dir, llvm_dir)
         run_reset(scripts_dir, llvm_dir, llvm_ref)
         run_apply_patches(root_dir, scripts_dir, llvm_dir)
         run_build(scripts_dir, llvm_dir, build_dir, build_type, jobs, build_target_triple, interactive)
         run_install_path(scripts_dir, llvm_dir, build_dir)
     elif command in {"fresh", "rebuild"}:
+        if rest:
+            print(f"ERROR: {command} accepts at most one optional build type: debug or release.")
+            print("Usage:")
+            print(f"  python build.py {command} [debug|release]")
+            return 1
         if not test_llvm_repo(llvm_dir):
             run_clone(scripts_dir, llvm_url, llvm_ref, llvm_dir)
         else:

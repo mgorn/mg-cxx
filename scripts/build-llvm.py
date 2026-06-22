@@ -12,6 +12,14 @@ from clang_mg_common import (cmd_path, default_jobs, detect_target_triple, has_c
                              is_macos, is_windows, run)
 
 
+def canonical_build_type(value: str) -> str:
+    aliases = {
+        "debug": "Debug",
+        "release": "Release",
+    }
+    return aliases.get(value.strip().lower(), value)
+
+
 def show_usage(script_name: str) -> None:
     print(f"Usage: {script_name} <llvm-dir> [build-dir] [build-type] [jobs] [--interactive]")
     print()
@@ -317,7 +325,7 @@ def main(argv: list[str]) -> int:
     llvm_dir = Path(positional[0]) if len(positional) >= 1 else None
     build_target_triple = detect_target_triple()
     build_dir = Path(positional[1]) if len(positional) >= 2 else None
-    build_type = positional[2] if len(positional) >= 3 else "Release"
+    build_type = canonical_build_type(positional[2]) if len(positional) >= 3 else "Release"
     jobs = default_jobs()
     if len(positional) >= 4:
         try:
@@ -345,7 +353,7 @@ def main(argv: list[str]) -> int:
     if build_dir is None:
         build_dir = llvm_dir.resolve().parent / f"build-{build_target_triple}"
 
-    build_type = prompt_debug_build(interactive, build_type)
+    build_type = canonical_build_type(prompt_debug_build(interactive, build_type))
 
     if not has_cmd("cmake"):
         print("ERROR: CMake was not found.")
