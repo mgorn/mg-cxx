@@ -392,7 +392,7 @@ def main(argv: list[str]) -> int:
     print(f"Target triple: {build_target_triple}")
     print(f"Build dir:     {build_dir}")
     print(f"Build type:    {build_type}")
-    llvm_enable_projects = os.environ.get("LLVM_ENABLE_PROJECTS", "clang").strip() or "clang"
+    llvm_enable_projects = os.environ.get("LLVM_ENABLE_PROJECTS", "clang;lld").strip() or "clang;lld"
 
     print(f"Jobs:          {jobs}")
     print(f"Generator:     {generator or 'CMake default'}")
@@ -417,6 +417,7 @@ def main(argv: list[str]) -> int:
         f"-DCMAKE_C_COMPILER={toolchain['C']}",
         f"-DCMAKE_CXX_COMPILER={toolchain['CXX']}",
     ]
+    print(f"CMAKE ARGS: {cmake_args}")
     if generator:
         cmake_args.extend(["-G", generator])
     if toolchain.get("ASM"):
@@ -432,7 +433,7 @@ def main(argv: list[str]) -> int:
 
     print()
     print("Building clang...")
-    run(["cmake", "--build", str(build_dir), "--target", "clang", "--config", build_type, "--parallel", str(jobs)])
+    run(["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", str(jobs)])
 
     print()
     print("Build complete.")
